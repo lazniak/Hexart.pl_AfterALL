@@ -2669,7 +2669,9 @@ ${this.getSkillsSummary()}
         if (!this.isFeatureEnabled('musicGen')) {
             return { error: 'Generator muzyki jest wyłączony w ustawieniach.' };
         }
-        // Route based on configured music provider
+        // Route based on configured music provider — Eleven Music supports
+        // the full object form (prompt + duration + composition_plan + …),
+        // Gemini Lyria only takes a text prompt.
         if (this.musicProvider === 'elevenlabs') {
             return this.generateElevenMusicAndImport(prompt, updateStatusCallback);
         }
@@ -2677,13 +2679,31 @@ ${this.getSkillsSummary()}
             return { error: 'Klucz Gemini API nie jest ustawiony w ustawieniach.' };
         }
 
+        // Unwrap the object form for Lyria. The agent's rule 24 says music
+        // entries may be objects; only Eleven Music understands the extra
+        // fields. For Lyria we just use .prompt and warn that the extras
+        // were ignored (so users know why duration_seconds didn't take).
+        let textPrompt = prompt;
+        if (prompt && typeof prompt === 'object') {
+            textPrompt = String(prompt.prompt || '');
+            const ignored = Object.keys(prompt).filter(k => k !== 'prompt');
+            if (ignored.length > 0) {
+                updateStatusCallback('Lyria nie obsługuje pól ' + ignored.join(', ') + ' — pominięto.');
+            }
+        } else {
+            textPrompt = String(prompt || '');
+        }
+        if (!textPrompt.trim()) {
+            return { error: 'Pusty prompt muzyczny — nic do wygenerowania.' };
+        }
+
         updateStatusCallback("Zlecam kompozycję muzyczną: Gemini Lyria 3 Pro (Audio+Text)...");
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/lyria-3-pro-preview:generateContent?key=${this.apiKey}`;
-            
+
             const payload = {
                 contents: [{
-                    parts: [{ text: prompt }]
+                    parts: [{ text: textPrompt }]
                 }],
                 generationConfig: {
                     responseModalities: ["AUDIO", "TEXT"]

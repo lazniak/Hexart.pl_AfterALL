@@ -6795,19 +6795,35 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     }
                     if (response.parallel_tasks.music && response.parallel_tasks.music.length > 0) {
                         response.parallel_tasks.music.forEach((musicPrompt, mIdx) => {
-                            const stepId = pipelineAdd({ kind: 'music', label: 'Muzyka #' + (mIdx + 1) + ': ' + (musicPrompt || '').substring(0, 40), status: 'pending', parallelGroup: 'music' });
+                            // The agent may pass music as either a string OR
+                            // an object: { prompt, duration_seconds,
+                            // force_instrumental, composition_plan }.
+                            // Pull the prompt string out for label / duration-
+                            // prefix work; keep the original shape for the API.
+                            const promptText = (musicPrompt && typeof musicPrompt === 'object')
+                                ? String(musicPrompt.prompt || '')
+                                : String(musicPrompt || '');
+                            const stepId = pipelineAdd({ kind: 'music', label: 'Muzyka #' + (mIdx + 1) + ': ' + promptText.substring(0, 40), status: 'pending', parallelGroup: 'music' });
                             const musicTask = async () => {
                                 if (ttsPromises.length > 0) {
                                     pipelineUpdate(stepId, { message: 'Czeka na TTS...' });
                                     addLog('Muzyka oczekuje na zakonczenie TTS (pomiar dlugosci)...', 'info');
                                     await Promise.all(ttsPromises);
                                 }
+                                // Apply optional timestamp prefix to the
+                                // STRING prompt while preserving the object
+                                // wrapper for Eleven Music when present.
                                 let finalMusicPrompt = musicPrompt;
                                 if (agent.lastTtsDurationSec && agent.lastTtsDurationSec > 0) {
                                     const mins = Math.floor(agent.lastTtsDurationSec / 60);
                                     const secs = agent.lastTtsDurationSec % 60;
                                     const endTimestamp = mins + ':' + (secs < 10 ? '0' : '') + secs;
-                                    finalMusicPrompt = '[0:00 - ' + endTimestamp + '] ' + musicPrompt;
+                                    const prefixed = '[0:00 - ' + endTimestamp + '] ' + promptText;
+                                    if (musicPrompt && typeof musicPrompt === 'object') {
+                                        finalMusicPrompt = Object.assign({}, musicPrompt, { prompt: prefixed });
+                                    } else {
+                                        finalMusicPrompt = prefixed;
+                                    }
                                     addLog('Muzyka: wymuszono dlugosc ' + agent.lastTtsDurationSec + 's (dopasowanie do lektora).', 'success');
                                 }
                                 pipelineUpdate(stepId, { status: 'running' });
