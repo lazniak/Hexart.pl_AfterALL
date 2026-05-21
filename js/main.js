@@ -232,6 +232,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // UI Elements
     const chatContainer = document.getElementById('chat-container');
+    // Track whether the user is "stuck to the bottom" of the chat scroll. If
+    // they scroll up to read history we pause auto-scroll until they come back
+    // near the bottom — otherwise streaming updates would constantly yank
+    // them back down.
+    let chatAutoScroll = true;
+    if (chatContainer) {
+        chatContainer.addEventListener('scroll', () => {
+            const remaining = chatContainer.scrollHeight
+                - chatContainer.scrollTop
+                - chatContainer.clientHeight;
+            chatAutoScroll = remaining < 120;
+        });
+    }
+    function scrollChatToBottom(force) {
+        if (!chatContainer) return;
+        if (force || chatAutoScroll) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    }
     const promptInput = document.getElementById('prompt-input');
     const sendBtn = document.getElementById('send-btn');
     const stopBtn = document.getElementById('stop-btn');
@@ -586,6 +605,7 @@ const i18nDict = {
         'update-open-release-btn':'↗ Otwórz stronę wydania',
         'update-open-repo-btn':  '↗ Repozytorium na GitHub',
         'update-unknown':        'nieznana',
+        'repo-star-label':       'Dodaj gwiazdkę na GitHub',
         'openai-model-label': 'Model OpenAI',
         'openai-hint': 'Wymaga klucza OpenAI API. Obejmuje rodziny GPT-5, GPT-4o oraz modele rozumowania serii o.',
         'openai-image-model-label': 'Model obrazów OpenAI',
@@ -1031,6 +1051,7 @@ const i18nDict = {
         'update-open-release-btn':'↗ Open release page',
         'update-open-repo-btn':  '↗ Repository on GitHub',
         'update-unknown':        'unknown',
+        'repo-star-label':       'Star on GitHub',
         // Provider tabs / fields
         'openai-model-label': 'OpenAI Model',
         'openai-hint': 'Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.',
@@ -4679,6 +4700,8 @@ function t(key, fallback) {
     const updateOpenReleaseBtn = document.getElementById('update-open-release-btn');
     const updateOpenRepoBtn  = document.getElementById('update-open-repo-btn');
     const updateLogEl        = document.getElementById('update-log');
+    const repoStarBtn        = document.getElementById('repo-star-btn');
+    const repoStarCount      = document.getElementById('repo-star-count');
 
     function renderUpdateCardInitial() {
         if (!updateCurrentVerEl) return;
@@ -4688,6 +4711,62 @@ function t(key, fallback) {
             const hasGit = (typeof agent.pluginHasGit === 'function') ? agent.pluginHasGit() : false;
             updateGitPullBtn.classList.toggle('hidden', !hasGit);
         }
+        // Kick off the star-count fetch in the background. Anonymous calls
+        // share GitHub's 60/hour limit with the update checker, so we only
+        // fetch when the Settings panel is actually opened by the user.
+        fetchAndRenderStarCount();
+    }
+
+    function formatStarCount(n) {
+        if (typeof n !== 'number' || isNaN(n)) return '—';
+        if (n < 1000) return String(n);
+        if (n < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+        if (n < 1_000_000) return Math.round(n / 1000) + 'k';
+        return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+
+    let _starFetchAttempted = false;
+    let _starFetchInFlight = null;
+    async function fetchAndRenderStarCount() {
+        if (!repoStarCount) return;
+        if (_starFetchInFlight) return _starFetchInFlight;
+        // Throttle: once per panel open is enough. Set repoStarBtn[data-fetched]
+        // so accidental re-opens don't double-tap the GitHub API.
+        if (repoStarBtn && repoStarBtn.getAttribute('data-fetched') === '1') return;
+        _starFetchAttempted = true;
+        _starFetchInFlight = (async () => {
+            try {
+                const stats = await agent.fetchRepoStats();
+                if (stats && typeof stats.stars === 'number') {
+                    repoStarCount.textContent = formatStarCount(stats.stars);
+                    repoStarBtn.title = stats.stars + ' stars · click to star on GitHub';
+                    repoStarBtn.setAttribute('data-fetched', '1');
+                } else {
+                    repoStarCount.textContent = '—';
+                }
+            } catch (_) {
+                repoStarCount.textContent = '—';
+            } finally {
+                _starFetchInFlight = null;
+            }
+        })();
+        return _starFetchInFlight;
+    }
+
+    if (repoStarBtn) {
+        repoStarBtn.addEventListener('click', () => {
+            // Send the user to the canonical "Star this repo" flow. GitHub will
+            // open the repo and the user can click the Star button at the top
+            // right — there's no public API for one-click starring without an
+            // OAuth login flow, which would be overkill for a plugin.
+            const url = 'https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME;
+            try {
+                const csi = new CSInterface();
+                csi.openURLInDefaultBrowser(url);
+            } catch (_) {
+                window.open(url, '_blank');
+            }
+        });
     }
 
     function setUpdateStatus(text, cls) {
@@ -5514,7 +5593,7 @@ function t(key, fallback) {
         msgDiv.className = 'message assistant streaming-thinking';
         msgDiv.innerHTML = `
             <div class="message-content">
-                <details class="thought-details thinking-live" open>
+                <details class="thought-details thinking-live">
                     <summary>
                         <span class="thinking-pulse"></span>
                         <span class="thinking-summary-text">${escapeAttr(tr('thinking-live-label'))}</span>
@@ -5625,6 +5704,10 @@ function t(key, fallback) {
                         messageEl.textContent = fields.message;
                     }
                 } catch (_) {}
+                // Follow the growing thinking block down with the outer chat
+                // container — respects user manual scroll-up via the autoScroll
+                // tracker initialised above the chatContainer scroll listener.
+                scrollChatToBottom(false);
             },
             finalize: (kept = false) => {
                 msgDiv.classList.add('streaming-complete');

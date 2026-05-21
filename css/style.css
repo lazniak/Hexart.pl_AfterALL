@@ -1483,6 +1483,60 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-color: rgba(239, 68, 68, 0.18);
 }
 
+/* GitHub "give us a star" CTA — appears at the bottom of the Update card */
+.repo-star-cta {
+    margin-top: 0.7rem;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.55rem 0.9rem;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    color: #fde68a;
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.10), rgba(220, 163, 83, 0.08));
+    border: 1px solid rgba(250, 204, 21, 0.30);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.18s,
+                filter 0.18s,
+                background 0.18s;
+}
+.repo-star-cta:hover {
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.20), rgba(220, 163, 83, 0.16));
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(250, 204, 21, 0.18);
+    filter: brightness(1.05);
+}
+.repo-star-cta:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(250, 204, 21, 0.18);
+}
+.repo-star-icon {
+    font-size: 14px;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.45));
+}
+.repo-star-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.repo-star-count {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.32);
+    color: #fde68a;
+    font-weight: 600;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    min-width: 28px;
+    text-align: center;
+}
+
 /* OpenRouter picker — overlay base from universal block; just z-index + backdrop tweak */
 #openrouter-picker-overlay { z-index: 1000; }
 #model-picker-overlay     { z-index: 1000; }

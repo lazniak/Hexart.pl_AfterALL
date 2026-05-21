@@ -976,6 +976,37 @@ except Exception as e:
         return result;
     }
 
+    // Lightweight stats fetch — returns { stars, forks, watchers, htmlUrl }
+    // for the configured GitHub repository. Anonymous call, shares the 60/hour
+    // rate limit with checkForUpdates(). Failures are silent (caller decides
+    // whether to surface them).
+    async fetchRepoStats() {
+        const url = 'https://api.github.com/repos/'
+            + encodeURIComponent(this.GITHUB_REPO_OWNER) + '/'
+            + encodeURIComponent(this.GITHUB_REPO_NAME);
+        const htmlUrl = 'https://github.com/' + this.GITHUB_REPO_OWNER + '/' + this.GITHUB_REPO_NAME;
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'Accept': 'application/vnd.github+json',
+                    'User-Agent': 'hexart-afterall-update-check'
+                }
+            });
+            if (!res.ok) return { stars: null, forks: null, watchers: null, htmlUrl: htmlUrl, error: 'HTTP ' + res.status };
+            const data = await res.json();
+            return {
+                stars:    (typeof data.stargazers_count === 'number') ? data.stargazers_count : null,
+                forks:    (typeof data.forks_count === 'number')      ? data.forks_count      : null,
+                watchers: (typeof data.watchers_count === 'number')   ? data.watchers_count   : null,
+                htmlUrl:  data.html_url || htmlUrl,
+                description: data.description || null,
+                error: null
+            };
+        } catch (e) {
+            return { stars: null, forks: null, watchers: null, htmlUrl: htmlUrl, error: e.message };
+        }
+    }
+
     // Run `git pull origin main` inside the plugin root if the user opts in
     // and the folder is a git checkout. Returns { ok, stdout, stderr }.
     async pluginGitPull() {
