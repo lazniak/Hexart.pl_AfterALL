@@ -1,6 +1,49 @@
 let isAgentProcessing = false;
 let userSuggestionQueue = [];
 
+// === BuyMeACoffee teaser video ===
+// Auto-plays after the 3rd, 6th, 12th, then every subsequent 12th successful
+// agent run. Counter persists across sessions via diskStorage. Errors / empty
+// timeouts are not counted — only the three success exits in the agent loop.
+const BMC_SUCCESS_STORAGE_KEY = 'aisist_agent_success_count';
+const BMC_URL = 'https://buymeacoffee.com/eyb8tkx3to';
+
+function bmcShouldPlayAt(count) {
+    if (count === 3 || count === 6) return true;
+    return count >= 12 && (count % 12) === 0;
+}
+
+function bmcPlayVideo() {
+    const wrap = document.getElementById('bmc-video-bubble');
+    const vid = document.getElementById('bmc-video');
+    if (!wrap || !vid) return;
+    wrap.classList.remove('hidden');
+    try {
+        vid.currentTime = 0;
+        const p = vid.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (_) {}
+}
+
+function bmcHideVideo() {
+    const wrap = document.getElementById('bmc-video-bubble');
+    const vid = document.getElementById('bmc-video');
+    if (wrap) wrap.classList.add('hidden');
+    if (vid) { try { vid.pause(); } catch (_) {} }
+}
+
+function markSuccessfulAgentRun() {
+    let count = 0;
+    try {
+        const stored = window.diskStorage && window.diskStorage.getItem(BMC_SUCCESS_STORAGE_KEY);
+        const n = parseInt(stored, 10);
+        if (Number.isFinite(n) && n >= 0) count = n;
+    } catch (_) {}
+    count += 1;
+    try { window.diskStorage && window.diskStorage.setItem(BMC_SUCCESS_STORAGE_KEY, String(count)); } catch (_) {}
+    if (bmcShouldPlayAt(count)) bmcPlayVideo();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // === Sound Notification System (Web Audio API) ===
@@ -134,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.1.0',
+                version: '2.2.0',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -268,9 +311,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const bmcBtn = document.getElementById('bmc-btn');
     if (bmcBtn) {
         bmcBtn.addEventListener('click', () => {
-            try { new CSInterface().openURLInDefaultBrowser('https://buymeacoffee.com/eyb8tkx3to'); }
-            catch (_) { window.open('https://buymeacoffee.com/eyb8tkx3to', '_blank'); }
+            try { new CSInterface().openURLInDefaultBrowser(BMC_URL); }
+            catch (_) { window.open(BMC_URL, '_blank'); }
         });
+    }
+
+    // BMC teaser video — click anywhere on it opens the BMC page in the
+    // default system browser; keyboard activation (Enter / Space) works too.
+    const bmcVideoBubble = document.getElementById('bmc-video-bubble');
+    const bmcVideoEl = document.getElementById('bmc-video');
+    if (bmcVideoBubble && bmcVideoEl) {
+        const openBmc = () => {
+            try { new CSInterface().openURLInDefaultBrowser(BMC_URL); }
+            catch (_) { window.open(BMC_URL, '_blank'); }
+        };
+        bmcVideoBubble.addEventListener('click', openBmc);
+        bmcVideoBubble.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBmc(); }
+        });
+        bmcVideoEl.addEventListener('ended', bmcHideVideo);
+        bmcVideoEl.addEventListener('error', bmcHideVideo);
     }
     // Credit links — route through CSInterface so they open in default browser
     ['credit-yt-link', 'credit-hexart-link', 'credit-bmc-link'].forEach(id => {
@@ -7034,6 +7094,7 @@ while (!isDone) {
                     addLog(tr('log-task-completed-flag'), 'success');
                     updateStatus(tr('status-done'));
                     saveSession();
+                    markSuccessfulAgentRun();
                     break;
                 }
 
@@ -7907,6 +7968,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(tr('log-task-completed-autodetect'), 'success');
                                 sfx.taskComplete();
                                 updateStatus(tr('status-done'));
+                                markSuccessfulAgentRun();
                             } else if (hasMessage && emptyStepCount >= 1) {
                                 // Agent sent a message but no code/tasks — check if it's a continuation message
                                 const continueKeywords = ['uruchami', 'rozpoczyn', 'przygotow', 'za chwil', 'chwil', 'w nastep', 'kontynuu', 'ładuję', 'pobieram', 'analizuj', 'generuj', 'rozpoczynam'];
@@ -7924,6 +7986,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     addLog(tr('log-task-completed-message-only'), 'success');
                                     sfx.taskComplete();
                                     updateStatus(tr('status-done'));
+                                    markSuccessfulAgentRun();
                                 }
                             } else if (emptyStepCount >= 2) {
                                 // Safety net: 2 empty iterations = force stop (reduced from 3)

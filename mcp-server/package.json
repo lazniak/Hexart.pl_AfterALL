@@ -1,6 +1,6 @@
 {
   "name": "@hexart/afterall-mcp",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Model Context Protocol server for HEXART.PL/AfterALL — control the After Effects AI agent from Claude Desktop, Claude Code, or Antigravity",
   "type": "module",
   "main": "src/index.js",

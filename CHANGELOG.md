@@ -9,6 +9,168 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0] — 2026-05-21
+
+The "polish, persistence and parallel proofing" release. New first-run
+experience, restart-aware update flow, robust markdown chat rendering,
+expandable pipeline rows, plus a 5-sprint codebase audit that cuts
+~5 000 LLM tokens per turn, eliminates 250+ lines of duplication, and
+fixes two latent crash classes — without breaking a single feature.
+
+### Added
+- **First-run welcome card** with embedded YouTube tutorial slot, side-by-side
+  provider comparison (OpenRouter / Gemini / OpenAI / LM Studio), and one-click
+  CTA into Settings → Secrets. Replaces the bare chat input when no LLM key
+  is configured. Full i18n across all six languages.
+- **Optional LM Studio API key field** for users behind reverse proxies or
+  Bearer-auth gateways. Default flow (no auth) unchanged.
+- **Post-update restart-AE prompt**: after a successful in-plugin `git pull`,
+  a gold "Restart now" / muted "Later" modal asks the user to relaunch
+  After Effects. The detached spawner waits 5 s then re-launches AfterFX.exe
+  (Windows) / open -n (macOS) before `app.quit()` for a clean handoff.
+  Full i18n in all six languages.
+- **Relative timestamps above chat messages** ("3 s temu" / "5 min temu" /
+  "2 h ago" / "1 d ago" — auto-rolling to absolute `YYYY-MM-DD HH:MM:SS`
+  for entries older than a month). Localized in all six languages.
+- **Markdown rendering in chat** with an XSS-safe pipeline: HTML-escape →
+  pull fenced code blocks → pull inline code → walk block-level (headers,
+  lists, blockquotes, hr) → inline (bold, italic, strike, links). Link
+  schemes restricted to http/https/mailto.
+- **Expandable pipeline rows** (`<details>` element) with live-log body
+  and embedded asset preview when the step finishes. Caches DOM identity
+  by signature so concurrent updates don't churn the tree.
+- **Stronger pipeline colours** (per-status borders, checkmark stamp on
+  completion) and a new `warning` status for partial success.
+- **In-plugin update detection** with GitHub poll, version compare,
+  release notes preview, and an opt-in `git pull` button.
+- **Per-tool settings forms** (now driven from a schema registry) and a
+  dynamic Tools modal that surfaces Python skills the agent created.
+- **Save-project pre-flight modal** (single-step now — see Changed): if
+  the project is unsaved, the agent recommends saving so assets land in
+  `<projectFolder>/aisist_assets/` rather than the system temp folder.
+
+### Changed
+- **Save-project modal simplified** from two steps to one — only
+  "Continue without saving" / "Save project now" buttons. Consequences
+  surface inline rather than behind a confirmation dialog.
+- **`.hidden` CSS class is now global** (`display: none !important`). All
+  the per-element scoped `.hidden` rules that did the same job were
+  removed — net 25 fewer CSS lines and any future `classList.add('hidden')`
+  call actually hides the element.
+- **Decomposed colour CSS variables** — `--accent-rgb`, `--success-rgb`,
+  `--danger-rgb`, `--warning-rgb` (numeric tuples for `rgba(var(...), op)`)
+  plus `--accent-dark` for save-button gradients. 156 colour literals
+  collapsed into 5 variables.
+- **systemInstruction is now cached** on a fingerprint of every runtime
+  field that affects it (provider, model, LTM length, snapshot timestamp,
+  feature flags, eleven voice config, etc). Previously the 50 000-char
+  template rebuilt on every getter access — `_trimHistoryForBudget` alone
+  triggered it once per LLM call.
+- **Polish copies of system-prompt rules 35–43 removed** — they were
+  byte-for-byte duplicates of the English versions and wasted ~5 000
+  tokens per LLM call. The unique Polish rule 34 (WHISPERX) was
+  translated to English and renumbered to rule 44.
+- **Gemini streaming disabled at the dispatch level**. The
+  `streamGenerateContent` endpoint has been the source of repeated
+  empty bodies / multi-minute hangs / thinkingConfig 400s; the agent
+  now routes Gemini straight through `chatCompletion()`. All the
+  providers.js streaming code is preserved for future re-enablement.
+- **All save-project / no-API-key / task-complete log lines** now route
+  through `tr()` — non-PL users no longer see Polish strings in the
+  Logs Console.
+- **Modal CSS** consolidated: `.settings-footer`, `.or-model-head`,
+  `.picker-features label`, `.tool-detail-tabs`, `.ps-step` no longer
+  have duplicate declarations.
+- **CSInterface lookup**: 18 sites that each did `new CSInterface()`
+  now share one cached instance via `this._csi()` lazy accessor.
+- **OpenAI-shape SSE extractors** (OpenRouter, OpenAI, LM Studio)
+  consolidated into two static helpers on BaseProvider — ~40 lines of
+  duplication collapsed.
+- **ExtendScript iteration helpers** (`eachItem`, `eachComp`,
+  `eachFootage`, `escJSON`, `escJSONmulti`) hoisted to module scope.
+
+### Fixed
+- **`r.prompt.substring is not a function` crash** when the agent emitted
+  the object form `{prompt, duration_seconds, ...}` for music/SFX entries
+  and the orchestrator tried to slice a substring of it for the asset
+  card. Added `promptToString()` helper at the dispatcher boundary and
+  hardened `promptToSlug` itself against non-string inputs.
+- **TTS `prompt.match()` crash** on the same object-form input — TTS
+  prompts now coerced to string at the function entry.
+- **Gemini model selection not persisting** across restarts (would always
+  snap back to `gemini-3.1-pro-preview` or similar). The agent used to
+  read the legacy `aisist_base_model` key BEFORE the modern
+  `hexart_gemini_model`; the legacy value wins and never got cleared.
+  Fix: read modern key first; legacy is now a one-time migration source
+  that is unconditionally purged after first read.
+- **Gemini streaming-broken cache reset per call**: `getProvider()` builds
+  a fresh provider instance every LLM round-trip, so instance-level
+  `_streamingBroken` / `_thinkingConfigBroken` caches reset on every
+  call and the slow probe repeated 60–180 s every turn. Promoted the
+  caches to class-level statics that survive instance churn.
+- **Gemini streaming auto-retry without `thinkingConfig`** on empty
+  streams for `gemini-3.5-flash` and other 3.x checkpoints, plus a
+  permanent skip-streaming cache so subsequent calls go straight to
+  non-streaming.
+- **Welcome card / no-API-key fallback no longer persists** after a key
+  is saved. The `#api-setup-fallback` and `.input-wrapper` elements were
+  missing scoped `.hidden` CSS rules — `classList.toggle('hidden', …)`
+  silently no-op'd. The new global `.hidden` rule (see Changed) closes
+  the bug across the file.
+- **Welcome card removed from chat history on first key save** so the
+  stale instruction banner doesn't linger.
+- **install.bat ANSI garbage**: rewritten without escape sequences for
+  universal `cmd.exe` compatibility (older Windows builds rendered the
+  raw `^[[96m` sequences as `96m1m` text and the parser choked).
+- **JSON-mode dropped for streaming calls** — when `responseMimeType:
+  'application/json'` was set on a stream request, Gemini would buffer
+  the whole response into one chunk (or return empty). Stream path now
+  strips the `responseMimeType` and falls back to non-streaming if the
+  upstream still buffers.
+- **Grounding model swap killed**: orchestration calls used to swap
+  to the configured grounding model mid-task, which broke
+  multi-turn JSON contracts. Orchestration now stays on the main LLM.
+- **Lyria `promptToSlug` was called with the raw object form** instead
+  of the unwrapped `textPrompt` (same crash class as the
+  `r.prompt.substring` bug); now uses `textPrompt`.
+- **Lyria lyrics LTM push** previously didn't persist (in-memory only,
+  vanished on restart) and lacked a `category` (showed up unfiltered
+  in groupBy). Now tagged `category: 'lyria_lyrics'` and written via
+  `diskStorage.setItem(STORAGE_KEYS.memoryArr, …)`.
+- **ExtendScript helpers** (`findCompByName`, `getProjectFolder`,
+  `listFootagePaths`) lacked try/catch; a null `app.project` during
+  AE startup crashed the bridge. Now safe.
+- **Dead `addLog` calls in `getAESnapshot`**: `addLog` was a local
+  inside main.js's IIFE and was never visible to agent.js, so the
+  snapshot diagnostic logs never fired. Now uses
+  `window.afterallAddLog`.
+- **Third redundant `settingsBtn` click handler** removed — it just
+  called `renderCustomSecrets()`, which is now in the main handler.
+- **22 dead i18n keys** pruned (orphaned from previous refactors).
+
+### Security
+- Verified API keys never appear in `addLog` / `console.log` /
+  `appendMessage` after the orchestrator changes. The URL-with-`?key=`
+  pattern in Gemini TTS / Lyria calls is documented for future
+  fetch-URL loggers to scrub.
+- Source-folder protection preserved across the new restart-AE flow.
+
+### Internal
+- 5-sprint codebase audit across `agent.js`, `providers.js`, `main.js`,
+  `hostscript.jsx`, `style.css` (commits `e3e275e` → `2a39266`).
+- Type guards on `promptToSlug`, `generateSpeechBase64`, and
+  `generateSpeechAndImport` so the LLM emitting `{prompt: ...}` instead
+  of a string can never crash the dispatcher.
+- `STORAGE_KEYS` frozen constant (50 keys) added at the top of
+  `agent.js` as documentation for future call sites.
+- Named timing constants (`DOM_SETTLE_MS`, `SETTINGS_PERSIST_MS`,
+  `POST_UPDATE_MODAL_MS`, `POST_GREETING_MS`, `SILENT_UPDATE_CHECK_MS`,
+  `ABORT_SETTLE_MS`) replace the cluster of unexplained `setTimeout`
+  durations.
+- Three unreachable `else throw new Error("Brak dostępu do Node.js")`
+  branches removed; the surrounding `typeof require !== 'undefined'`
+  guards are kept defensive.
+
 ## [2.1.0] — 2026-05-21
 
 The "audio, agents, and accountability" release. New LLM/Image providers,
@@ -119,6 +281,7 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/lazniak/Hexart.pl_AfterALL/releases/tag/v2.0.0
