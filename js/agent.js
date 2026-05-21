@@ -540,6 +540,12 @@ class AisistAgent {
     // Generate safe, descriptive filename slug from a prompt
     promptToSlug(prompt, maxLen) {
         if (!prompt) return 'unnamed';
+        // Hardening: if the LLM produces an object form (music/sfx/tts often do),
+        // unwrap to a string instead of crashing on `.toLowerCase()`.
+        if (typeof prompt !== 'string') {
+            prompt = String((prompt && prompt.prompt) || prompt.text || '');
+            if (!prompt) return 'unnamed';
+        }
         maxLen = maxLen || 30;
         return prompt
             .toLowerCase()
@@ -1401,7 +1407,65 @@ except Exception as e:
         } catch(e) { return false; }
     }
 
+    // ---------------------------------------------------------------
+    // systemInstruction cache
+    // ---------------------------------------------------------------
+    // The system prompt is a ~50 000-char template that interpolates
+    // ~25 runtime fields. The getter used to rebuild the whole string
+    // on every access — and `_trimHistoryForBudget` calls
+    // `_approxTokens(this.systemInstruction)` on every LLM round-trip,
+    // so a 5-step task would rebuild it dozens of times. The cache
+    // stores the last assembled string + a fingerprint of every input
+    // that can influence the output. If nothing changed, we return the
+    // cached string for free.
+    _systemInstructionFingerprint() {
+        return JSON.stringify({
+            pl: this.projectLanguage,
+            ul: this.uiLanguage,
+            tv: this.ttsVoice,
+            lp: this.llmProvider,
+            lm: this.getActiveLLMModel(),
+            ip: this.imgProvider,
+            im: this.getActiveImageModel(),
+            tp: this.ttsProvider,
+            tm: this.ttsModel,
+            mp: this.musicProvider,
+            em: this.elevenlabsModel,
+            ff: this.featureFlags,
+            el: [
+                this.elevenlabsUseGeneralDefault,
+                this.elevenlabsDefaultVoice,
+                this.elevenlabsMaleVoice,
+                this.elevenlabsFemaleVoice
+            ],
+            // Length-based fingerprints — cheap and good enough.
+            // LTM/skills/secrets only mutate via explicit operations
+            // that change the array length; if a single entry's content
+            // updates in place that's rare and won't change the prompt
+            // shape meaningfully.
+            ltm: (this.longTermMemory || []).length,
+            skl: (this.skills || []).length,
+            cs:  (this.customSecrets || []).length,
+            // _assetTracker snapshot fingerprint — main.js bumps this
+            // whenever it takes a fresh snapshot. Falls back to 0 if
+            // the tracker isn't wired yet.
+            ast: (this._assetTracker && this._assetTracker.snapshot && this._assetTracker.snapshot.timestamp) || 0,
+            // Background process count — visible in the prompt.
+            bg:  Object.keys(this.backgroundProcesses || {}).length
+        });
+    }
+
     get systemInstruction() {
+        const fp = this._systemInstructionFingerprint();
+        if (this._sysInstrCache && this._sysInstrCacheKey === fp) {
+            return this._sysInstrCache;
+        }
+        this._sysInstrCache = this._buildSystemInstruction();
+        this._sysInstrCacheKey = fp;
+        return this._sysInstrCache;
+    }
+
+    _buildSystemInstruction() {
         // Project language directive — controls AE content language (layer names, on-screen text, voiceover)
         const langRule = this.projectLanguage === 'auto'
             ? "PROJECT LANGUAGE = 'auto'. Detect the natural language from the user's prompt and the LTM. ALL CREATED CONTENT inside After Effects (layer names, composition names, on-screen text, TTS voiceover, captions) MUST be in that detected language. Translate your understanding on the fly if needed."
@@ -1806,16 +1870,7 @@ Rules and Warnings:
 41. SELF-ATTACHING FILES (attach_files): you can attach disk files into your context yourself! In your response add "attach_files": [{"path": "D:/full/path/to/file.png", "label": "Description"}]. Supported: images (png/jpg/webp), audio (mp3/wav), video (mp4/webm), text (txt/json/srt/jsx/py/csv). Binary files arrive as Vision in the next iteration. Text files are injected as text. USE THIS for: inspecting project assets, reading config files, checking renders, inspecting scripts. Paths must be FULL!
 42. REFERENCE IMAGES IN GENERATION: when the user attaches images or you previously generated some, they're AUTOMATICALLY passed to the image model as references. The model sees them and can match style. Use this for: character sheets, style transfer, edits of existing images. DO NOT loop-generate the same thing — if an image doesn't meet expectations, ASK the user what to change instead of generating 10 times.
 43. IMPORTING FILES INTO AE (CRITICAL): use SIMPLE ExtendScript for imports: var f = new ImportOptions(File("D:/path/to/file.json")); var item = app.project.importFile(f); NEVER build complex Python→file→AE bridges! If you need the project's footage folder path: var folder = app.project.file ? app.project.file.parent.fsName : "~/Desktop"; The path to a generated image is in the asset manifest you receive after parallel_tasks — use it directly in ImportOptions.
-34. WHISPERX TRANSKRYPCJA (DEDYKOWANY TOOL): Do transkrypcji audio na poziomie SLOW uzyj klucza "whisperx" w parallel_tasks: "whisperx": [{"source": "last_audio"}] lub "whisperx": [{"source": "D:/sciezka/do/pliku.wav"}]. System uruchomi Whisper w dedykowanym srodowisku Python, zwroci JSON ze slowami i timestampami (start/end na poziomie slowa). Wynik pojawi sie w kontekscie agenta jako JSON. NIE uzywaj transcribe_audio z ElevenLabs do tego celu - to jest inne narzedzie!
-35. PYTHON AUTONOMIA (KRYTYCZNE): Masz pelna autonomie w tworzeniu skryptow Python! (a) Napisz skrypt, (b) Uruchom, (c) Przeczytaj stdout/stderr, (d) Jesli bledy - POPRAW i uruchom ponownie. Mozesz iterowac wielokrotnie. Szukaj odpowiednich bibliotek (pip) do kazdego zadania. Klonuj repozytoria GitHub jesli potrzeba. 
-36. SKILLE PYTHON: Gdy stworzysz DZIALAJACY skrypt, ZAPISZ go jako skill dodajac do parallel_tasks.python: "save_as_skill": {"name":"whisperx_transcribe","description":"Word-level transkrypcja audio"}. Skill pojawi sie w Twojej palecie i mozesz go uzyc ponownie. Na poczatku kazdego zadania sprawdz kontekst TWOJE SKILLE - moze juz masz gotowe narzedzie!
-37. PYTHON PELNE SCIEZKI (KRYTYCZNE): W skryptach Python ZAWSZE uzywaj PELNYCH sciezek do plikow! Manifest assetow podaje pelne sciezki - uzyj ich. NIE uzywaj samych nazw plikow bo skrypt Python dziala w katalogu venv, nie w katalogu projektu! Przyklad: img = Image.open(r"D:/full/path/to/aisist_img_forest_174829.png") a NIE: img = Image.open("aisist_img_forest_174829.png").
-38. LOKALNE NARZEDZIA I SERWISY: Jesli potrzebujesz lokalnego narzedzia (ComfyUI, Stable Diffusion, serwer API, baza danych itp.) — UZYJ PYTHONA by je odkryc, uruchomic i zintegrowac. Szukaj na dysku, sprawdzaj porty, startuj procesy. ZAPISZ konfiguracje do LTM (replace_category: "local_tools") i gotowy skrypt jako skill. Nigdy nie zakladaj ze cos jest zainstalowane — SPRAWDZ NAJPIERW. Pytaj uzytkownika jesli nie mozesz znalezc.
-39. PROCESY W TLE: Mozesz uruchamiac aplikacje/serwisy w tle! W parallel_tasks.python dodaj: "background": true, "background_name": "comfyui", "background_cmd": "cd A:\ComfyUI && python main.py", "ready_keyword": "listening on". System: (a) uruchomi proces detached, (b) bedzie watchowal stdout na ready_keyword, (c) zwroci status. Jesli proces o tej nazwie juz dziala - NIE URUCHAMIAJ PONOWNIE (dedup). Status procesow w tle widzisz w kontekscie === PROCESY W TLE ===. Uzywaj tego do: uruchamiania ComfyUI, serwerow API, baz danych itp.
-40. DOPYTUJ GDY NIE JESTES PEWIEN: Jesli nie masz pewnosci co do: lokalizacji plikow, preferencji uzytkownika, parametrow generowania, stylu, wyboru narzedzia — ZAPYTAJ uzytkownika uzywajac "questions_for_user". Lepiej zapytac niz zgadywac i tracic czas. Szczegolnie dopytuj na poczatku zlozonych zadan (o styl, rozdzielczosc, dlugosc, nastroj). Ale ROWNOWAŻ to — nie pytaj o oczywistosci. Jesli masz 80%+ pewnosci, dzialaj.
-41. SAMODZIELNE ZALACZANIE PLIKOW (attach_files): Mozesz samodzielnie dolaczac pliki z dysku do swojego kontekstu! W odpowiedzi dodaj "attach_files": [{"path": "D:/pelna/sciezka/do/pliku.png", "label": "Opis"}]. Obslugiwane typy: obrazy (png/jpg/webp), audio (mp3/wav), wideo (mp4/webm), tekst (txt/json/srt/jsx/py/csv). Pliki binarne pojawia sie jako Vision w nastepnej iteracji. Pliki tekstowe zostana wstrzykniete jako tekst. UZYWAJ TEGO do: analizy assetow projektu, czytania plikow konfiguracyjnych, sprawdzania renderow, inspekcji skryptow. Sciezki musza byc PELNE!
-42. OBRAZY REFERENCYJNE W GENEROWANIU: Gdy user zalaczy zdjecia (attach) lub wczesniej wygenerowal obrazy — SA ONE AUTOMATYCZNIE przekazywane do Gemini Image jako referencja. Gemini widzi je i moze sie na nich wzorowac. Uzywaj tego do: character sheets, style transfer, edycji istniejacych obrazow. NIE GENERUJ W PETLI tego samego — jesli obraz nie spelnia oczekiwan, ZAPYTAJ usera co zmienic zamiast generowac 10 razy to samo!
-43. IMPORT PLIKOW DO AE (KRYTYCZNE): Do importu plikow do projektu uzyj PROSTEGO kodu ExtendScript: var f = new ImportOptions(File("D:/sciezka/do/pliku.json")); var item = app.project.importFile(f); NIGDY nie twórz zlozonych mostow Python→plik→AE! Jesli potrzebujesz sciezki do folderu footage: var folder = app.project.file ? app.project.file.parent.fsName : "~/Desktop"; Sciezka do wygenerowanego obrazu jest w manifescie assetow ktory dostajesz po parallel_tasks. Uzyj jej bezposrednio w ImportOptions.
+44. WHISPERX TRANSCRIPTION (DEDICATED TOOL): For word-level audio transcription, use the "whisperx" key in parallel_tasks: "whisperx": [{"source": "last_audio"}] or "whisperx": [{"source": "D:/path/to/file.wav"}]. The system runs Whisper in a dedicated Python environment and returns JSON with words and timestamps (start/end at word level). The result appears in the agent's context as JSON. DO NOT use ElevenLabs transcribe_audio for this purpose — that's a different tool!
 
 
 ${this.getBackgroundProcessSummary()}
@@ -2198,13 +2253,17 @@ ${this.getSkillsSummary()}
                         const fs = require('fs');
                         try {
                             const base64 = fs.readFileSync(res, 'base64');
+                            // `addLog` was a function-scoped local in main.js's
+                            // IIFE, so this branch was always dead. Use the
+                            // window-exposed bridge instead.
+                            const _log = (typeof window !== 'undefined' && window.afterallAddLog) || null;
                             if (base64.length < 500) {
-                                if (typeof addLog !== 'undefined') addLog(`Zrzut ekranu jest pusty lub uszkodzony (${base64.length} bajtów), pomijam wysyłanie jako Vision.`, 'warning');
+                                if (_log) _log(`Zrzut ekranu jest pusty lub uszkodzony (${base64.length} bajtów), pomijam wysyłanie jako Vision.`, 'warning');
                                 resolve(null);
                                 return;
                             }
-                            if (typeof addLog !== 'undefined') { // Check if addLog is defined
-                                addLog(`Zrzut ekranu przygotowany (${base64.length} bajtów).`, 'info');
+                            if (_log) {
+                                _log(`Zrzut ekranu przygotowany (${base64.length} bajtów).`, 'info');
                             }
                             resolve({
                                 mimeType: "image/png",
@@ -2461,9 +2520,9 @@ ${this.getSkillsSummary()}
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res, filePath: filePath });
                     });
                 });
-            } else {
-                throw new Error("Brak dostępu do Node.js w środowisku CEP.");
             }
+            // (the require() guard above is defensive; CEP always provides it,
+            // so the previously dead `else throw` branch was unreachable.)
         } catch (err) {
             console.error(err);
             return { error: err.message };
@@ -2706,9 +2765,8 @@ ${this.getSkillsSummary()}
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res });
                     });
                 });
-            } else {
-                throw new Error("Brak dostępu do Node.js w CEP.");
             }
+            // (the require() guard above is defensive; CEP always provides it.)
         } catch (err) {
             console.error(err);
             return { error: err.message };
@@ -2719,7 +2777,11 @@ ${this.getSkillsSummary()}
         if (!this.apiKey) {
             throw new Error('TTS używa Gemini API — wprowadź klucz Gemini w ustawieniach (Zakładka Klucze API).');
         }
-        let ttsPromptText = prompt;
+        // Hardening: LLM occasionally emits the object form {prompt, voice, ...}
+        // for TTS (same shape as music/sfx). Coerce so `.match` can't crash.
+        let ttsPromptText = (typeof prompt === 'string')
+            ? prompt
+            : String((prompt && prompt.prompt) || (prompt && prompt.text) || '');
         let voiceName = this.ttsVoice;
 
         if (this.ttsVoice === 'Auto') {
@@ -2984,8 +3046,11 @@ ${this.getSkillsSummary()}
                 
                 const mp3Buffer = Buffer.from(audioBase64, 'base64');
                 const tempDir = await this.getAssetDir('audio');
-                // Lyria 3 clip / pro always returns an mp3 by default for standard prompts
-                const slug = this.promptToSlug(prompt);
+                // Lyria 3 clip / pro always returns an mp3 by default for standard prompts.
+                // IMPORTANT: pass textPrompt (the unwrapped string), not raw `prompt`
+                // which may still be the object form {prompt, duration_seconds, ...}
+                // — same crash class as the old r.prompt.substring bug.
+                const slug = this.promptToSlug(textPrompt);
                 const fileName = `aisist_music_${slug}_${Date.now()}.mp3`;
                 const filePath = path.join(tempDir, fileName);
                 
@@ -3003,9 +3068,8 @@ ${this.getSkillsSummary()}
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res });
                     });
                 });
-            } else {
-                throw new Error("Brak dostępu do Node.js (modułów 'fs') w CEP.");
             }
+            // (the require() guard above is defensive; CEP always provides it.)
         } catch(e) {
             console.error(e);
             return { error: e.message };

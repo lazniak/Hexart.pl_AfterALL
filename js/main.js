@@ -495,6 +495,13 @@ const i18nDict = {
         'log-llm-call': 'Wywołanie LLM ({model})...',
         'log-llm-responded': 'LLM odpowiedział w {ms}ms (streamowane).',
         'log-task-completed-flag': 'Zadanie zakończone (is_task_complete: true).',
+        'log-task-completed-autodetect': 'Zadanie zakończone (auto-detekcja z wiadomości/planu).',
+        'log-task-completed-message-only': 'Zadanie zakończone (agent wysłał wiadomość bez dalszych zadań).',
+        'log-task-done-no-instructions': 'Zakończone. Brak dalszych instrukcji.',
+        'log-empty-steps-exit': 'Brak dalszych instrukcji po 2 pustych krokach. Kończę.',
+        'log-snapshot-fetching': 'Pobieranie zrzutu ekranu kompozycji...',
+        'log-no-api-key': 'Brak klucza API.',
+        'status-done-repetition': 'Zadanie zakończone (detekcja powtórzeń).',
         'log-extendscript-call': 'Wywołuję kod ExtendScript w After Effects...',
         'log-extendscript-success': 'Skrypt wykonany pomyślnie w {ms}ms.',
         'log-extendscript-error': 'Błąd ExtendScript [Linia {line}]: {err}',
@@ -1030,6 +1037,13 @@ const i18nDict = {
         'log-llm-call': 'Calling LLM ({model})...',
         'log-llm-responded': 'LLM responded in {ms}ms (streamed).',
         'log-task-completed-flag': 'Task complete (is_task_complete: true).',
+        'log-task-completed-autodetect': 'Task complete (auto-detected from message/plan).',
+        'log-task-completed-message-only': 'Task complete (agent sent a message with no further tasks).',
+        'log-task-done-no-instructions': 'Done. No further instructions.',
+        'log-empty-steps-exit': 'No further instructions after 2 empty steps. Stopping.',
+        'log-snapshot-fetching': 'Capturing composition screenshot...',
+        'log-no-api-key': 'No API key configured.',
+        'status-done-repetition': 'Task complete (repetition detection).',
         'log-extendscript-call': 'Calling ExtendScript in After Effects...',
         'log-extendscript-success': 'Script executed successfully in {ms}ms.',
         'log-extendscript-error': 'ExtendScript error [Line {line}]: {err}',
@@ -4990,6 +5004,7 @@ function t(key, fallback) {
             renderToolsQuickList();
             renderPermissionRules();
             updateMcpUI();
+            renderCustomSecrets();
             // Pre-warm the agent's 15-min model cache in the background so
             // the first 📋 picker click feels instant. Failures are silent —
             // the picker handles missing-key / unreachable-server cases on
@@ -5672,13 +5687,9 @@ function t(key, fallback) {
         });
     }
 
-    // Load secrets on settings open
-    const origSettingsClick = settingsBtn ? settingsBtn.onclick : null;
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => {
-            renderCustomSecrets();
-        });
-    }
+    // (Custom-secrets render now lives in the main settings-btn handler above —
+    //  this used to be a third addEventListener doing the same work, which was
+    //  pointless because addEventListener appends, doesn't replace.)
 
     // --- Skills System ---
     const skillsBtn = document.getElementById('skills-btn');
@@ -6766,7 +6777,7 @@ function t(key, fallback) {
         
         if (!agent.apiKey) {
             appendMessage('assistant', tr('amsg-no-api-key'));
-            addLog('Brak klucza API.', 'error');
+            addLog(tr('log-no-api-key'), 'error');
             return;
         }
 
@@ -6922,16 +6933,16 @@ function t(key, fallback) {
 while (!isDone) {
             try {
                 if (agent.isAborted) {
-                    addLog("Proces przerwany przez uzytkownika.", "warning");
+                    addLog(tr('log-process-cancelled-user'), "warning");
                     sfx.warning();
                     hideTyping();
-                    updateStatus('Przerwano.');
+                    updateStatus(tr('status-aborted'));
                     
                     // If there was a queued message, start a new task with it
                     if (userSuggestionQueue.length > 0) {
                         const redirectText = userSuggestionQueue.join('\n');
                         userSuggestionQueue = [];
-                        appendMessage('system', '⚡ Przerwano poprzednie zadanie. Rozpoczynam nowe.');
+                        appendMessage('system', tr('sysmsg-prev-aborted-new-task'));
                         isAgentProcessing = false;
                         agent.isAborted = false;
                         // Trigger new task after a short delay
@@ -6964,7 +6975,7 @@ while (!isDone) {
                     const needsVisual = hasActiveComp && (lastStepHadCode || isFirstStep || retryCount > 0);
                     
                     if (needsVisual) {
-                        addLog('Pobieranie zrzutu ekranu kompozycji...', 'info');
+                        addLog(tr('log-snapshot-fetching'), 'info');
                         const snapStart = Date.now();
                         snapshotData = await agent.getAESnapshot();
                         if (snapshotData) {
@@ -7028,8 +7039,8 @@ while (!isDone) {
                         appendMessage('assistant', tr('amsg-task-done'), response.thought, response.current_plan);
                     }
                     isDone = true;
-                    addLog('Zadanie zakonczone (is_task_complete: true).', 'success');
-                    updateStatus('Zadanie zakonczone.');
+                    addLog(tr('log-task-completed-flag'), 'success');
+                    updateStatus(tr('status-done'));
                     saveSession();
                     break;
                 }
@@ -7539,7 +7550,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             sfx.taskComplete();
                             isDone = true;
                             appendMessage('assistant', tr('amsg-repetition-stop'));
-                            updateStatus('Zadanie zakonczone (repetition detection).');
+                            updateStatus(tr('status-done-repetition'));
                         }
                     }
 
@@ -7901,9 +7912,9 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             if (looksComplete || allPlanDone) {
                                 // Agent clearly indicates done — auto-complete IMMEDIATELY (no 3x wait)
                                 isDone = true;
-                                addLog('Zadanie zakonczone (auto-detect z wiadomosci/planu).', 'success');
+                                addLog(tr('log-task-completed-autodetect'), 'success');
                                 sfx.taskComplete();
-                                updateStatus('Zadanie zakonczone.');
+                                updateStatus(tr('status-done'));
                             } else if (hasMessage && emptyStepCount >= 1) {
                                 // Agent sent a message but no code/tasks — check if it's a continuation message
                                 const continueKeywords = ['uruchami', 'rozpoczyn', 'przygotow', 'za chwil', 'chwil', 'w nastep', 'kontynuu', 'ładuję', 'pobieram', 'analizuj', 'generuj', 'rozpoczynam'];
@@ -7918,16 +7929,16 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     showTyping();
                                 } else {
                                     isDone = true;
-                                    addLog('Zadanie zakonczone (agent wyslal wiadomosc bez dalszych zadan).', 'success');
+                                    addLog(tr('log-task-completed-message-only'), 'success');
                                     sfx.taskComplete();
-                                    updateStatus('Zadanie zakonczone.');
+                                    updateStatus(tr('status-done'));
                                 }
                             } else if (emptyStepCount >= 2) {
                                 // Safety net: 2 empty iterations = force stop (reduced from 3)
                                 isDone = true;
-                                addLog('Brak dalszych instrukcji po 2 pustych krokach. Koncze.', 'warning');
+                                addLog(tr('log-empty-steps-exit'), 'warning');
                                 sfx.taskComplete();
-                                updateStatus('Zadanie zakonczone.');
+                                updateStatus(tr('status-done'));
                             } else if (lastError) {
                                 currentPrompt = "An error appeared. Fix it and continue.";
                                 if (retryCount >= maxRetries) { isDone = true; updateStatus('Przerwano po bledzie.'); break; }
@@ -7946,8 +7957,8 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         }
                     } else {
                          isDone = true;
-                         addLog('Zakonczone. Brak dalszych instrukcji.', 'info');
-                         updateStatus('Zadanie zakonczone.');
+                         addLog(tr('log-task-done-no-instructions'), 'info');
+                         updateStatus(tr('status-done'));
                     }
                 }
 
