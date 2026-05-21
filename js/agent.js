@@ -99,7 +99,26 @@ class AisistAgent {
         this.imgProvider = getStr('hexart_img_provider', 'gemini') || 'gemini';
 
         // Per-provider model selections
-        this.geminiModel = storedBaseModel || getStr('hexart_gemini_model', 'gemini-2.5-flash');
+        //
+        // IMPORTANT: read 'hexart_gemini_model' (the modern key) FIRST.
+        // We used to fall through to 'aisist_base_model' (legacy) on the
+        // first read, which meant any stale legacy value silently won
+        // over the user's new selection on every restart — model picks
+        // wouldn't persist. Read the modern key first; legacy is now
+        // only a one-time migration source, and we always purge it
+        // after seeing it so it can never override again.
+        const modernGemini = getStr('hexart_gemini_model');
+        this.geminiModel = modernGemini || storedBaseModel || 'gemini-2.5-flash';
+        if (storedBaseModel) {
+            // If the modern key was empty we just migrated — persist the
+            // value under the new key so next boot finds it there.
+            if (!modernGemini) {
+                diskStorage.setItem('hexart_gemini_model', this.geminiModel);
+            }
+            // Purge the legacy key unconditionally so a stale value cannot
+            // resurrect itself on the next restart.
+            diskStorage.removeItem('aisist_base_model');
+        }
         this.openrouterLLMModel = getStr('hexart_openrouter_llm_model', 'anthropic/claude-opus-4.7');
         this.openrouterGroundingModel = getStr('hexart_openrouter_grounding_model', 'perplexity/sonar-pro-search');
         this.lmstudioLLMModel = getStr('hexart_lmstudio_llm_model', '');
@@ -3246,7 +3265,16 @@ ${this.getSkillsSummary()}
         const logFn = (typeof window !== 'undefined' && typeof window.afterallAddLog === 'function')
             ? window.afterallAddLog
             : null;
-        if (typeof onStreamUpdate === 'function' && typeof provider.streamChatCompletion === 'function') {
+        // Gemini's streaming endpoint has been the source of repeated
+        // pain: empty `streamGenerateContent` responses for thinking
+        // models, thinkingConfig 400s on certain checkpoints, multi-
+        // minute hangs on probes for new model IDs. The providers.js
+        // streaming path is preserved (with its class-level broken-stream
+        // cache) for future re-enablement, but at the dispatch level we
+        // unconditionally route Gemini through the non-streaming
+        // `chatCompletion()` path until the upstream endpoint stabilises.
+        const streamingAllowed = (this.llmProvider !== 'gemini');
+        if (streamingAllowed && typeof onStreamUpdate === 'function' && typeof provider.streamChatCompletion === 'function') {
             const streamStart = Date.now();
             let firstChunkAt = 0;
             let chunkCount = 0;
@@ -3285,9 +3313,18 @@ ${this.getSkillsSummary()}
             }
         } else {
             if (logFn && typeof onStreamUpdate === 'function') {
-                logFn('Non-streaming call (provider ' + this.llmProvider + ' has no streamChatCompletion).', 'warning');
+                const reason = (this.llmProvider === 'gemini')
+                    ? 'Non-streaming call (streaming disabled for Gemini — endpoint unstable, falling back to chatCompletion).'
+                    : 'Non-streaming call (provider ' + this.llmProvider + ' has no streamChatCompletion).';
+                logFn(reason, 'info');
             }
             completion = await provider.chatCompletion(args);
+            // Push the single final result through the stream callback
+            // so the live UI block lands with content instead of staying
+            // empty for non-streamed providers.
+            if (typeof onStreamUpdate === 'function') {
+                try { onStreamUpdate(completion.text || '', completion.text || ''); } catch (_) {}
+            }
         }
         // Gemini's thinking-model stream wraps reasoning parts in
         //   \x01T_OPEN\x01 ... \x01T_CLOSE\x01
