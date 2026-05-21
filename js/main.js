@@ -342,6 +342,20 @@ const i18nDict = {
         'greeting': 'HEXART.PL/AfterALL — agent gotowy do działania! ✨',
         'log-console-btn': 'Konsola Logów',
         'prompt-placeholder': 'Wpisz polecenie dla After Effects...',
+        // Question form (with auto-apply timeout)
+        'q-form-title': 'Oczekuję wytycznych',
+        'q-form-intro': 'Możesz odpowiedzieć w formularzu poniżej LUB napisać odpowiedź bezpośrednio w czacie.',
+        'q-form-suggestion-label': 'Sugestia',
+        'q-form-suggestion-none': 'brak',
+        'q-form-placeholder': 'Wpisz odpowiedź lub zostaw puste, aby użyć sugestii...',
+        'q-form-submit': 'Zatwierdź',
+        'q-form-submitted': 'Zatwierdzono',
+        'q-form-chat-resolved': 'Odpowiedziano w czacie',
+        'q-form-aborted': 'Przerwano...',
+        'q-form-auto-applied': 'Auto-zatwierdzono sugestie',
+        'q-form-countdown': 'Auto-zatwierdzenie za {n}s · kliknij dowolne pole, aby anulować',
+        'q-form-countdown-cancelled': 'Auto-timer wyłączony',
+        'q-form-no-answer-fallback': 'Zgadzam się z Twoją propozycją / brak uwag.',
         'status-ready': 'Gotowy',
         'status-thinking': 'Myślę...',
         'status-processing': 'Przetwarzam...',
@@ -548,6 +562,20 @@ const i18nDict = {
         'greeting': 'HEXART.PL/AfterALL — agent ready! ✨',
         'log-console-btn': 'Log Console',
         'prompt-placeholder': 'Type command for After Effects...',
+        // Question form (with auto-apply timeout)
+        'q-form-title': 'Awaiting your guidance',
+        'q-form-intro': 'Answer in the form below OR write a reply directly in the chat.',
+        'q-form-suggestion-label': 'Suggestion',
+        'q-form-suggestion-none': 'none',
+        'q-form-placeholder': 'Type an answer or leave empty to use the suggestion...',
+        'q-form-submit': 'Confirm',
+        'q-form-submitted': 'Confirmed',
+        'q-form-chat-resolved': 'Answered via chat',
+        'q-form-aborted': 'Aborted...',
+        'q-form-auto-applied': 'Auto-applied suggestions',
+        'q-form-countdown': 'Auto-applying in {n}s · click any field to cancel',
+        'q-form-countdown-cancelled': 'Auto-timer disabled',
+        'q-form-no-answer-fallback': 'I agree with your suggestion / no further notes.',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
         'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
@@ -789,6 +817,19 @@ const i18nDict = {
         'tools-settings-reset': '↺ Auf Standard zurücksetzen',
         'tools-settings-reset-confirm': 'Einstellungen dieses Werkzeugs auf Standardwerte zurücksetzen?',
         'tools-settings-no-config': 'Dieses Werkzeug hat keine vordefinierten Einstellungen. Du kannst eigene Schlüssel/Wert-Paare hinzufügen.',
+        'q-form-title': 'Warte auf deine Anweisungen',
+        'q-form-intro': 'Antworte im Formular unten ODER schreibe direkt in den Chat.',
+        'q-form-suggestion-label': 'Vorschlag',
+        'q-form-suggestion-none': 'keiner',
+        'q-form-placeholder': 'Antwort eingeben oder leer lassen, um den Vorschlag zu verwenden...',
+        'q-form-submit': 'Bestätigen',
+        'q-form-submitted': 'Bestätigt',
+        'q-form-chat-resolved': 'Per Chat beantwortet',
+        'q-form-aborted': 'Abgebrochen...',
+        'q-form-auto-applied': 'Vorschläge auto-übernommen',
+        'q-form-countdown': 'Auto-Übernahme in {n}s · klicke ein Feld zum Abbrechen',
+        'q-form-countdown-cancelled': 'Auto-Timer deaktiviert',
+        'q-form-no-answer-fallback': 'Ich stimme deinem Vorschlag zu / keine Anmerkungen.',
         'tool-imageGen-label': 'Bildgenerator',
         'tool-videoGen-label': 'Videogenerator (Grok)',
         'tool-ttsGen-label': 'Sprachgenerator (TTS)',
@@ -862,6 +903,19 @@ const i18nDict = {
         'tools-settings-reset': '↺ Restaurar predeterminados',
         'tools-settings-reset-confirm': '¿Restaurar los ajustes predeterminados de esta herramienta?',
         'tools-settings-no-config': 'Esta herramienta no tiene ajustes predefinidos. Puedes añadir tus propios pares clave/valor.',
+        'q-form-title': 'Esperando tus indicaciones',
+        'q-form-intro': 'Responde en el formulario o escribe directamente en el chat.',
+        'q-form-suggestion-label': 'Sugerencia',
+        'q-form-suggestion-none': 'ninguna',
+        'q-form-placeholder': 'Escribe una respuesta o déjalo vacío para usar la sugerencia...',
+        'q-form-submit': 'Confirmar',
+        'q-form-submitted': 'Confirmado',
+        'q-form-chat-resolved': 'Respondido por chat',
+        'q-form-aborted': 'Cancelado...',
+        'q-form-auto-applied': 'Sugerencias auto-aplicadas',
+        'q-form-countdown': 'Auto-aplicación en {n}s · clic en cualquier campo para cancelar',
+        'q-form-countdown-cancelled': 'Temporizador desactivado',
+        'q-form-no-answer-fallback': 'Acepto tu sugerencia / sin comentarios.',
         'tool-imageGen-label': 'Generador de Imágenes',
         'tool-videoGen-label': 'Generador de Vídeo (Grok)',
         'tool-ttsGen-label': 'Generador de Voz (TTS)',
@@ -935,6 +989,19 @@ const i18nDict = {
         'tools-settings-reset': '↺ Réinitialiser aux valeurs par défaut',
         'tools-settings-reset-confirm': 'Réinitialiser les paramètres de cet outil ?',
         'tools-settings-no-config': 'Cet outil n\'a pas de paramètres prédéfinis. Ajoutez vos propres paires clé/valeur.',
+        'q-form-title': 'En attente de tes indications',
+        'q-form-intro': 'Réponds dans le formulaire OU écris directement dans le chat.',
+        'q-form-suggestion-label': 'Suggestion',
+        'q-form-suggestion-none': 'aucune',
+        'q-form-placeholder': 'Tape une réponse ou laisse vide pour utiliser la suggestion...',
+        'q-form-submit': 'Confirmer',
+        'q-form-submitted': 'Confirmé',
+        'q-form-chat-resolved': 'Répondu via le chat',
+        'q-form-aborted': 'Interrompu...',
+        'q-form-auto-applied': 'Suggestions auto-appliquées',
+        'q-form-countdown': 'Auto-application dans {n}s · clique sur un champ pour annuler',
+        'q-form-countdown-cancelled': 'Timer désactivé',
+        'q-form-no-answer-fallback': 'J\'accepte ta suggestion / pas de remarques.',
         'tool-imageGen-label': 'Générateur d\'Images',
         'tool-videoGen-label': 'Générateur Vidéo (Grok)',
         'tool-ttsGen-label': 'Générateur de Voix (TTS)',
@@ -1008,6 +1075,19 @@ const i18nDict = {
         'tools-settings-reset': '↺ デフォルトに戻す',
         'tools-settings-reset-confirm': 'このツールの設定をデフォルトに戻しますか？',
         'tools-settings-no-config': 'このツールには定義済み設定がありません。独自のキー/値のペアを追加できます。',
+        'q-form-title': '指示をお待ちしています',
+        'q-form-intro': '下のフォームに入力するか、チャットに直接書き込んでください。',
+        'q-form-suggestion-label': '提案',
+        'q-form-suggestion-none': 'なし',
+        'q-form-placeholder': '回答を入力するか、空欄のまま提案を使用...',
+        'q-form-submit': '確定',
+        'q-form-submitted': '確定済み',
+        'q-form-chat-resolved': 'チャットで回答済み',
+        'q-form-aborted': '中断...',
+        'q-form-auto-applied': '提案を自動適用',
+        'q-form-countdown': '{n}秒後に自動適用 · フィールドをクリックでキャンセル',
+        'q-form-countdown-cancelled': '自動タイマー無効',
+        'q-form-no-answer-fallback': 'あなたの提案に同意します / 追加コメントはありません。',
         'tool-imageGen-label': '画像ジェネレーター',
         'tool-videoGen-label': '動画ジェネレーター (Grok)',
         'tool-ttsGen-label': '音声ジェネレーター (TTS)',
@@ -3817,28 +3897,38 @@ function t(key, fallback) {
 
     let currentWorkingProject = null;
 
+    // Auto-applies the agent's "suggestion" field for every question after AUTO_APPLY_SECONDS,
+    // unless the user clicks (focuses) any input or the chat textarea first. Designed to keep
+    // the orchestrator flowing without blocking on every question — sensible defaults win.
+    const AUTO_APPLY_SECONDS = 15;
+
     function presentQuestionsToUser(questions) {
         return new Promise((resolve) => {
             const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
-            
+
             const msgDiv = document.createElement('div');
-            msgDiv.className = `message assistant`;
-            
+            msgDiv.className = 'message assistant';
+
             const msgContent = document.createElement('div');
             msgContent.className = 'message-content';
             msgContent.style.borderLeft = '3px solid var(--accent)';
-            
+
             const intro = document.createElement('div');
             intro.style.fontSize = '13px';
             intro.style.marginBottom = '10px';
-            intro.innerHTML = '<strong>Oczekuje na wytyczne</strong><br><span style="color: var(--text-secondary);">Mozesz odpowiedziec w formularzu ponizej LUB napisac odpowiedz bezposrednio w chacie.</span>';
+            intro.innerHTML = '<strong>' + escapeAttr(tr('q-form-title')) + '</strong><br>'
+                + '<span style="color: var(--text-secondary);">' + escapeAttr(tr('q-form-intro')) + '</span>';
             msgContent.appendChild(intro);
 
             const formContainer = document.createElement('div');
             formContainer.style.display = 'flex';
             formContainer.style.flexDirection = 'column';
             formContainer.style.gap = '10px';
-            
+
+            const suggestionLabel = tr('q-form-suggestion-label');
+            const suggestionNone = tr('q-form-suggestion-none');
+            const placeholderText = tr('q-form-placeholder');
+
             questions.forEach((q, idx) => {
                 const div = document.createElement('div');
                 div.style.background = 'rgba(0,0,0,0.2)';
@@ -3846,9 +3936,9 @@ function t(key, fallback) {
                 div.style.borderRadius = '6px';
                 div.style.border = '1px solid rgba(255,255,255,0.05)';
                 div.innerHTML = `
-                    <p style="margin: 0 0 6px 0; font-size: 13px; color: var(--text-primary);"><strong>${q.question}</strong></p>
-                    <div style="font-size: 11px; margin-bottom: 6px; display:inline-block; padding: 2px 6px; background: rgba(255,183,77,0.1); color: var(--accent); border-radius: 4px;">Sugestia: ${q.suggestion || 'Brak'}</div>
-                    <textarea id="q-inline-${uniqueId}-${idx}" placeholder="Wpisz odpowiedz lub zostaw puste by uzyc sugestii..." style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px; color: white; font-family: inherit; font-size: 13px; resize: vertical; min-height: 44px; outline: none;"></textarea>
+                    <p style="margin: 0 0 6px 0; font-size: 13px; color: var(--text-primary);"><strong>${escapeAttr(q.question || '')}</strong></p>
+                    <div style="font-size: 11px; margin-bottom: 6px; display:inline-block; padding: 2px 6px; background: rgba(220,163,83,0.12); color: var(--accent); border-radius: 4px;">${escapeAttr(suggestionLabel)}: ${escapeAttr(q.suggestion || suggestionNone)}</div>
+                    <textarea id="q-inline-${uniqueId}-${idx}" placeholder="${escapeAttr(placeholderText)}" style="width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px; color: white; font-family: inherit; font-size: 13px; resize: vertical; min-height: 44px; outline: none;"></textarea>
                 `;
                 formContainer.appendChild(div);
             });
@@ -3858,8 +3948,17 @@ function t(key, fallback) {
             submitBtn.style.marginTop = '4px';
             submitBtn.style.width = '100%';
             submitBtn.style.padding = '8px';
-            submitBtn.textContent = 'Zatwierdz instrukcje';
+            submitBtn.textContent = tr('q-form-submit');
             formContainer.appendChild(submitBtn);
+
+            // Countdown badge + progress bar
+            const countdownWrap = document.createElement('div');
+            countdownWrap.className = 'q-form-countdown-wrap';
+            countdownWrap.innerHTML = `
+                <div class="q-form-countdown-label"></div>
+                <div class="q-form-countdown-bar"><div class="q-form-countdown-fill"></div></div>
+            `;
+            formContainer.appendChild(countdownWrap);
 
             msgContent.appendChild(formContainer);
             msgDiv.appendChild(msgContent);
@@ -3867,10 +3966,16 @@ function t(key, fallback) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
             let handlerCalled = false;
+            let countdownInterval = null;
+            let countdownCancelled = false;
+            const startedAt = Date.now();
+            const countdownLabel = countdownWrap.querySelector('.q-form-countdown-label');
+            const countdownFill = countdownWrap.querySelector('.q-form-countdown-fill');
 
             const disableForm = (label, color) => {
                 if (handlerCalled) return;
                 handlerCalled = true;
+                if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
                 questions.forEach((q, idx) => {
                     const input = document.getElementById(`q-inline-${uniqueId}-${idx}`);
                     if (input) input.disabled = true;
@@ -3880,38 +3985,84 @@ function t(key, fallback) {
                 submitBtn.style.background = 'transparent';
                 submitBtn.style.border = '1px solid ' + (color || 'var(--accent)');
                 submitBtn.style.color = color || 'var(--text-secondary)';
+                countdownWrap.style.display = 'none';
                 pendingQuestionResolve = null;
                 pendingQuestionCleanup = null;
             };
 
-            const handleSubmit = () => {
+            const cancelAutoApply = (reason) => {
+                if (countdownCancelled || handlerCalled) return;
+                countdownCancelled = true;
+                if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+                countdownLabel.textContent = tr('q-form-countdown-cancelled');
+                countdownLabel.classList.add('cancelled');
+                countdownFill.style.transition = 'none';
+                countdownFill.style.background = 'rgba(255,255,255,0.08)';
+            };
+
+            const collectAndResolve = (autoApplied) => {
                 let answersText = "";
                 questions.forEach((q, idx) => {
                     const input = document.getElementById(`q-inline-${uniqueId}-${idx}`);
                     let val = input ? input.value.trim() : "";
-                    if (!val) val = q.suggestion || "Zgadzam sie na Twoja propozycje / Brak uwag.";
-                    answersText += 'Pytanie: ' + q.question + '\nOdpowiedz: ' + val + '\n\n';
+                    if (!val) val = q.suggestion || tr('q-form-no-answer-fallback');
+                    answersText += 'Question: ' + (q.question || '') + '\nAnswer: ' + val + '\n\n';
                 });
-                disableForm('Zatwierdzono', 'var(--accent)');
+                disableForm(autoApplied ? tr('q-form-auto-applied') : tr('q-form-submitted'), 'var(--accent)');
                 resolve(answersText.trim());
             };
-            
-            submitBtn.addEventListener('click', handleSubmit);
 
-            // Allow chat input to resolve this too
+            submitBtn.addEventListener('click', () => collectAndResolve(false));
+
+            // Cancel auto-apply on ANY user interaction with the form
+            questions.forEach((q, idx) => {
+                const input = document.getElementById(`q-inline-${uniqueId}-${idx}`);
+                if (!input) return;
+                ['focus', 'click', 'input', 'keydown'].forEach(ev => input.addEventListener(ev, () => cancelAutoApply('field-interaction')));
+            });
+            // Cancel auto-apply when user focuses the main chat textarea (they may answer via chat)
+            const chatInputCancelHandler = () => cancelAutoApply('chat-input');
+            promptInput.addEventListener('focus', chatInputCancelHandler);
+            promptInput.addEventListener('click', chatInputCancelHandler);
+            promptInput.addEventListener('input', chatInputCancelHandler);
+
+            // Cleanup function removes chat-input listeners when form is finalised
+            const _origDisableForm = disableForm;
+            // (no-op; we just rely on handlerCalled to short-circuit)
+
+            // Start countdown
+            const updateCountdown = () => {
+                const elapsed = (Date.now() - startedAt) / 1000;
+                const remaining = Math.max(0, AUTO_APPLY_SECONDS - elapsed);
+                const pct = Math.max(0, Math.min(100, (remaining / AUTO_APPLY_SECONDS) * 100));
+                countdownFill.style.width = pct + '%';
+                countdownLabel.textContent = tr('q-form-countdown').replace('{n}', Math.ceil(remaining));
+                if (remaining <= 0 && !handlerCalled && !countdownCancelled) {
+                    collectAndResolve(true);
+                }
+            };
+            updateCountdown();
+            countdownInterval = setInterval(() => {
+                if (agent.isAborted) {
+                    clearInterval(countdownInterval); countdownInterval = null;
+                    disableForm(tr('q-form-aborted'), 'var(--danger)');
+                    resolve("[ABORT]");
+                    return;
+                }
+                if (handlerCalled || countdownCancelled) {
+                    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+                    return;
+                }
+                updateCountdown();
+            }, 250);
+
+            // Allow chat input text to resolve this question form
             pendingQuestionResolve = (chatText) => {
-                disableForm('Odpowiedziano w chacie', 'var(--accent)');
+                cancelAutoApply('chat-answer');
+                disableForm(tr('q-form-chat-resolved'), 'var(--accent)');
                 resolve(chatText);
             };
-            pendingQuestionCleanup = () => disableForm('Przerwano...', 'var(--danger)');
-            
-            const interval = setInterval(() => {
-                if (agent.isAborted) {
-                    clearInterval(interval);
-                    disableForm('Przerwano...', 'var(--danger)');
-                    resolve("[ABORT]");
-                }
-            }, 500);
+            pendingQuestionCleanup = () => disableForm(tr('q-form-aborted'), 'var(--danger)');
         });
     }
 

@@ -130,6 +130,41 @@ header {
     filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.4));
 }
 
+/* =================================================================== */
+/* Question form auto-apply countdown                                   */
+/* =================================================================== */
+.q-form-countdown-wrap {
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 6px;
+    border: 1px solid rgba(220, 163, 83, 0.12);
+}
+.q-form-countdown-label {
+    font-size: 10.5px;
+    color: var(--accent);
+    margin-bottom: 4px;
+    letter-spacing: 0.2px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.2s;
+}
+.q-form-countdown-label.cancelled {
+    color: var(--text-secondary);
+}
+.q-form-countdown-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.q-form-countdown-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent), #f1c37c);
+    border-radius: 2px;
+    transition: width 0.25s linear;
+}
+
 /* Coffee / Buy Me a Coffee button — minimalist gold */
 .coffee-btn {
     color: var(--accent);
