@@ -2313,72 +2313,43 @@ function t(key, fallback) {
     // - 'temp'      → user explicitly opted for temp folders despite warning
     // - 'cancelled' → user backed out entirely; task should not start
     const saveProjectOverlay = document.getElementById('save-project-overlay');
-    const saveProjectStep2 = document.getElementById('save-project-step2');
-    const saveProjectFooter1 = document.getElementById('save-project-footer-step1');
-    const saveProjectFooter2 = document.getElementById('save-project-footer-step2');
     const saveProjectCloseBtn = document.getElementById('save-project-close-btn');
     const saveProjectSaveBtn = document.getElementById('save-project-save-btn');
     const saveProjectSkipBtn = document.getElementById('save-project-skip-btn');
-    const saveProjectBackBtn = document.getElementById('save-project-back-btn');
-    const saveProjectConfirmSkipBtn = document.getElementById('save-project-confirm-skip-btn');
-    const saveProjectSaveAnywayBtn = document.getElementById('save-project-save-anyway-btn');
 
+    // Single-step modal: consequences panel is shown inline at all times,
+    // and the two action buttons act directly. The earlier two-step
+    // confirmation flow duplicated the same actions under different labels
+    // and confused users.
     function showSaveProjectRecommendation() {
         return new Promise((resolve) => {
-            // Reset to step 1
-            saveProjectStep2.classList.add('hidden');
-            saveProjectFooter1.classList.remove('hidden');
-            saveProjectFooter1.style.display = 'flex';
-            saveProjectFooter2.classList.add('hidden');
-            saveProjectFooter2.style.display = '';
             saveProjectOverlay.classList.remove('hidden');
 
             const cleanup = (result) => {
                 saveProjectOverlay.classList.add('hidden');
                 saveProjectSaveBtn.removeEventListener('click', onSave);
                 saveProjectSkipBtn.removeEventListener('click', onSkip);
-                saveProjectBackBtn.removeEventListener('click', onBack);
-                saveProjectConfirmSkipBtn.removeEventListener('click', onConfirmSkip);
-                saveProjectSaveAnywayBtn.removeEventListener('click', onSave);
                 saveProjectCloseBtn.removeEventListener('click', onClose);
                 resolve(result);
             };
             const onSave = async () => {
                 saveProjectSaveBtn.disabled = true;
-                saveProjectSaveAnywayBtn.disabled = true;
                 try {
                     const res = await agent.triggerProjectSave(true);
                     saveProjectSaveBtn.disabled = false;
-                    saveProjectSaveAnywayBtn.disabled = false;
                     if (res && res.saved) {
                         addLog(tr('save-project-saved-log') + ' ' + (res.file || ''), 'success');
                         cleanup('saved');
                     } else {
                         addLog(tr('save-project-save-cancelled-log'), 'info');
-                        // Stay on the modal so the user can try again or skip
+                        // Stay on the modal so the user can retry or skip
                     }
                 } catch (e) {
                     saveProjectSaveBtn.disabled = false;
-                    saveProjectSaveAnywayBtn.disabled = false;
                     addLog('Save error: ' + e.message, 'error');
                 }
             };
             const onSkip = () => {
-                // Go to step 2 — consequences explanation
-                saveProjectStep2.classList.remove('hidden');
-                saveProjectFooter1.classList.add('hidden');
-                saveProjectFooter1.style.display = 'none';
-                saveProjectFooter2.classList.remove('hidden');
-                saveProjectFooter2.style.display = 'flex';
-            };
-            const onBack = () => {
-                saveProjectStep2.classList.add('hidden');
-                saveProjectFooter1.classList.remove('hidden');
-                saveProjectFooter1.style.display = 'flex';
-                saveProjectFooter2.classList.add('hidden');
-                saveProjectFooter2.style.display = 'none';
-            };
-            const onConfirmSkip = () => {
                 addLog(tr('save-project-using-temp-log'), 'warning');
                 cleanup('temp');
             };
@@ -2388,9 +2359,6 @@ function t(key, fallback) {
             };
             saveProjectSaveBtn.addEventListener('click', onSave);
             saveProjectSkipBtn.addEventListener('click', onSkip);
-            saveProjectBackBtn.addEventListener('click', onBack);
-            saveProjectConfirmSkipBtn.addEventListener('click', onConfirmSkip);
-            saveProjectSaveAnywayBtn.addEventListener('click', onSave);
             saveProjectCloseBtn.addEventListener('click', onClose);
         });
     }
