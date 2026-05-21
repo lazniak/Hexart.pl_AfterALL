@@ -1589,6 +1589,174 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-color: rgba(239, 68, 68, 0.18);
 }
 
+/* ==================================================================== */
+/* First-run welcome card + API setup fallback                          */
+/* ==================================================================== */
+/* The welcome card replaces the regular greeting message when no LLM
+   key is configured. Rich layout with embedded YouTube video and a
+   per-provider comparison. Lives inside a .message.system bubble. */
+.message.system .welcome-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.2rem 0;
+}
+.welcome-card h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+.welcome-card .welcome-intro {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.55;
+}
+.welcome-card .welcome-video {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+.welcome-card .welcome-video iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+.welcome-card .welcome-video-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(220, 163, 83, 0.06));
+}
+.welcome-card .welcome-options-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 13px;
+    margin-top: 0.3rem;
+}
+.welcome-card .welcome-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+.welcome-card .welcome-opt {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+.welcome-card .welcome-opt.welcome-opt-recommended {
+    border-left-color: var(--accent);
+    background: linear-gradient(90deg, rgba(220, 163, 83, 0.10), rgba(0, 0, 0, 0.22));
+}
+.welcome-card .welcome-opt.welcome-opt-local {
+    border-left-color: #34d399;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(0, 0, 0, 0.22));
+}
+.welcome-card .welcome-opt-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+.welcome-card .welcome-opt-head strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+}
+.welcome-card .welcome-opt-badge {
+    font-size: 14px;
+}
+.welcome-card .welcome-opt-body {
+    color: var(--text-secondary);
+}
+.welcome-card .welcome-opt-body a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(220, 163, 83, 0.4);
+}
+.welcome-card .welcome-opt-body a:hover { color: var(--accent-hover); }
+.welcome-card .welcome-opt-body strong { color: var(--text-primary); }
+.welcome-card .welcome-footer {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    line-height: 1.55;
+    font-style: italic;
+    padding-top: 0.3rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.06);
+}
+.welcome-card .welcome-cta {
+    align-self: stretch;
+    margin-top: 0.3rem;
+    padding: 0.65rem 1rem;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+/* API-setup fallback — replaces the chat input when no LLM key is configured */
+#api-setup-fallback {
+    margin: 0.4rem 0.6rem 0.8rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(220, 163, 83, 0.10), rgba(96, 165, 250, 0.06));
+    border: 1px solid rgba(220, 163, 83, 0.25);
+    text-align: center;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+#api-setup-fallback .api-setup-icon {
+    font-size: 28px;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+#api-setup-fallback .api-setup-title {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+#api-setup-fallback .api-setup-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: 0.8rem;
+}
+#api-setup-fallback .api-setup-cta {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent), #b8862d);
+    color: white;
+    font-weight: 600;
+    font-size: 13.5px;
+    padding: 0.65rem 1.5rem;
+    border-radius: 10px;
+    border: 0;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.18s, filter 0.18s;
+}
+#api-setup-fallback .api-setup-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35);
+    filter: brightness(1.05);
+}
+
 /* GitHub "give us a star" CTA — appears at the bottom of the Update card */
 /* Gemini thinking-model reasoning chunks (server-streamed thought
    summaries). Rendered with a slightly softer / italic treatment so the

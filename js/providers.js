@@ -1114,11 +1114,19 @@
             return base + '/v1';
         }
 
+        _headers(extra) {
+            const h = { 'Content-Type': 'application/json' };
+            // Optional Bearer auth — most LM Studio installs run open, but
+            // users behind a reverse proxy / remote LAN sometimes lock it.
+            if (this.cfg.apiKey) h['Authorization'] = 'Bearer ' + this.cfg.apiKey;
+            return extra ? Object.assign(h, extra) : h;
+        }
+
         async listLLMModels() {
             const url = this.apiBase + '/models';
             let data;
             try {
-                data = await httpJSON(url, { method: 'GET' }, { timeoutMs: 8000, retries: 0 });
+                data = await httpJSON(url, { method: 'GET', headers: this._headers() }, { timeoutMs: 8000, retries: 0 });
             } catch (e) {
                 throw new Error('Nie udało się połączyć z LM Studio (' + this.apiBase + '). Uruchom serwer LM Studio (Server Mode → Start).');
             }
@@ -1157,7 +1165,7 @@
             const payload = this._buildPayload(args, false);
             const data = await httpJSON(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._headers(),
                 body: JSON.stringify(payload),
                 signal: args.signal
             }, { timeoutMs: 240000, signal: args.signal, retries: 0 });
@@ -1175,7 +1183,7 @@
             const payload = this._buildPayload(args, true);
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                headers: this._headers({ 'Accept': 'text/event-stream' }),
                 body: JSON.stringify(payload),
                 signal: args.signal
             });

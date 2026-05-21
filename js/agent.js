@@ -108,6 +108,10 @@ class AisistAgent {
         // (typically a tool-calling-capable model plus their own search agent).
         this.lmstudioGroundingModel = getStr('hexart_lmstudio_grounding_model', '');
         this.lmstudioBaseUrl = getStr('hexart_lmstudio_url', 'http://localhost:1234');
+        // Most LM Studio installs run without auth, but some users put it
+        // behind a reverse proxy or a remote LAN endpoint with Bearer auth.
+        // Optional — leave empty to disable.
+        this.lmstudioApiKey = getStr('hexart_lmstudio_api_key', '');
 
         // ---- OpenAI (LLM + Image) ---------------------------------------
         this.openaiApiKey      = getStr('hexart_openai_key');
@@ -256,7 +260,7 @@ class AisistAgent {
             case 'gemini':     return P.create('gemini',     { apiKey: this.apiKey });
             case 'openrouter': return P.create('openrouter', { apiKey: this.openrouterApiKey });
             case 'openai':     return P.create('openai',     { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
-            case 'lmstudio':   return P.create('lmstudio',   { baseUrl: this.lmstudioBaseUrl });
+            case 'lmstudio':   return P.create('lmstudio',   { baseUrl: this.lmstudioBaseUrl, apiKey: this.lmstudioApiKey });
             case 'comfyui':    return P.create('comfyui',    {
                                   baseUrl: this.comfyuiBaseUrl,
                                   clientId: this.comfyuiClientId,
@@ -376,7 +380,7 @@ class AisistAgent {
         if (providerName === 'gemini') providerInstance = P.create('gemini', { apiKey: this.apiKey });
         else if (providerName === 'openrouter') providerInstance = P.create('openrouter', { apiKey: this.openrouterApiKey });
         else if (providerName === 'openai') providerInstance = P.create('openai', { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
-        else if (providerName === 'lmstudio') providerInstance = P.create('lmstudio', { baseUrl: this.lmstudioBaseUrl });
+        else if (providerName === 'lmstudio') providerInstance = P.create('lmstudio', { baseUrl: this.lmstudioBaseUrl, apiKey: this.lmstudioApiKey });
         else if (providerName === 'comfyui') providerInstance = P.create('comfyui', { baseUrl: this.comfyuiBaseUrl, clientId: this.comfyuiClientId });
         else throw new Error('Unknown provider: ' + providerName);
         const list = await providerInstance.listLLMModels();
@@ -1874,6 +1878,7 @@ ${this.getSkillsSummary()}
         assign('openrouterGroundingModel', 'openrouterGroundingModel', 'hexart_openrouter_grounding_model');
         assign('lmstudioLLMModel', 'lmstudioLLMModel', 'hexart_lmstudio_llm_model');
         assign('lmstudioBaseUrl', 'lmstudioBaseUrl', 'hexart_lmstudio_url');
+        assign('lmstudioApiKey', 'lmstudioApiKey', 'hexart_lmstudio_api_key');
         assign('geminiImageModel', 'geminiImageModel', 'hexart_gemini_img_model');
         assign('openrouterImageModel', 'openrouterImageModel', 'hexart_openrouter_img_model');
         assign('openaiLLMModel', 'openaiLLMModel', 'hexart_openai_llm_model');

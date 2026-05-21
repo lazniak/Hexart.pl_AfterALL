@@ -347,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openrouterImgModelInput = document.getElementById('openrouter-img-model');
     const lmstudioLLMModelSelect = document.getElementById('lmstudio-llm-model');
     const lmstudioBaseUrlInput = document.getElementById('lmstudio-base-url');
+    const lmstudioApiInput      = document.getElementById('lmstudio-api');
     // OpenAI references
     const openaiApiInput        = document.getElementById('openai-api');
     const openaiLLMModelSelect  = document.getElementById('openai-llm-model');
@@ -440,6 +441,23 @@ const i18nDict = {
         'settings-saved-toast': '✓ Ustawienia zaktualizowane. LLM: {llm} ({model}) · Obrazy: {img} · TTS: {tts}.',
         // ----- First-run hint -----
         'first-run-hint': '⚙ Otwórz Ustawienia (ikona koła zębatego) i skonfiguruj klucze API oraz wybierz dostawcę LLM.',
+        // ----- First-run welcome card -----
+        'welcome-card-title': '👋 Witaj w HEXART.PL/AfterALL!',
+        'welcome-card-intro': 'Aby zacząć korzystać z agenta, potrzebujesz przynajmniej jednego klucza API od dostawcy LLM. Wybierz wariant, który Ci pasuje:',
+        'welcome-video-placeholder': '🎬 Wideo z przewodnikiem konfiguracji pojawi się tutaj wkrótce.',
+        'welcome-card-options-title': '⚖ Jaki klucz wybrać?',
+        'welcome-card-opt-openrouter': 'Jeden klucz daje dostęp do <strong>Claude 4.7, GPT-5, Gemini Pro</strong> i dziesiątek innych modeli. <em>Polecane na start</em> — dłuższe zadania mogą być kosztowne, ale jakość jest najwyższa. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'Czat + generowanie obrazów (Nano Banana / Imagen), TTS, muzyki (Lyria) — wszystko w jednym koncie Google. Darmowy poziom ~15 zapytań/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': 'Bezpośredni dostęp do <strong>GPT-5, GPT-4o, o-series</strong> + generatorów obrazów (gpt-image-1, DALL·E 3). Najdroższa opcja chmurowa. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% lokalnie, za darmo</strong> — pobierasz model open-source (Gemma 3, Llama 3.1, Qwen 2.5) do <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> i agent działa offline. Wymaga GPU z 8+ GB VRAM. Pole API key zostaw puste — większość lokalnych instancji nie używa autoryzacji.',
+        'welcome-card-footer': 'Po podaniu klucza wtyczka automatycznie buduje sobie środowiska Python z dodatkowymi narzędziami — generatory 3D, detektory cięć, rozpoznawanie twarzy i inne usprawnienia pojawiają się na żądanie agenta.',
+        'welcome-card-cta': 'Wprowadź klucze API',
+        // ----- API-setup fallback (replaces chat input when no key) -----
+        'api-setup-title': 'Brak skonfigurowanego klucza API',
+        'api-setup-body': 'Wybierz dostawcę i wprowadź jego klucz API w Ustawieniach, a następnie wróć tutaj, aby zacząć rozmawiać z agentem.',
+        'api-setup-cta': '🔑 Wprowadź klucze API',
+        // ----- LM Studio API key -----
+        'api-key-lmstudio': 'Klucz API LM Studio (opcjonalny)',
         // ----- Send / task lifecycle messages -----
         'amsg-no-api-key': '⚠ Nie wprowadzono klucza API. Kliknij ikonę zębatki, aby to naprawić.',
         'sysmsg-aborting-ops': '⚡ Przerywam bieżące operacje na żądanie użytkownika...',
@@ -951,6 +969,20 @@ const i18nDict = {
         'settings-saved-toast': '✓ Settings updated. LLM: {llm} ({model}) · Images: {img} · TTS: {tts}.',
         // ----- First-run hint -----
         'first-run-hint': '⚙ Open Settings (gear icon) and configure your API keys + pick an LLM provider.',
+        'welcome-card-title': '👋 Welcome to HEXART.PL/AfterALL!',
+        'welcome-card-intro': 'To start using the agent, you need at least one LLM provider\'s API key. Pick the option that fits you best:',
+        'welcome-video-placeholder': '🎬 Setup walkthrough video will appear here shortly.',
+        'welcome-card-options-title': '⚖ Which key should I get?',
+        'welcome-card-opt-openrouter': 'One key gives you access to <strong>Claude 4.7, GPT-5, Gemini Pro</strong>, and dozens more. <em>Recommended starting point</em> — long tasks can get pricey, but quality is top-tier. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'Chat + image generation (Nano Banana / Imagen), TTS, music (Lyria) — all on one Google account. Free tier ~15 req/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': 'Direct access to <strong>GPT-5, GPT-4o, o-series</strong> + image generators (gpt-image-1, DALL·E 3). The priciest cloud option. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% local, free</strong> — download an open-source model (Gemma 3, Llama 3.1, Qwen 2.5) into <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> and the agent runs offline. Needs a GPU with 8+ GB VRAM. Leave the API key field empty — most local installs run without auth.',
+        'welcome-card-footer': 'Once a key is set, the plugin auto-builds Python environments with extra tools on demand — 3D generators, scene-cut detectors, face recognition and more get added by the agent as it needs them.',
+        'welcome-card-cta': 'Configure API keys',
+        'api-setup-title': 'No API key configured yet',
+        'api-setup-body': 'Pick a provider and paste its API key in Settings, then come back here to start chatting with the agent.',
+        'api-setup-cta': '🔑 Configure API keys',
+        'api-key-lmstudio': 'LM Studio API Key (optional)',
         // ----- Send / task lifecycle messages -----
         'amsg-no-api-key': '⚠ No API key entered. Click the gear icon to fix this.',
         'sysmsg-aborting-ops': '⚡ Aborting current operations at your request...',
@@ -1491,6 +1523,20 @@ const i18nDict = {
         'status-task-completed-repetition': 'Aufgabe erledigt (Anti-Schleife).',
         'settings-saved-toast': '✓ Einstellungen aktualisiert. LLM: {llm} ({model}) · Bilder: {img} · TTS: {tts}.',
         'first-run-hint': '⚙ Öffne Einstellungen (Zahnrad) und konfiguriere API-Schlüssel + wähle LLM-Anbieter.',
+        'welcome-card-title': '👋 Willkommen bei HEXART.PL/AfterALL!',
+        'welcome-card-intro': 'Um den Agent zu nutzen, brauchst du mindestens einen API-Schlüssel von einem LLM-Anbieter. Wähle die Variante, die zu dir passt:',
+        'welcome-video-placeholder': '🎬 Setup-Video erscheint hier in Kürze.',
+        'welcome-card-options-title': '⚖ Welchen Schlüssel soll ich nehmen?',
+        'welcome-card-opt-openrouter': 'Ein Schlüssel - Zugriff auf <strong>Claude 4.7, GPT-5, Gemini Pro</strong> und Dutzende weitere. <em>Empfohlener Einstieg</em> - lange Aufgaben können teuer werden, dafür ist die Qualität top. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'Chat + Bildgenerierung (Nano Banana / Imagen), TTS, Musik (Lyria) - alles in einem Google-Konto. Kostenlose Stufe ~15 Anfragen/Min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': 'Direkter Zugang zu <strong>GPT-5, GPT-4o, o-Serie</strong> + Bildgeneratoren (gpt-image-1, DALL·E 3). Die teuerste Cloud-Option. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% lokal, kostenlos</strong> - lade ein Open-Source-Modell (Gemma 3, Llama 3.1, Qwen 2.5) in <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> und der Agent läuft offline. Benötigt eine GPU mit 8+ GB VRAM. API-Key-Feld leer lassen - die meisten lokalen Installationen laufen ohne Auth.',
+        'welcome-card-footer': 'Sobald ein Schlüssel gesetzt ist, baut sich das Plugin Python-Umgebungen mit zusätzlichen Werkzeugen automatisch auf - 3D-Generatoren, Schnitterkennung, Gesichtserkennung und mehr kommen on demand dazu.',
+        'welcome-card-cta': 'API-Schlüssel einrichten',
+        'api-setup-title': 'Kein API-Schlüssel konfiguriert',
+        'api-setup-body': 'Wähle einen Anbieter und füge seinen API-Schlüssel in den Einstellungen ein, dann komm zurück und starte den Chat mit dem Agent.',
+        'api-setup-cta': '🔑 API-Schlüssel einrichten',
+        'api-key-lmstudio': 'LM Studio API-Schlüssel (optional)',
         'amsg-no-api-key': '⚠ Kein API-Schlüssel eingegeben. Klicke das Zahnrad, um das zu beheben.',
         'sysmsg-aborting-ops': '⚡ Operationen werden auf Wunsch abgebrochen...',
         'sysmsg-prev-aborted-new-task': '⚡ Vorherige Aufgabe abgebrochen. Neue beginnt.',
@@ -1656,6 +1702,20 @@ const i18nDict = {
         'status-task-completed-repetition': 'Tarea completada (anti-bucle).',
         'settings-saved-toast': '✓ Ajustes actualizados. LLM: {llm} ({model}) · Imágenes: {img} · TTS: {tts}.',
         'first-run-hint': '⚙ Abre Ajustes (engranaje) y configura tus claves API + elige proveedor LLM.',
+        'welcome-card-title': '👋 ¡Bienvenido a HEXART.PL/AfterALL!',
+        'welcome-card-intro': 'Para empezar a usar el agente necesitas al menos una clave API de un proveedor LLM. Elige la opción que mejor te encaje:',
+        'welcome-video-placeholder': '🎬 El vídeo de configuración aparecerá aquí en breve.',
+        'welcome-card-options-title': '⚖ ¿Qué clave conseguir?',
+        'welcome-card-opt-openrouter': 'Una sola clave te da acceso a <strong>Claude 4.7, GPT-5, Gemini Pro</strong> y decenas más. <em>Recomendado para empezar</em> - las tareas largas pueden encarecerse, pero la calidad es top. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'Chat + generación de imágenes (Nano Banana / Imagen), TTS, música (Lyria) - todo en una sola cuenta de Google. Nivel gratuito ~15 peticiones/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': 'Acceso directo a <strong>GPT-5, GPT-4o, serie o</strong> + generadores de imagen (gpt-image-1, DALL·E 3). La opción más cara de la nube. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% local, gratis</strong> - descargas un modelo open-source (Gemma 3, Llama 3.1, Qwen 2.5) a <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> y el agente trabaja sin conexión. Necesita GPU con 8+ GB de VRAM. Deja el campo de la clave vacío - la mayoría de instalaciones locales no usan auth.',
+        'welcome-card-footer': 'Una vez configurada una clave, el plugin construye entornos Python con herramientas extra a demanda - generadores 3D, detectores de cortes, reconocimiento facial y más se añaden cuando el agente los necesita.',
+        'welcome-card-cta': 'Configurar claves API',
+        'api-setup-title': 'No hay clave API configurada',
+        'api-setup-body': 'Elige un proveedor y pega su clave API en Ajustes, después vuelve aquí para empezar a chatear con el agente.',
+        'api-setup-cta': '🔑 Configurar claves API',
+        'api-key-lmstudio': 'Clave API de LM Studio (opcional)',
         'amsg-no-api-key': '⚠ No has introducido la clave API. Haz clic en el engranaje para corregirlo.',
         'sysmsg-aborting-ops': '⚡ Cancelando operaciones a petición tuya...',
         'sysmsg-prev-aborted-new-task': '⚡ Tarea anterior cancelada. Comenzando una nueva.',
@@ -1821,6 +1881,20 @@ const i18nDict = {
         'status-task-completed-repetition': 'Tâche terminée (anti-boucle).',
         'settings-saved-toast': '✓ Paramètres mis à jour. LLM : {llm} ({model}) · Images : {img} · TTS : {tts}.',
         'first-run-hint': '⚙ Ouvre les Paramètres (roue dentée) et configure tes clés API + choisis un fournisseur LLM.',
+        'welcome-card-title': '👋 Bienvenue dans HEXART.PL/AfterALL !',
+        'welcome-card-intro': 'Pour utiliser l\'agent, il te faut au moins une clé API d\'un fournisseur LLM. Choisis l\'option qui te convient :',
+        'welcome-video-placeholder': '🎬 La vidéo de configuration arrive bientôt ici.',
+        'welcome-card-options-title': '⚖ Quelle clé prendre ?',
+        'welcome-card-opt-openrouter': 'Une seule clé donne accès à <strong>Claude 4.7, GPT-5, Gemini Pro</strong> et des dizaines d\'autres. <em>Point de départ recommandé</em> - les tâches longues peuvent coûter, mais la qualité est top. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'Chat + génération d\'images (Nano Banana / Imagen), TTS, musique (Lyria) - le tout sur un seul compte Google. Niveau gratuit ~15 req/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': 'Accès direct à <strong>GPT-5, GPT-4o, série o</strong> + générateurs d\'images (gpt-image-1, DALL·E 3). L\'option cloud la plus chère. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% local, gratuit</strong> - tu télécharges un modèle open-source (Gemma 3, Llama 3.1, Qwen 2.5) dans <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> et l\'agent tourne hors ligne. Nécessite un GPU avec 8+ Go de VRAM. Laisse le champ clé vide - la plupart des installations locales fonctionnent sans auth.',
+        'welcome-card-footer': 'Une fois la clé en place, le plugin construit automatiquement des environnements Python avec des outils supplémentaires à la demande - générateurs 3D, détecteurs de coupes, reconnaissance faciale et plus encore.',
+        'welcome-card-cta': 'Configurer les clés API',
+        'api-setup-title': 'Aucune clé API configurée',
+        'api-setup-body': 'Choisis un fournisseur et colle sa clé API dans les Paramètres, puis reviens ici pour commencer à discuter avec l\'agent.',
+        'api-setup-cta': '🔑 Configurer les clés API',
+        'api-key-lmstudio': 'Clé API LM Studio (optionnelle)',
         'amsg-no-api-key': '⚠ Aucune clé API saisie. Clique sur la roue dentée pour corriger.',
         'sysmsg-aborting-ops': '⚡ Annulation des opérations en cours sur ta demande...',
         'sysmsg-prev-aborted-new-task': '⚡ Tâche précédente annulée. Démarrage d\'une nouvelle.',
@@ -1986,6 +2060,20 @@ const i18nDict = {
         'status-task-completed-repetition': 'タスク完了 (ループ防止)。',
         'settings-saved-toast': '✓ 設定を更新しました。LLM: {llm} ({model}) · 画像: {img} · TTS: {tts}。',
         'first-run-hint': '⚙ 設定 (歯車アイコン) を開き、API キーを設定して LLM プロバイダーを選択してください。',
+        'welcome-card-title': '👋 HEXART.PL/AfterALL へようこそ！',
+        'welcome-card-intro': 'エージェントを使い始めるには、LLM プロバイダーの API キーが少なくとも 1 つ必要です。あなたに合うオプションを選んでください：',
+        'welcome-video-placeholder': '🎬 セットアップ動画はまもなくここに表示されます。',
+        'welcome-card-options-title': '⚖ どのキーを取得すべき？',
+        'welcome-card-opt-openrouter': '1 つのキーで <strong>Claude 4.7、GPT-5、Gemini Pro</strong> など多数のモデルにアクセス可能。<em>最初に推奨</em>。長時間のタスクは高くなる場合がありますが、品質はトップレベル。<a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
+        'welcome-card-opt-gemini': 'チャット + 画像生成 (Nano Banana / Imagen)、TTS、音楽 (Lyria) — すべて 1 つの Google アカウントで。無料枠は約 15 リクエスト/分。<a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
+        'welcome-card-opt-openai': '<strong>GPT-5、GPT-4o、o シリーズ</strong> + 画像ジェネレーター (gpt-image-1、DALL·E 3) への直接アクセス。クラウドオプションの中で最も高価。<a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
+        'welcome-card-opt-lmstudio': '<strong>100% ローカル、無料</strong> — オープンソースモデル (Gemma 3、Llama 3.1、Qwen 2.5) を <a href="https://lmstudio.ai/" target="_blank">LM Studio</a> にダウンロードすればオフラインでエージェントが動作。8 GB 以上の VRAM を持つ GPU が必要。API キー欄は空のままで OK — ほとんどのローカルインストールは認証なしで動作します。',
+        'welcome-card-footer': 'キーを設定すると、プラグインは必要に応じて追加ツール付きの Python 環境を自動構築します — 3D ジェネレーター、シーンカット検出、顔認識など、エージェントが必要に応じて追加します。',
+        'welcome-card-cta': 'API キーを設定',
+        'api-setup-title': 'API キーが未設定です',
+        'api-setup-body': 'プロバイダーを選び、設定画面でその API キーを貼り付けて、ここに戻ってエージェントとチャットを始めてください。',
+        'api-setup-cta': '🔑 API キーを設定',
+        'api-key-lmstudio': 'LM Studio API キー (オプション)',
         'amsg-no-api-key': '⚠ API キーが未入力です。歯車アイコンをクリックして修正してください。',
         'sysmsg-aborting-ops': '⚡ 現在の操作をキャンセル中...',
         'sysmsg-prev-aborted-new-task': '⚡ 前のタスクをキャンセル。新しいタスクを開始。',
@@ -2127,6 +2215,7 @@ function t(key, fallback) {
     if (agent.replicateApiKey) replicateApiInput.value = agent.replicateApiKey;
     if (agent.elevenlabsApiKey) elevenlabsApiInput.value = agent.elevenlabsApiKey;
     if (agent.openaiApiKey && openaiApiInput) openaiApiInput.value = agent.openaiApiKey;
+    if (agent.lmstudioApiKey && lmstudioApiInput) lmstudioApiInput.value = agent.lmstudioApiKey;
     if (llmProviderSelect) llmProviderSelect.value = agent.llmProvider || 'openrouter';
     if (imgProviderSelect) imgProviderSelect.value = agent.imgProvider || 'gemini';
     if (openrouterLLMModelInput) openrouterLLMModelInput.value = agent.openrouterLLMModel || '';
@@ -5047,16 +5136,93 @@ function t(key, fallback) {
     // Silent check on plugin load — never blocks UI, only flips badge if newer.
     setTimeout(() => { runUpdateCheck(true).catch(() => {}); }, 6500);
 
-    // Initial greeting
+    // ----- First-run welcome + API-setup fallback ----------------------
+    //
+    // The YouTube tutorial ID — set this to the video ID (the part after
+    // `?v=` on a watch URL) when you have one ready. Empty string falls
+    // back to a "video coming soon" placeholder.
+    const WELCOME_YT_VIDEO_ID = '';
+
+    const apiSetupFallback = document.getElementById('api-setup-fallback');
+    const inputWrapper     = document.querySelector('.input-wrapper');
+
+    function hasAnyConfiguredLLM() {
+        return !!(
+            agent.apiKey
+            || agent.openrouterApiKey
+            || agent.openaiApiKey
+            || (agent.llmProvider === 'lmstudio')
+        );
+    }
+    function updateApiSetupVisibility() {
+        const configured = hasAnyConfiguredLLM();
+        if (apiSetupFallback) apiSetupFallback.classList.toggle('hidden', configured);
+        if (inputWrapper)     inputWrapper.classList.toggle('hidden', !configured);
+    }
+
+    // Global delegated handler — any element with [data-open-settings="<tab>"]
+    // opens the Settings panel and switches to that tab. Used by the welcome
+    // card and the API-setup fallback.
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-open-settings]');
+        if (!btn) return;
+        const tab = btn.getAttribute('data-open-settings') || 'secrets';
+        if (settingsBtn) settingsBtn.click();
+        // Give the settings overlay one tick to mount before activating the tab
+        setTimeout(() => {
+            const tabBtn = document.querySelector('.settings-tab[data-tab="' + tab + '"]');
+            if (tabBtn) tabBtn.click();
+            // Scroll to the relevant section if applicable
+            const focusTarget = (tab === 'secrets')
+                ? document.getElementById('openrouter-api')
+                : null;
+            if (focusTarget) focusTarget.focus();
+        }, 60);
+    });
+
+    function buildWelcomeCardHTML() {
+        const videoBlock = WELCOME_YT_VIDEO_ID
+            ? '<div class="welcome-video"><iframe src="https://www.youtube.com/embed/'
+                + WELCOME_YT_VIDEO_ID
+                + '?rel=0&modestbranding=1" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe></div>'
+            : '<div class="welcome-video welcome-video-placeholder"><span>' + escapeAttr(tr('welcome-video-placeholder')) + '</span></div>';
+        return ''
+            + '<div class="welcome-card">'
+            +   '<h2>' + escapeAttr(tr('welcome-card-title')) + '</h2>'
+            +   '<p class="welcome-intro">' + escapeAttr(tr('welcome-card-intro')) + '</p>'
+            +   videoBlock
+            +   '<div class="welcome-options-title">' + escapeAttr(tr('welcome-card-options-title')) + '</div>'
+            +   '<div class="welcome-options">'
+            +     '<div class="welcome-opt welcome-opt-recommended"><div class="welcome-opt-head"><span class="welcome-opt-badge">🥇</span><strong>OpenRouter</strong></div><div class="welcome-opt-body">' + tr('welcome-card-opt-openrouter') + '</div></div>'
+            +     '<div class="welcome-opt"><div class="welcome-opt-head"><span class="welcome-opt-badge">🎨</span><strong>Google Gemini API</strong></div><div class="welcome-opt-body">' + tr('welcome-card-opt-gemini') + '</div></div>'
+            +     '<div class="welcome-opt"><div class="welcome-opt-head"><span class="welcome-opt-badge">💼</span><strong>OpenAI</strong></div><div class="welcome-opt-body">' + tr('welcome-card-opt-openai') + '</div></div>'
+            +     '<div class="welcome-opt welcome-opt-local"><div class="welcome-opt-head"><span class="welcome-opt-badge">💻</span><strong>LM Studio</strong></div><div class="welcome-opt-body">' + tr('welcome-card-opt-lmstudio') + '</div></div>'
+            +   '</div>'
+            +   '<p class="welcome-footer">' + tr('welcome-card-footer') + '</p>'
+            +   '<button type="button" class="welcome-cta primary-save" data-open-settings="secrets">🔑 ' + escapeAttr(tr('welcome-card-cta')) + '</button>'
+            + '</div>';
+    }
+
+    // Sync input/fallback visibility now (in case agent already has a key
+    // from a previous session) and after every save-settings.
+    updateApiSetupVisibility();
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', () => {
+            // Give setCredentials a tick to land, then re-evaluate.
+            setTimeout(updateApiSetupVisibility, 40);
+        });
+    }
+
+    // Initial greeting / welcome card
     setTimeout(() => {
         const lang = (uiLangSelect.value === 'auto' && navigator.language.startsWith('pl')) ? 'pl' : (i18nDict[uiLangSelect.value] ? uiLangSelect.value : 'en');
-        appendMessage('assistant', i18nDict[lang]['greeting'] || tr('greeting'));
-        // First-run hint when no usable LLM key is configured.
-        // LM Studio runs locally so it doesn't need a key.
-        if (!agent.apiKey && !agent.openrouterApiKey && !agent.openaiApiKey && agent.llmProvider !== 'lmstudio') {
-            setTimeout(() => {
-                appendMessage('system', tr('first-run-hint'));
-            }, 800);
+        if (hasAnyConfiguredLLM()) {
+            appendMessage('assistant', i18nDict[lang]['greeting'] || tr('greeting'));
+        } else {
+            // First-run: rich welcome card with embedded video, provider
+            // comparison and CTA button. Sent as a 'system' message so the
+            // HTML (iframe, formatted blocks) renders as-is.
+            appendMessage('system', buildWelcomeCardHTML());
         }
     }, 500);
 
@@ -5606,6 +5772,7 @@ function t(key, fallback) {
             openrouterImageModel: openrouterImgModelInput ? openrouterImgModelInput.value.trim() : '',
             lmstudioLLMModel: lmstudioLLMModelSelect ? lmstudioLLMModelSelect.value : '',
             lmstudioBaseUrl: lmstudioBaseUrlInput ? lmstudioBaseUrlInput.value.trim() : 'http://localhost:1234',
+            lmstudioApiKey:  lmstudioApiInput     ? lmstudioApiInput.value.trim()     : '',
             openaiApiKey:    openaiApiInput        ? openaiApiInput.value.trim()        : '',
             openaiLLMModel:  openaiLLMModelSelect  ? openaiLLMModelSelect.value         : '',
             openaiImageModel:openaiImageModelSelect? openaiImageModelSelect.value       : '',
