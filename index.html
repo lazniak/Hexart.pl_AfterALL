@@ -782,6 +782,28 @@
         </div>
     </div>
 
+    <!-- Restart-AE prompt (shown after a successful in-plugin git-pull update) -->
+    <div id="restart-ae-overlay" class="hidden">
+        <div class="settings-modal glass-panel" style="max-width: 460px;">
+            <div class="settings-header">
+                <h2><span style="margin-right:6px;">🔄</span><span data-i18n="restart-ae-title">After Effects needs a restart</span></h2>
+                <button id="restart-ae-close-btn">&times;</button>
+            </div>
+            <div class="settings-body">
+                <div class="api-help-intro" style="border-left-color: var(--accent);" data-i18n="restart-ae-body">
+                    The plugin has been updated. Adobe After Effects must be restarted to load the new version. Restart now?
+                </div>
+                <div style="margin-top: 0.6rem; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5;" data-i18n="restart-ae-note">
+                    Save your work first — the plugin will quit AE and re-launch it automatically in ~5 seconds.
+                </div>
+            </div>
+            <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
+                <button id="restart-ae-later-btn" class="tool-form-btn" style="flex:1; padding: 10px;" data-i18n="restart-ae-later">Later</button>
+                <button id="restart-ae-now-btn" class="restart-ae-now" style="flex:2; padding: 10px;" data-i18n="restart-ae-now">🔄 Restart now</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Generic Model Picker Modal (Gemini / OpenAI / future providers) -->
     <div id="model-picker-overlay" class="hidden">
         <div class="settings-modal glass-panel" style="max-width: 900px; width: 92%;">

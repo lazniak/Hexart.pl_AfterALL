@@ -659,6 +659,16 @@ const i18nDict = {
         'update-pull-ok':        '✓ Aktualizacja pobrana. Zamknij całkowicie AE i uruchom ponownie.',
         'update-pull-fail':      '✕ git pull nie powiódł się — sprawdź log poniżej.',
         'amsg-update-pull-ok':   '✓ Pobrano najnowszą wersję wtyczki z GitHub. <b>Zamknij całkowicie After Effects (sprawdź Menedżer Zadań) i uruchom ponownie</b>, aby załadować nową wersję.',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects wymaga restartu',
+        'restart-ae-body':       'Wtyczka została zaktualizowana. Aby załadować nową wersję, należy zrestartować Adobe After Effects. Zrobić to teraz?',
+        'restart-ae-note':       'Zapisz najpierw swoją pracę — wtyczka zamknie AE i automatycznie uruchomi go ponownie za ~5 sekund.',
+        'restart-ae-later':      'Później',
+        'restart-ae-now':        '🔄 Restartuj teraz',
+        'restart-ae-restarting': 'Restartuję...',
+        'restart-ae-fail-generic':'Restart nie powiódł się.',
+        'amsg-restart-ae-fail':  '⚠ Nie udało się automatycznie zrestartować After Effects: {msg}. Zamknij i uruchom AE ręcznie.',
+        'log-restart-ae':        'Restart AE: {msg}',
         'update-open-release-btn':'↗ Otwórz stronę wydania',
         'update-open-repo-btn':  '↗ Repozytorium na GitHub',
         'update-unknown':        'nieznana',
@@ -1162,6 +1172,16 @@ const i18nDict = {
         'update-pull-ok':        '✓ Update pulled. Close After Effects completely and start it again.',
         'update-pull-fail':      '✕ git pull failed — see the log below.',
         'amsg-update-pull-ok':   '✓ Latest plugin version pulled from GitHub. <b>Close After Effects completely (verify in Task Manager), then start it again</b> to load the new version.',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects needs a restart',
+        'restart-ae-body':       'The plugin has been updated. Adobe After Effects must be restarted to load the new version. Restart now?',
+        'restart-ae-note':       'Save your work first — the plugin will quit AE and re-launch it automatically in ~5 seconds.',
+        'restart-ae-later':      'Later',
+        'restart-ae-now':        '🔄 Restart now',
+        'restart-ae-restarting': 'Restarting...',
+        'restart-ae-fail-generic':'Restart failed.',
+        'amsg-restart-ae-fail':  '⚠ Could not restart After Effects automatically: {msg}. Please close and re-open AE manually.',
+        'log-restart-ae':        'Restart AE: {msg}',
         'update-open-release-btn':'↗ Open release page',
         'update-open-repo-btn':  '↗ Repository on GitHub',
         'update-unknown':        'unknown',
@@ -1578,6 +1598,16 @@ const i18nDict = {
         'sfx-card-hint': 'SFX-Generierung erfolgt aktuell ausschließlich über ElevenLabs (bis zu 22 s pro Clip).',
         'sfx-provider-label': 'SFX-Anbieter',
         'no-gemini-key-warn': '⚠ Kein Gemini-API-Schlüssel',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects muss neu gestartet werden',
+        'restart-ae-body':       'Das Plugin wurde aktualisiert. Adobe After Effects muss neu gestartet werden, um die neue Version zu laden. Jetzt neu starten?',
+        'restart-ae-note':       'Speichere zuerst deine Arbeit — das Plugin beendet AE und startet es in ~5 Sekunden automatisch neu.',
+        'restart-ae-later':      'Später',
+        'restart-ae-now':        '🔄 Jetzt neu starten',
+        'restart-ae-restarting': 'Starte neu...',
+        'restart-ae-fail-generic':'Neustart fehlgeschlagen.',
+        'amsg-restart-ae-fail':  '⚠ Konnte After Effects nicht automatisch neu starten: {msg}. Bitte schließe und öffne AE manuell.',
+        'log-restart-ae':        'AE-Neustart: {msg}',
         'error-prefix': 'Fehler'
     },
     'es': {
@@ -1757,6 +1787,16 @@ const i18nDict = {
         'sfx-card-hint': 'La generación de SFX la proporciona actualmente solo ElevenLabs (hasta 22 s por clip).',
         'sfx-provider-label': 'Proveedor de SFX',
         'no-gemini-key-warn': '⚠ Falta la clave API de Gemini',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects necesita reiniciarse',
+        'restart-ae-body':       'El plugin se ha actualizado. Adobe After Effects debe reiniciarse para cargar la nueva versión. ¿Reiniciar ahora?',
+        'restart-ae-note':       'Guarda tu trabajo primero — el plugin cerrará AE y lo volverá a abrir automáticamente en ~5 segundos.',
+        'restart-ae-later':      'Más tarde',
+        'restart-ae-now':        '🔄 Reiniciar ahora',
+        'restart-ae-restarting': 'Reiniciando...',
+        'restart-ae-fail-generic':'El reinicio ha fallado.',
+        'amsg-restart-ae-fail':  '⚠ No se pudo reiniciar After Effects automáticamente: {msg}. Por favor, cierra y vuelve a abrir AE manualmente.',
+        'log-restart-ae':        'Reinicio AE: {msg}',
         'error-prefix': 'Error'
     },
     'fr': {
@@ -1936,6 +1976,16 @@ const i18nDict = {
         'sfx-card-hint': 'La génération de SFX n\'est actuellement fournie que par ElevenLabs (jusqu\'à 22 s par clip).',
         'sfx-provider-label': 'Fournisseur SFX',
         'no-gemini-key-warn': '⚠ Clé API Gemini manquante',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects doit redémarrer',
+        'restart-ae-body':       'Le plugin a été mis à jour. Adobe After Effects doit redémarrer pour charger la nouvelle version. Redémarrer maintenant ?',
+        'restart-ae-note':       'Enregistre d\'abord ton travail — le plugin va fermer AE et le relancer automatiquement dans ~5 secondes.',
+        'restart-ae-later':      'Plus tard',
+        'restart-ae-now':        '🔄 Redémarrer maintenant',
+        'restart-ae-restarting': 'Redémarrage...',
+        'restart-ae-fail-generic':'Le redémarrage a échoué.',
+        'amsg-restart-ae-fail':  '⚠ Impossible de redémarrer After Effects automatiquement : {msg}. Ferme et rouvre AE manuellement.',
+        'log-restart-ae':        'Redémarrage AE : {msg}',
         'error-prefix': 'Erreur'
     },
     'ja': {
@@ -2115,6 +2165,16 @@ const i18nDict = {
         'sfx-card-hint': 'SFX 生成は現在 ElevenLabs のみが提供しています（1 クリップ最大 22 秒）。',
         'sfx-provider-label': 'SFX プロバイダー',
         'no-gemini-key-warn': '⚠ Gemini API キーがありません',
+        // Restart-AE prompt (post-update)
+        'restart-ae-title':      'After Effects の再起動が必要です',
+        'restart-ae-body':       'プラグインが更新されました。新しいバージョンを読み込むには Adobe After Effects を再起動する必要があります。今すぐ再起動しますか？',
+        'restart-ae-note':       'まず作業を保存してください — プラグインが AE を終了し、約 5 秒後に自動的に再起動します。',
+        'restart-ae-later':      'あとで',
+        'restart-ae-now':        '🔄 今すぐ再起動',
+        'restart-ae-restarting': '再起動中...',
+        'restart-ae-fail-generic':'再起動に失敗しました。',
+        'amsg-restart-ae-fail':  '⚠ After Effects を自動的に再起動できませんでした: {msg}。手動で AE を閉じて再度開いてください。',
+        'log-restart-ae':        'AE 再起動: {msg}',
         'error-prefix': 'エラー'
     }
 };
@@ -5123,6 +5183,8 @@ function t(key, fallback) {
                 setUpdateStatus(tr('update-pull-ok'), 'ok');
                 setUpdateLog((r.stdout || '') + (r.stderr ? '\n--- stderr ---\n' + r.stderr : ''), false);
                 appendMessage('system', tr('amsg-update-pull-ok'));
+                // Successful update — prompt to restart AE so the new code loads.
+                setTimeout(showRestartAEPrompt, 400);
             } else {
                 setUpdateStatus(tr('update-pull-fail'), 'error');
                 setUpdateLog((r.error || '') + (r.stdout ? '\n' + r.stdout : '') + (r.stderr ? '\n' + r.stderr : ''), true);
@@ -5130,6 +5192,45 @@ function t(key, fallback) {
         } finally {
             updateGitPullBtn.disabled = false;
             updateGitPullBtn.textContent = original;
+        }
+    });
+
+    // ----- Restart-AE prompt (post-update) ----------------------------
+    const restartAEOverlay  = document.getElementById('restart-ae-overlay');
+    const restartAENowBtn   = document.getElementById('restart-ae-now-btn');
+    const restartAELaterBtn = document.getElementById('restart-ae-later-btn');
+    const restartAECloseBtn = document.getElementById('restart-ae-close-btn');
+
+    function showRestartAEPrompt() {
+        if (!restartAEOverlay) return;
+        restartAEOverlay.classList.remove('hidden');
+    }
+    function hideRestartAEPrompt() {
+        if (!restartAEOverlay) return;
+        restartAEOverlay.classList.add('hidden');
+    }
+    if (restartAELaterBtn)  restartAELaterBtn.addEventListener('click', hideRestartAEPrompt);
+    if (restartAECloseBtn)  restartAECloseBtn.addEventListener('click', hideRestartAEPrompt);
+    if (restartAENowBtn)    restartAENowBtn.addEventListener('click', async () => {
+        restartAENowBtn.disabled = true;
+        restartAENowBtn.textContent = tr('restart-ae-restarting');
+        try {
+            const res = await agent.restartAfterEffects();
+            if (res && res.ok) {
+                addLog(tr('log-restart-ae').replace('{msg}', res.message), 'warning');
+                // AE will quit any moment — leave the modal closed so the
+                // last visible state is clean before the window goes away.
+                hideRestartAEPrompt();
+            } else {
+                restartAENowBtn.disabled = false;
+                restartAENowBtn.textContent = tr('restart-ae-now');
+                const msg = (res && res.message) || tr('restart-ae-fail-generic');
+                appendMessage('system', tr('amsg-restart-ae-fail').replace('{msg}', msg));
+            }
+        } catch (e) {
+            restartAENowBtn.disabled = false;
+            restartAENowBtn.textContent = tr('restart-ae-now');
+            appendMessage('system', tr('amsg-restart-ae-fail').replace('{msg}', e.message || String(e)));
         }
     });
 
@@ -5154,10 +5255,24 @@ function t(key, fallback) {
             || (agent.llmProvider === 'lmstudio')
         );
     }
+    // When any LLM key gets configured, the persistent welcome card that
+    // was appendMessage'd into chat history on the initial empty-state load
+    // needs to disappear too — otherwise it lingers as a stale instruction
+    // banner even after the user has clearly moved past first-run.
+    function removeWelcomeCardFromChat() {
+        const cards = document.querySelectorAll('.message .welcome-card');
+        cards.forEach((card) => {
+            const msg = card.closest('.message');
+            if (msg && msg.parentNode) msg.parentNode.removeChild(msg);
+        });
+    }
     function updateApiSetupVisibility() {
         const configured = hasAnyConfiguredLLM();
         if (apiSetupFallback) apiSetupFallback.classList.toggle('hidden', configured);
         if (inputWrapper)     inputWrapper.classList.toggle('hidden', !configured);
+        // Once at least one LLM provider key is in place we never want the
+        // first-run welcome/no-API-key card to show — drop it from chat.
+        if (configured) removeWelcomeCardFromChat();
     }
 
     // Global delegated handler — any element with [data-open-settings="<tab>"]

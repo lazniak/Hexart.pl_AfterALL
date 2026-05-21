@@ -1215,6 +1215,83 @@ except Exception as e:
         }
     }
 
+    // =================================================================
+    // --- Restart After Effects (post-update flow) --------------------
+    // =================================================================
+    //
+    // ExtendScript exposes app.quit() but no relaunch primitive — once AE
+    // exits, it stays exited. The trick is to spawn a DETACHED process
+    // BEFORE quitting that:
+    //   1. Sleeps a few seconds so AE has time to actually exit
+    //      (otherwise re-launching while it's still tearing down can
+    //      create a second instance or hang on the splash screen).
+    //   2. Launches the same AfterFX executable we found via Folder.appPackage
+    //      / app.path.
+    // The detached process survives our parent process death because it's
+    // not tied to AE's stdio.
+    //
+    // Returns: { ok: bool, message: string }
+    async restartAfterEffects() {
+        try {
+            const { spawn } = require('child_process');
+            const path = require('path');
+            // Resolve AE binary path via ExtendScript. Folder.appPackage
+            // on Windows returns the "Support Files" dir; on macOS it
+            // returns the .app bundle path.
+            const csi = new (require('csinterface') ? require('csinterface') : window.CSInterface || CSInterface)();
+            const probe = await new Promise((resolve) => {
+                try {
+                    csi.evalScript(
+                        '(function(){try{return Folder.appPackage.fsName;}catch(e){return "";}})()',
+                        (res) => resolve(res || '')
+                    );
+                } catch (_) { resolve(''); }
+            });
+            const appPackage = (probe && probe !== 'EvalScript error.' && probe !== 'null') ? probe : '';
+
+            const isMac = process.platform === 'darwin';
+            let exePath = '';
+            if (isMac) {
+                // app bundle path (e.g. /Applications/Adobe After Effects 2025/Adobe After Effects 2025.app)
+                exePath = appPackage;
+            } else {
+                // Windows: AfterFX.exe sits inside Support Files
+                if (appPackage) exePath = path.join(appPackage, 'AfterFX.exe');
+            }
+            if (!exePath) {
+                return { ok: false, message: 'Could not resolve After Effects executable path. Restart manually.' };
+            }
+            // Spawn the detached re-launcher. On Windows we use cmd's
+            // `timeout` + `start`, on macOS we use `open -n` after a sleep.
+            const exists = require('fs').existsSync(exePath);
+            if (!exists && !isMac) {
+                return { ok: false, message: 'After Effects executable not found at ' + exePath + '. Restart manually.' };
+            }
+            if (isMac) {
+                spawn('sh', ['-c', 'sleep 5 && open -n "' + exePath.replace(/"/g, '\\"') + '"'], {
+                    detached: true, stdio: 'ignore'
+                }).unref();
+            } else {
+                // The trailing & is implicit because start launches detached.
+                // /B suppresses the new console window. timeout /nobreak
+                // avoids the "Press any key to continue" prompt.
+                const cmdLine = 'timeout /t 5 /nobreak >nul && start "" "' + exePath.replace(/"/g, '""') + '"';
+                spawn('cmd', ['/c', cmdLine], {
+                    detached: true,
+                    stdio: 'ignore',
+                    windowsHide: true,
+                    shell: false
+                }).unref();
+            }
+            // Now quit AE. The detached process is already on the way and
+            // will re-launch in ~5 seconds.
+            csi.evalScript('try { app.quit(); } catch(e) {}');
+            return { ok: true, message: 'Quitting After Effects — it will re-launch automatically in ~5 seconds.' };
+        } catch (e) {
+            return { ok: false, message: 'Restart failed: ' + (e.message || String(e)) };
+        }
+    }
+
     // Run `git pull origin main` inside the plugin root if the user opts in
     // and the folder is a git checkout. Returns { ok, stdout, stderr }.
     async pluginGitPull() {
