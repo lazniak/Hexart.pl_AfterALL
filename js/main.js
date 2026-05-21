@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.1',
+                version: '2.2.0.2',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -7094,7 +7094,11 @@ function t(key, fallback) {
             return;
         }
         
-        if (!agent.apiKey) {
+        // Pre-flight: any LLM provider must be usable. Bare `agent.apiKey`
+        // covered only Gemini and silently blocked OpenRouter / OpenAI /
+        // LM Studio users — LM Studio in particular is local and key is
+        // optional. The hasAnyConfiguredLLM() helper handles all four.
+        if (!hasAnyConfiguredLLM()) {
             appendMessage('assistant', tr('amsg-no-api-key'));
             addLog(tr('log-no-api-key'), 'error');
             return;

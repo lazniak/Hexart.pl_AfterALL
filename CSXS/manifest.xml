@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="11.0" ExtensionBundleId="pl.hexart.afterall" ExtensionBundleVersion="2.2.0.1" ExtensionBundleName="HEXART.PL/AfterALL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ExtensionManifest Version="11.0" ExtensionBundleId="pl.hexart.afterall" ExtensionBundleVersion="2.2.0.2" ExtensionBundleName="HEXART.PL/AfterALL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="pl.hexart.afterall.panel" Version="2.2.0.1" />
+        <Extension Id="pl.hexart.afterall.panel" Version="2.2.0.2" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>

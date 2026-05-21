@@ -9,6 +9,20 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.2] — 2026-05-21
+
+### Fixed
+- **LM Studio chat pre-flight blocked all chat without Gemini key.**
+  `handleSend()` checked `if (!agent.apiKey)` (Gemini-only) before
+  letting any prompt through. LM Studio is local and its API key is
+  optional, so users who selected LM Studio as their LLM provider and
+  hadn't entered a Gemini key were getting "⚠ No API key entered.
+  Click the gear icon to fix this." in chat with no way to proceed.
+  The check now uses `hasAnyConfiguredLLM()` — true when any of Gemini /
+  OpenRouter / OpenAI keys are set OR the active provider is LM Studio.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.1] — 2026-05-21
 
 First iteration on top of 2.2.0 (see VERSIONING.md for the 4-segment
@@ -327,7 +341,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...HEAD
+[2.2.0.2]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...v2.2.0.2
 [2.2.0.1]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...v2.2.0.1
 [2.2.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.0.0...v2.1.0
