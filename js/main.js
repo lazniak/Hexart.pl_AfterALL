@@ -351,6 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const openaiApiInput        = document.getElementById('openai-api');
     const openaiLLMModelSelect  = document.getElementById('openai-llm-model');
     const openaiImageModelSelect= document.getElementById('openai-image-model');
+    const openaiGroundingInput  = document.getElementById('openai-grounding-model');
+    const lmstudioGroundingSelect = document.getElementById('lmstudio-grounding-model');
     // ComfyUI references
     const comfyuiBaseUrlInput   = document.getElementById('comfyui-base-url');
     const comfyuiWorkflowInput  = document.getElementById('comfyui-workflow');
@@ -781,8 +783,17 @@ const i18nDict = {
         'mp-title-gemini-image': 'Katalog modeli Gemini (obrazy)',
         'mp-title-openai-llm':   'Katalog modeli OpenAI (logika / LLM)',
         'mp-title-openai-image': 'Katalog modeli OpenAI (obrazy)',
+        'mp-title-openai-grounding': 'Katalog modeli OpenAI (Grounding / web search)',
+        // OpenAI / LMStudio grounding fields
+        'openai-grounding-label': 'Model do wyszukiwania w sieci (Grounding)',
+        'openai-grounding-hint': 'Używany tylko gdy „Google Search Grounding" jest włączony. <code>gpt-4o-search-preview</code> i <code>gpt-5-search-preview</code> mają wbudowane wyszukiwanie web w Chat Completions API.',
+        'lmstudio-grounding-label': 'Model do wyszukiwania w sieci (Grounding)',
+        'lmstudio-grounding-none': '(brak — Grounding wyłączony dla LM Studio)',
+        'lmstudio-grounding-hint': 'Opcjonalnie: wybierz lokalny model z obsługą tool/function calling do zapytań grounding. Lokalne LLM nie mają wbudowanego wyszukiwania — typowo uruchamiasz model search-augmented (np. Llama 3.1 + tool calling + zewnętrzny MCP do wyszukiwarki).',
         'mp-search-ph':          '🔎 Szukaj po nazwie / id / opisie...',
         'mp-sort-recommended':   'Polecane na początku',
+        'mp-sort-price-asc':     'Cena ↑ (najtaniej)',
+        'mp-sort-price-desc':    'Cena ↓ (najdrożej)',
         'mp-sort-name':          'Nazwa A–Z',
         'mp-sort-context-desc':  'Kontekst ↓',
         'mp-sort-id':            'ID modelu A–Z',
@@ -1216,8 +1227,17 @@ const i18nDict = {
         'mp-title-gemini-image': 'Gemini model catalog (image)',
         'mp-title-openai-llm':   'OpenAI model catalog (logic / LLM)',
         'mp-title-openai-image': 'OpenAI model catalog (image)',
+        'mp-title-openai-grounding': 'OpenAI model catalog (Grounding / web search)',
+        // OpenAI / LMStudio grounding fields
+        'openai-grounding-label': 'Web-search model (Grounding)',
+        'openai-grounding-hint': 'Used only when "Google Search Grounding" is enabled. <code>gpt-4o-search-preview</code> and <code>gpt-5-search-preview</code> have native web search via the Chat Completions API.',
+        'lmstudio-grounding-label': 'Web-search model (Grounding)',
+        'lmstudio-grounding-none': '(none — Grounding disabled for LM Studio)',
+        'lmstudio-grounding-hint': 'Optional: pick a local model with tool/function calling for grounding calls. Local LMs have no built-in web search — typically you would run a search-augmented model (e.g. Llama 3.1 + tool calling + an external search MCP).',
         'mp-search-ph':          '🔎 Search by name / id / description...',
         'mp-sort-recommended':   'Recommended first',
+        'mp-sort-price-asc':     'Price ↑ (cheapest)',
+        'mp-sort-price-desc':    'Price ↓ (most expensive)',
         'mp-sort-name':          'Name A–Z',
         'mp-sort-context-desc':  'Context ↓',
         'mp-sort-id':            'Model ID A–Z',
@@ -1920,6 +1940,7 @@ function t(key, fallback) {
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
     // OpenAI fields
     if (openaiImageModelSelect) openaiImageModelSelect.value = agent.openaiImageModel || 'gpt-image-1';
+    if (openaiGroundingInput)   openaiGroundingInput.value   = agent.openaiGroundingModel || '';
     // ComfyUI fields
     if (comfyuiBaseUrlInput) comfyuiBaseUrlInput.value = agent.comfyuiBaseUrl || 'http://127.0.0.1:8188';
     if (comfyuiWorkflowInput) comfyuiWorkflowInput.value = agent.comfyuiWorkflow || '';
@@ -4494,6 +4515,33 @@ function t(key, fallback) {
             }
             // Defensive secondary filter so non-LLM IDs never sneak into the LLM picker
             const filtered = (raw || []).filter(m => modelKindMatches(m, opts.kind || 'llm'));
+
+            // Enrich with LiteLLM pricing where the provider didn't bring its
+            // own pricing (OpenRouter already does — they're the catalog).
+            // This kicks off the pricing fetch in parallel so the picker
+            // renders fast and the prices fill in within ~300ms.
+            if (opts.provider === 'openai' || opts.provider === 'gemini') {
+                try {
+                    const pricingMap = await agent.fetchLiteLLMPricing(false);
+                    for (const m of filtered) {
+                        if (m.pricing && (m.pricing.promptPerMTok != null)) continue; // already priced
+                        const p = agent.lookupPricing(pricingMap, opts.provider, m.id);
+                        if (!p) continue;
+                        m.pricing = m.pricing || {};
+                        m.pricing.promptPerMTok     = p.inputPerMTok;
+                        m.pricing.completionPerMTok = p.outputPerMTok;
+                        if (!m.contextLength && p.contextLength) m.contextLength = p.contextLength;
+                        if (!m.outputLimit   && p.maxOutput)     m.outputLimit   = p.maxOutput;
+                        // Bias provider-inferred feature flags with LiteLLM's
+                        // explicit metadata (only widen, never narrow).
+                        m.features = m.features || {};
+                        if (p.features.vision) m.features.vision = true;
+                        if (p.features.tools)  m.features.tools  = true;
+                        if (p.features.json)   m.features.json   = true;
+                    }
+                } catch (_) { /* pricing is best-effort */ }
+            }
+
             mpCache = filtered;
             mpStatus.textContent = tr('mp-found-n').replace('{n}', String(filtered.length));
             renderModelPickerList();
@@ -4521,10 +4569,25 @@ function t(key, fallback) {
         }
         const sortBy = mpSort.value;
         const provider = mpCtx.provider;
+        const priceSum = m => {
+            if (!m.pricing) return Number.POSITIVE_INFINITY;
+            const p = (m.pricing.promptPerMTok || 0) + (m.pricing.completionPerMTok || 0);
+            return p > 0 ? p : Number.POSITIVE_INFINITY;
+        };
         filtered.sort((a, b) => {
             if (sortBy === 'name')         return (a.name || a.id).localeCompare(b.name || b.id);
             if (sortBy === 'id')           return (a.id || '').localeCompare(b.id || '');
             if (sortBy === 'context-desc') return (b.contextLength || 0) - (a.contextLength || 0);
+            if (sortBy === 'price-asc')    return priceSum(a) - priceSum(b);
+            if (sortBy === 'price-desc') {
+                // Sort by descending sum, but push unknown-price models to the
+                // end so the user sees real numbers first.
+                const ap = priceSum(a), bp = priceSum(b);
+                if (!isFinite(ap) && !isFinite(bp)) return 0;
+                if (!isFinite(ap)) return  1;
+                if (!isFinite(bp)) return -1;
+                return bp - ap;
+            }
             // 'recommended' (default)
             return modelRecommendedScore(b, provider) - modelRecommendedScore(a, provider);
         });
@@ -4556,6 +4619,22 @@ function t(key, fallback) {
             if (REASONING_RX.test(m.id || ''))   badges.push('<span class="badge feat" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:white;">Reasoning</span>');
             if (/-preview\b|-exp\b|-experimental\b/i.test(m.id || '')) badges.push('<span class="badge" style="background:rgba(251,191,36,0.18);color:#fbbf24;">Preview</span>');
             if (/legacy|deprecated/i.test(m.id || '') || /legacy/i.test(m.description || '')) badges.push('<span class="badge" style="background:rgba(239,68,68,0.15);color:#fca5a5;">Legacy</span>');
+            // Pricing badge — only when we actually have numbers
+            let priceBadge = '';
+            if (m.pricing && (m.pricing.promptPerMTok != null) && (m.pricing.completionPerMTok != null) && (m.pricing.promptPerMTok > 0 || m.pricing.completionPerMTok > 0)) {
+                const fmt = v => {
+                    if (v == null) return '?';
+                    if (v < 0.01)  return v.toFixed(4);
+                    if (v < 1)     return v.toFixed(3);
+                    if (v < 10)    return v.toFixed(2);
+                    return v.toFixed(2);
+                };
+                const pIn  = fmt(m.pricing.promptPerMTok);
+                const pOut = fmt(m.pricing.completionPerMTok);
+                priceBadge = '<span class="badge price-badge" title="USD per 1M tokens (input / output)">💲 $' + pIn + ' / $' + pOut + ' / 1M tok</span>';
+            } else if (m.pricing && m.pricing.promptPerMTok === 0 && m.pricing.completionPerMTok === 0) {
+                priceBadge = '<span class="badge free">FREE</span>';
+            }
             const shortName = m.name && m.name.length > 40 ? m.name.substring(0, 38) + '…' : m.name;
             row.innerHTML = ''
                 + '<div class="or-model-head">'
@@ -4564,7 +4643,8 @@ function t(key, fallback) {
                 + '</div>'
                 + '<div class="or-model-meta">'
                 +   '<span title="Context window">📐 ' + ctx + (out ? ' · out ' + out : '') + '</span>'
-                +   badges.join(' ')
+                +   (priceBadge ? ' ' + priceBadge : '')
+                +   ' ' + badges.join(' ')
                 + '</div>'
                 + (m.description
                     ? '<div class="or-model-desc">' + escapeHtml(m.description.substring(0, 220)) + (m.description.length > 220 ? '…' : '') + '</div>'
@@ -4628,6 +4708,54 @@ function t(key, fallback) {
         provider: 'openai', kind: 'image', target: openaiImageModelSelect,
         title: tr('mp-title-openai-image')
     }));
+    const pickOpenAIGroundingBtn = document.getElementById('pick-openai-grounding');
+    if (pickOpenAIGroundingBtn) pickOpenAIGroundingBtn.addEventListener('click', () => openModelPicker({
+        provider: 'openai', kind: 'llm', target: openaiGroundingInput,
+        title: tr('mp-title-openai-grounding')
+    }));
+
+    // LMStudio grounding select — populated from the same fetch that drives
+    // the main LMStudio model dropdown. We mirror options whenever the main
+    // list refreshes.
+    function mirrorLmStudioGroundingOptions() {
+        if (!lmstudioGroundingSelect || !lmstudioLLMModelSelect) return;
+        const current = lmstudioGroundingSelect.value || agent.lmstudioGroundingModel || '';
+        lmstudioGroundingSelect.innerHTML = '';
+        const noneOpt = document.createElement('option');
+        noneOpt.value = '';
+        noneOpt.textContent = tr('lmstudio-grounding-none');
+        lmstudioGroundingSelect.appendChild(noneOpt);
+        Array.from(lmstudioLLMModelSelect.options).forEach(o => {
+            if (!o.value) return;
+            const clone = document.createElement('option');
+            clone.value = o.value;
+            clone.textContent = o.textContent;
+            clone.title = o.title;
+            lmstudioGroundingSelect.appendChild(clone);
+        });
+        if (current) {
+            const has = Array.from(lmstudioGroundingSelect.options).some(o => o.value === current);
+            if (has) lmstudioGroundingSelect.value = current;
+            else {
+                // Stored value not in current list — keep it as a manual entry
+                const stored = document.createElement('option');
+                stored.value = current;
+                stored.textContent = current + ' (stored)';
+                lmstudioGroundingSelect.appendChild(stored);
+                lmstudioGroundingSelect.value = current;
+            }
+        }
+    }
+    const refreshLmStudioGroundingBtn = document.getElementById('refresh-lmstudio-grounding');
+    if (refreshLmStudioGroundingBtn) refreshLmStudioGroundingBtn.addEventListener('click', async () => {
+        await loadLMStudioModels(true);
+        mirrorLmStudioGroundingOptions();
+    });
+    // Re-mirror whenever the main LMStudio list is rebuilt
+    if (lmstudioLLMModelSelect) {
+        const observer = new MutationObserver(() => mirrorLmStudioGroundingOptions());
+        observer.observe(lmstudioLLMModelSelect, { childList: true });
+    }
     const refreshOpenAIImgBtn = document.getElementById('refresh-openai-img-models');
     if (refreshOpenAIImgBtn) refreshOpenAIImgBtn.addEventListener('click', async () => {
         // Lightweight refresh: open the picker briefly to refetch image catalog
@@ -5439,6 +5567,8 @@ function t(key, fallback) {
             openaiApiKey:    openaiApiInput        ? openaiApiInput.value.trim()        : '',
             openaiLLMModel:  openaiLLMModelSelect  ? openaiLLMModelSelect.value         : '',
             openaiImageModel:openaiImageModelSelect? openaiImageModelSelect.value       : '',
+            openaiGroundingModel:    openaiGroundingInput   ? openaiGroundingInput.value.trim() : '',
+            lmstudioGroundingModel:  lmstudioGroundingSelect? lmstudioGroundingSelect.value     : '',
             comfyuiBaseUrl:  comfyuiBaseUrlInput   ? comfyuiBaseUrlInput.value.trim()   : 'http://127.0.0.1:8188',
             comfyuiWorkflow: comfyuiWorkflowInput  ? comfyuiWorkflowInput.value         : '',
             ttsModel: effTtsModel,

@@ -103,6 +103,10 @@ class AisistAgent {
         this.openrouterLLMModel = getStr('hexart_openrouter_llm_model', 'anthropic/claude-opus-4.7');
         this.openrouterGroundingModel = getStr('hexart_openrouter_grounding_model', 'perplexity/sonar-pro-search');
         this.lmstudioLLMModel = getStr('hexart_lmstudio_llm_model', '');
+        // Local LMStudio models don't have built-in web search, so the user
+        // must opt in to whichever local model they want for grounding calls
+        // (typically a tool-calling-capable model plus their own search agent).
+        this.lmstudioGroundingModel = getStr('hexart_lmstudio_grounding_model', '');
         this.lmstudioBaseUrl = getStr('hexart_lmstudio_url', 'http://localhost:1234');
 
         // ---- OpenAI (LLM + Image) ---------------------------------------
@@ -110,6 +114,11 @@ class AisistAgent {
         this.openaiLLMModel    = getStr('hexart_openai_llm_model', 'gpt-4o');
         this.openaiImageModel  = getStr('hexart_openai_image_model', 'gpt-image-1');
         this.openaiBaseUrl     = getStr('hexart_openai_base_url', 'https://api.openai.com/v1');
+        // When the user enables Google Search Grounding and the active LLM
+        // provider is OpenAI, we swap to this model for the single call.
+        // gpt-4o-search-preview / gpt-5-search-preview are the OpenAI models
+        // with native web search via the Chat Completions API.
+        this.openaiGroundingModel = getStr('hexart_openai_grounding_model', 'gpt-4o-search-preview');
 
         // ---- ComfyUI (local image generation) ---------------------------
         // ComfyUI is a node-graph image generator that you run locally
@@ -265,12 +274,19 @@ class AisistAgent {
             default:           return this.geminiModel;
         }
     }
-    // When grounding is enabled and the active provider is OpenRouter, swap to the
-    // configured grounding model (e.g. Perplexity Sonar online) for this single call.
+    // When grounding is enabled, swap to whichever model the user picked for
+    // grounding calls on the active provider:
+    //   • OpenRouter  -> Perplexity Sonar / etc. (network search aggregator)
+    //   • OpenAI      -> gpt-4o-search-preview / gpt-5-search-preview
+    //   • LMStudio    -> user's choice (typically tool-calling local model)
+    //   • Gemini      -> stays on the active model; the grounding flag is
+    //                    handled at the payload level via { google_search: {} }
     // Returns the model name to use for the current LLM request.
     getModelForCall(needsGrounding) {
-        if (needsGrounding && this.llmProvider === 'openrouter' && this.openrouterGroundingModel) {
-            return this.openrouterGroundingModel;
+        if (needsGrounding) {
+            if (this.llmProvider === 'openrouter' && this.openrouterGroundingModel) return this.openrouterGroundingModel;
+            if (this.llmProvider === 'openai'     && this.openaiGroundingModel)     return this.openaiGroundingModel;
+            if (this.llmProvider === 'lmstudio'   && this.lmstudioGroundingModel)   return this.lmstudioGroundingModel;
         }
         return this.getActiveLLMModel();
     }
@@ -976,6 +992,97 @@ except Exception as e:
         return result;
     }
 
+    // =================================================================
+    // --- LiteLLM pricing fetcher --------------------------------------
+    // =================================================================
+    //
+    // OpenAI's /v1/models endpoint does not expose pricing. Gemini's API
+    // doesn't either. The community-maintained LiteLLM project ships a
+    // single JSON file (model_prices_and_context_window.json, MIT) that
+    // tracks per-token USD costs for every mainstream model. We fetch it
+    // once, cache for 24 hours, and use it to enrich the model picker.
+    //
+    // Lookup is provider-aware: Gemini IDs in LiteLLM are namespaced as
+    // "gemini/<id>"; OpenAI IDs match directly but sometimes carry a
+    // dated suffix (gpt-4o-2024-08-06) — we fall back to the bare prefix.
+    // =================================================================
+    LITELLM_PRICING_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
+    LITELLM_TTL_MS = 24 * 60 * 60 * 1000;
+
+    async fetchLiteLLMPricing(force) {
+        if (!this._pricingCache) this._pricingCache = { data: null, ts: 0, inFlight: null };
+        const now = Date.now();
+        if (!force && this._pricingCache.data && (now - this._pricingCache.ts) < this.LITELLM_TTL_MS) {
+            return this._pricingCache.data;
+        }
+        if (this._pricingCache.inFlight) return this._pricingCache.inFlight;
+        this._pricingCache.inFlight = (async () => {
+            try {
+                const res = await fetch(this.LITELLM_PRICING_URL, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'User-Agent': 'hexart-afterall-pricing' }
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                this._pricingCache.data = data;
+                this._pricingCache.ts   = Date.now();
+                return data;
+            } catch (e) {
+                // Keep stale data if we had any; tests like (data && ...) elsewhere stay safe.
+                return this._pricingCache.data || {};
+            } finally {
+                this._pricingCache.inFlight = null;
+            }
+        })();
+        return this._pricingCache.inFlight;
+    }
+
+    // Returns { inputPerMTok, outputPerMTok, contextLength, maxOutput,
+    //          features: { vision, tools, json } } or null.
+    //
+    // Tries (in order):
+    //   1. provider-prefixed key (gemini/<id>, openai/<id>)
+    //   2. exact id
+    //   3. id with trailing -YYYY-MM-DD date stripped
+    //   4. id with trailing -preview / -experimental / -exp / -beta stripped
+    lookupPricing(pricingMap, providerName, modelId) {
+        if (!pricingMap || !modelId) return null;
+        const tries = [];
+        if (providerName) tries.push(providerName + '/' + modelId);
+        tries.push(modelId);
+        // Strip date suffix
+        const stripDate = modelId.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+        if (stripDate !== modelId) {
+            if (providerName) tries.push(providerName + '/' + stripDate);
+            tries.push(stripDate);
+        }
+        // Strip preview/exp suffix
+        const stripPreview = modelId.replace(/-(preview|experimental|exp|beta)(-\d+)?$/, '');
+        if (stripPreview !== modelId) {
+            if (providerName) tries.push(providerName + '/' + stripPreview);
+            tries.push(stripPreview);
+        }
+        let entry = null;
+        for (const key of tries) {
+            if (pricingMap[key]) { entry = pricingMap[key]; break; }
+        }
+        if (!entry) return null;
+        const inP  = parseFloat(entry.input_cost_per_token  || 0) * 1_000_000;
+        const outP = parseFloat(entry.output_cost_per_token || 0) * 1_000_000;
+        return {
+            inputPerMTok:  isFinite(inP)  ? inP  : null,
+            outputPerMTok: isFinite(outP) ? outP : null,
+            contextLength: entry.max_input_tokens || entry.max_tokens || null,
+            maxOutput:     entry.max_output_tokens || null,
+            features: {
+                vision: !!entry.supports_vision,
+                tools:  !!(entry.supports_function_calling || entry.supports_tool_choice),
+                json:   !!entry.supports_response_schema
+            },
+            raw: entry
+        };
+    }
+
     // Lightweight stats fetch — returns { stars, forks, watchers, htmlUrl }
     // for the configured GitHub repository. Anonymous call, shares the 60/hour
     // rate limit with checkForUpdates(). Failures are silent (caller decides
@@ -1568,6 +1675,8 @@ ${this.getSkillsSummary()}
         assign('openaiLLMModel', 'openaiLLMModel', 'hexart_openai_llm_model');
         assign('openaiImageModel', 'openaiImageModel', 'hexart_openai_image_model');
         assign('openaiBaseUrl', 'openaiBaseUrl', 'hexart_openai_base_url');
+        assign('openaiGroundingModel', 'openaiGroundingModel', 'hexart_openai_grounding_model');
+        assign('lmstudioGroundingModel', 'lmstudioGroundingModel', 'hexart_lmstudio_grounding_model');
         assign('comfyuiBaseUrl', 'comfyuiBaseUrl', 'hexart_comfyui_url');
         assign('comfyuiWorkflow', 'comfyuiWorkflow', 'hexart_comfyui_workflow');
 

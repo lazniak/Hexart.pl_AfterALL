@@ -272,6 +272,13 @@
                                 <button type="button" id="refresh-openai-models" class="mini-btn" title="Fetch OpenAI models">↻</button>
                             </div>
                             <span class="hint" data-i18n="openai-hint">Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.</span>
+
+                            <label for="openai-grounding-model" data-i18n="openai-grounding-label" style="margin-top:0.7rem;">Web-search model (Grounding)</label>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="openai-grounding-model" placeholder="e.g. gpt-4o-search-preview" style="flex:1;">
+                                <button type="button" id="pick-openai-grounding" class="mini-btn" title="Pick a web-search-capable model">📋</button>
+                            </div>
+                            <span class="hint" data-i18n-html="openai-grounding-hint">Used only when "Google Search Grounding" is enabled. OpenAI's <code>gpt-4o-search-preview</code> and <code>gpt-5-search-preview</code> have native web search via the Chat Completions API.</span>
                         </div>
 
                         <!-- LMStudio LLM -->
@@ -289,6 +296,15 @@
                             <label for="lmstudio-base-url" data-i18n="lmstudio-url-label">LM Studio server URL</label>
                             <input type="text" id="lmstudio-base-url" placeholder="http://localhost:1234" value="http://localhost:1234">
                             <span class="hint" data-i18n="lmstudio-hint">Local models · requires a running LM Studio server (Server Mode)</span>
+
+                            <label for="lmstudio-grounding-model" data-i18n="lmstudio-grounding-label" style="margin-top:0.7rem;">Web-search model (Grounding)</label>
+                            <div style="display:flex; gap:6px;">
+                                <select id="lmstudio-grounding-model" style="flex:1;">
+                                    <option value="" data-i18n="lmstudio-grounding-none">(none — Grounding disabled for LM Studio)</option>
+                                </select>
+                                <button type="button" id="refresh-lmstudio-grounding" class="mini-btn" title="Refresh model list">↻</button>
+                            </div>
+                            <span class="hint" data-i18n-html="lmstudio-grounding-hint">Optional: pick a local model with tool/function calling for grounding calls. Local LMs have no built-in web search — typically you'd run a search-augmented model (e.g. Llama 3.1 + tool calling + an external search MCP).</span>
                         </div>
                     </div>
 
@@ -778,9 +794,11 @@
                     <input type="text" id="mp-search" data-i18n-ph="mp-search-ph" placeholder="Search by name / id / description..." style="flex:2;">
                     <select id="mp-sort">
                         <option value="recommended" data-i18n="mp-sort-recommended">Recommended first</option>
-                        <option value="name" data-i18n="mp-sort-name">Name A–Z</option>
+                        <option value="price-asc"   data-i18n="mp-sort-price-asc">Price ↑ (cheapest)</option>
+                        <option value="price-desc"  data-i18n="mp-sort-price-desc">Price ↓ (most expensive)</option>
+                        <option value="name"        data-i18n="mp-sort-name">Name A–Z</option>
                         <option value="context-desc" data-i18n="mp-sort-context-desc">Context ↓</option>
-                        <option value="id" data-i18n="mp-sort-id">Model ID A–Z</option>
+                        <option value="id"          data-i18n="mp-sort-id">Model ID A–Z</option>
                     </select>
                 </div>
                 <div class="picker-features" id="mp-features">
