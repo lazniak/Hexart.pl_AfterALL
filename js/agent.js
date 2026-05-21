@@ -278,6 +278,13 @@ class AisistAgent {
             pythonTools: true
         }, ff || {});
 
+        // Track which feature flags we auto-disabled because their API
+        // key was missing. We use this set to know we're allowed to
+        // auto-re-enable a feature once the user adds the key — without
+        // ever touching flags the user explicitly turned off themselves.
+        const autoArr = getJSON('hexart_auto_disabled_flags', null);
+        this._autoDisabledFlags = new Set(Array.isArray(autoArr) ? autoArr : []);
+
         // ---- Tools registry (state for activation/deactivation) --------
         const toolsState = getJSON('hexart_tools_state', null);
         this.toolsState = (toolsState && typeof toolsState === 'object') ? toolsState : {};
@@ -340,6 +347,11 @@ class AisistAgent {
             lmstudio: { list: null, ts: 0 }
         };
         this.MODEL_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+        // Run the key audit once on construction so every feature flag is
+        // in sync with the keys we just loaded from disk. main.js may show
+        // a one-shot recommendation chat message based on the result.
+        try { this.syncFeatureFlagsToKeys(); } catch (_) {}
     }
 
     // ---- Provider factory (lazy) ---------------------------------------
@@ -493,8 +505,103 @@ class AisistAgent {
         return this.featureFlags[name] !== false;
     }
     setFeatureFlag(name, value) {
-        this.featureFlags[name] = !!value;
+        const next = !!value;
+        // Manual flips clear the auto-disabled tag — the user has spoken,
+        // we never re-override their decision.
+        if (this._autoDisabledFlags && this._autoDisabledFlags.has(name)) {
+            this._autoDisabledFlags.delete(name);
+            try { diskStorage.setItem('hexart_auto_disabled_flags', JSON.stringify(Array.from(this._autoDisabledFlags))); } catch (_) {}
+        }
+        this.featureFlags[name] = next;
         diskStorage.setItem('hexart_feature_flags', JSON.stringify(this.featureFlags));
+    }
+
+    // ---------------------------------------------------------------
+    // Auto-disable: sync feature flags to the current API keys.
+    // ---------------------------------------------------------------
+    // Each generator needs at least one credential to actually work. If
+    // the user hasn't configured the key(s) it depends on, we flip the
+    // feature flag to false so the agent never even tries to use it —
+    // and we keep a separate `_autoDisabledFlags` set so we know we
+    // disabled it (so when the key shows up later, we can flip it
+    // back on without trampling a user-chosen "off").
+    //
+    // Returns: { newlyDisabled, newlyEnabled, currentlyAutoDisabled, hasAnyLLM }
+    //
+    // Callers: constructor (right after keys load), setCredentials (right
+    // after a save), and the model picker after the user types a key.
+    syncFeatureFlagsToKeys() {
+        // Truthy if any LLM key is configured OR LM Studio is the active
+        // provider (LM Studio is local and doesn't require a key).
+        const hasAnyLLM = !!(this.apiKey || this.openrouterApiKey || this.openaiApiKey || this.llmProvider === 'lmstudio');
+
+        // Per-feature availability — at least one path satisfied = available.
+        const checks = {
+            // Image generators: any provider that can produce an image.
+            imageGen:  !!(this.apiKey || this.openrouterApiKey || this.openaiApiKey || this.comfyuiBaseUrl),
+            // Image edits don't go through ComfyUI in our current wiring.
+            imageEdit: !!(this.apiKey || this.openrouterApiKey || this.openaiApiKey),
+            // Replicate is the only Grok-video path today.
+            videoGen:  !!this.replicateApiKey,
+            // TTS: either Gemini (apiKey) or ElevenLabs.
+            ttsGen:    !!(this.elevenlabsApiKey || this.apiKey),
+            // STT: only ElevenLabs (WhisperX exists as a Python skill but
+            // doesn't go through the feature flag).
+            sttGen:    !!this.elevenlabsApiKey,
+            // Music: Gemini Lyria or ElevenLabs Music.
+            musicGen:  !!(this.elevenlabsApiKey || this.apiKey),
+            // SFX: only ElevenLabs.
+            sfxGen:    !!this.elevenlabsApiKey,
+            // SVG runs on the active LLM.
+            svgGen:    hasAnyLLM,
+            // Grounding only works on Gemini natively; OpenAI search-preview
+            // models route via openaiApiKey.
+            grounding: !!(this.apiKey || this.openaiApiKey)
+            // pythonTools / renderPreview don't need API keys — left alone.
+        };
+
+        const newlyDisabled = [];
+        const newlyEnabled  = [];
+        const auto = this._autoDisabledFlags || (this._autoDisabledFlags = new Set());
+
+        for (const name of Object.keys(checks)) {
+            const available = checks[name];
+            if (!available) {
+                // Disable any feature whose key is missing — but only if
+                // it's currently enabled (so we don't keep re-flagging).
+                if (this.featureFlags[name] !== false) {
+                    this.featureFlags[name] = false;
+                    auto.add(name);
+                    newlyDisabled.push(name);
+                }
+            } else {
+                // Re-enable ONLY if we were the ones who disabled it. If
+                // the user manually toggled it off, leave them alone.
+                if (auto.has(name) && this.featureFlags[name] === false) {
+                    this.featureFlags[name] = true;
+                    auto.delete(name);
+                    newlyEnabled.push(name);
+                }
+            }
+        }
+
+        // Persist whatever changed.
+        if (newlyDisabled.length || newlyEnabled.length) {
+            try {
+                diskStorage.setItem('hexart_feature_flags',        JSON.stringify(this.featureFlags));
+                diskStorage.setItem('hexart_auto_disabled_flags',  JSON.stringify(Array.from(auto)));
+                // The system prompt enumerates disabled features — bust
+                // its cache so the next LLM call reflects the new state.
+                this._sysInstrCache = null;
+            } catch (_) {}
+        }
+
+        return {
+            newlyDisabled,
+            newlyEnabled,
+            currentlyAutoDisabled: Array.from(auto),
+            hasAnyLLM
+        };
     }
 
     // ---- Tools state helpers ------------------------------------------
@@ -2182,6 +2289,12 @@ ${this.getSkillsSummary()}
         this.imageModel = this.getActiveImageModel();
         // Refresh ElevenLabs client cache so new key takes effect
         if (this._elevenLabsClient) this._elevenLabsClient.setApiKey(this.elevenlabsApiKey);
+
+        // Re-run the key audit. Newly-added keys flip their feature
+        // back ON if WE were the ones who auto-disabled it; manual
+        // user-off states are preserved. The result is exposed via
+        // this.lastKeyAudit so main.js can choose to act on it.
+        try { this.lastKeyAudit = this.syncFeatureFlagsToKeys(); } catch (_) {}
     }
 
     // Resolve which voice to use given an optional gender hint (m/f or "male"/"female")

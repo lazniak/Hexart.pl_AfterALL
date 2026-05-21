@@ -560,6 +560,12 @@ const i18nDict = {
         'log-injected-queue': 'Wstrzyknięto {n} znaków z kolejki sugestii gracza!',
         'log-llm-call': 'Wywołanie LLM ({model})...',
         'log-llm-responded': 'LLM odpowiedział w {ms}ms (streamowane).',
+        // Auto-disable / key audit notice
+        'feature-no-key-hint': 'brak klucza API',
+        'key-audit-title':  'Niektóre narzędzia są wyłączone',
+        'key-audit-body':   'Aby uniknąć błędów, automatycznie wyłączyłem narzędzia, które wymagają kluczy API jeszcze nie podanych. Do <strong>podstawowej pracy wystarczy jeden dowolny klucz LLM</strong> — pozostałe są opcjonalne. Wprowadź dodatkowe klucze tylko jeśli chcesz korzystać z poniższych funkcji:',
+        'key-audit-footer': 'Po zapisaniu kluczy w <strong>Ustawienia → Klucze API</strong> funkcje włączą się automatycznie. Tę informację zobaczysz tylko raz.',
+        'key-audit-cta':    'Otwórz Ustawienia → Klucze API',
         'log-task-completed-flag': 'Zadanie zakończone (is_task_complete: true).',
         'log-task-completed-autodetect': 'Zadanie zakończone (auto-detekcja z wiadomości/planu).',
         'log-task-completed-message-only': 'Zadanie zakończone (agent wysłał wiadomość bez dalszych zadań).',
@@ -1093,6 +1099,12 @@ const i18nDict = {
         'log-injected-queue': 'Injected {n} characters from user suggestion queue!',
         'log-llm-call': 'Calling LLM ({model})...',
         'log-llm-responded': 'LLM responded in {ms}ms (streamed).',
+        // Auto-disable / key audit notice
+        'feature-no-key-hint': 'no API key',
+        'key-audit-title':  'Some tools have been disabled',
+        'key-audit-body':   'To avoid errors I automatically disabled the tools whose API keys are not yet configured. <strong>A single LLM key is enough for basic operation</strong> — everything else is optional. Add more keys only if you want to use the features below:',
+        'key-audit-footer': 'Once you save the keys in <strong>Settings → API Keys</strong> the features turn back on automatically. You will see this notice only once.',
+        'key-audit-cta':    'Open Settings → API Keys',
         'log-task-completed-flag': 'Task complete (is_task_complete: true).',
         'log-task-completed-autodetect': 'Task complete (auto-detected from message/plan).',
         'log-task-completed-message-only': 'Task complete (agent sent a message with no further tasks).',
@@ -3632,11 +3644,20 @@ function t(key, fallback) {
     function renderFeatureFlagsUI() {
         if (!featureFlagsList) return;
         featureFlagsList.innerHTML = '';
+        // Snapshot of which flags we auto-disabled — those get a small
+        // "(brak klucza)" hint so the user understands why they're off.
+        const autoSet = (agent && agent._autoDisabledFlags) instanceof Set
+            ? agent._autoDisabledFlags
+            : new Set();
         Object.keys(featureLabels).forEach(key => {
             const meta = featureLabels[key];
             const enabled = agent.isFeatureEnabled(key);
+            const autoDisabled = !enabled && autoSet.has(key);
             const row = document.createElement('div');
             row.className = 'feature-row';
+            const descLine = autoDisabled
+                ? meta.desc + ' · <em style="color:var(--accent);">' + escapeAttr(tr('feature-no-key-hint')) + '</em>'
+                : meta.desc;
             row.innerHTML = `
                 <label class="toggle-switch">
                     <input type="checkbox" data-feature="${key}" ${enabled ? 'checked' : ''}>
@@ -3644,7 +3665,7 @@ function t(key, fallback) {
                 </label>
                 <div style="flex:1;">
                     <div style="font-size: 12px; font-weight: 500;">${meta.label}</div>
-                    <div style="font-size: 10px; color: var(--text-secondary);">${meta.desc}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">${descLine}</div>
                 </div>
                 <div class="feature-status ${enabled ? 'on' : 'off'}">${enabled ? 'ON' : 'OFF'}</div>
             `;
@@ -5409,11 +5430,60 @@ function t(key, fallback) {
         });
     }
 
+    // ---------------------------------------------------------------
+    // Auto-disable notice for missing-key generators
+    // ---------------------------------------------------------------
+    // Shown ONCE per profile. After the user has seen the recommendation
+    // we never bring it up again on subsequent loads — keys can be added
+    // at any time from Settings → Klucze API and any auto-disabled flag
+    // flips back on automatically when its key shows up.
+    const KEY_AUDIT_NOTIFIED_FLAG = 'hexart_key_audit_notified';
+
+    function buildKeyAuditNoticeHTML(audit) {
+        // Translate each auto-disabled feature name to its label via the
+        // existing tool-XGen-label keys. Fallback to the bare name.
+        const labelFor = (flag) => {
+            const k = 'tool-' + flag + '-label';
+            const t = tr(k);
+            return (t && t !== k) ? t : flag;
+        };
+        const items = (audit.currentlyAutoDisabled || []).map(labelFor);
+        if (items.length === 0) return '';
+        const list = items.map(s => '<li>' + escapeAttr(s) + '</li>').join('');
+        return ''
+            + '<div class="welcome-card" style="border:1px solid rgba(var(--accent-rgb),0.25);">'
+            +   '<h2 style="font-size:14px;">🔑 ' + escapeAttr(tr('key-audit-title')) + '</h2>'
+            +   '<p class="welcome-intro" style="font-size:12px;">' + tr('key-audit-body') + '</p>'
+            +   '<ul style="margin:0.4rem 0 0.6rem 1.2rem; font-size:12px; color:var(--text-secondary);">' + list + '</ul>'
+            +   '<p class="welcome-footer" style="font-size:11.5px;">' + tr('key-audit-footer') + '</p>'
+            +   '<button type="button" class="welcome-cta primary-save" data-open-settings="secrets" style="font-size:12px; padding:0.5rem 1rem;">🔑 ' + escapeAttr(tr('key-audit-cta')) + '</button>'
+            + '</div>';
+    }
+
     // Initial greeting / welcome card
     setTimeout(() => {
         const lang = (uiLangSelect.value === 'auto' && navigator.language.startsWith('pl')) ? 'pl' : (i18nDict[uiLangSelect.value] ? uiLangSelect.value : 'en');
         if (hasAnyConfiguredLLM()) {
             appendMessage('assistant', i18nDict[lang]['greeting'] || tr('greeting'));
+            // If any generator features were auto-disabled because their
+            // keys are missing, surface the list ONCE — and only when at
+            // least one LLM is configured (otherwise the welcome card is
+            // covering the same ground).
+            try {
+                const audit = (typeof agent.syncFeatureFlagsToKeys === 'function')
+                    ? agent.syncFeatureFlagsToKeys()
+                    : null;
+                const alreadyNotified = window.diskStorage && window.diskStorage.getItem(KEY_AUDIT_NOTIFIED_FLAG) === '1';
+                if (audit && audit.currentlyAutoDisabled && audit.currentlyAutoDisabled.length > 0 && !alreadyNotified) {
+                    const html = buildKeyAuditNoticeHTML(audit);
+                    if (html) {
+                        appendMessage('system', html);
+                        try { window.diskStorage.setItem(KEY_AUDIT_NOTIFIED_FLAG, '1'); } catch (_) {}
+                    }
+                }
+            } catch (e) {
+                addLog('Key-audit notice failed (non-fatal): ' + e.message, 'warning');
+            }
         } else {
             // First-run: rich welcome card with embedded video, provider
             // comparison and CTA button. Sent as a 'system' message so the
