@@ -448,8 +448,56 @@ const i18nDict = {
         'tools-group-pyskills': 'Python Skille',
         'tools-group-background': 'Procesy w tle',
         'tools-group-other': 'Pozostałe',
+        'tools-empty-filter': 'Brak narzędzi pasujących do filtra.',
+        'tools-stats': '{total} narzędzi · {active} aktywnych',
+        'tools-toggle-title': 'Aktywuj / Dezaktywuj',
+        'tools-detail-overview': 'Przegląd',
+        'tools-detail-settings': 'Ustawienia',
+        'tools-detail-env': 'Środowisko',
+        'tools-detail-runtime': 'Runtime',
+        'tools-detail-row-name': 'Nazwa',
+        'tools-detail-row-type': 'Typ',
+        'tools-detail-row-state': 'Stan',
+        'tools-detail-row-env': 'Środowisko venv',
+        'tools-detail-row-packages': 'Pakiety',
+        'tools-detail-row-created': 'Utworzono',
+        'tools-detail-row-flag': 'Feature flag',
+        'tools-detail-row-venv-folder': 'Folder venv',
+        'tools-detail-stop-process': '⏹ Zatrzymaj proces',
+        'tools-detail-stopped': 'Zatrzymano proces',
+        'tools-settings-reset': '↺ Przywróć domyślne',
+        'tools-settings-reset-confirm': 'Na pewno przywrócić ustawienia domyślne tego narzędzia?',
+        'tools-settings-no-config': 'To narzędzie nie ma predefiniowanych ustawień. Możesz dodać własne pary klucz/wartość — agent zobaczy je w kontekście.',
+        'tools-settings-section-custom': 'Własne parametry',
+        'tools-settings-kv-label': 'Pary klucz/wartość',
+        // Builtin tool labels & descriptions
+        'tool-imageGen-label': 'Generator Obrazów',
+        'tool-imageGen-desc': 'Generowanie obrazów (Gemini / OpenRouter)',
+        'tool-imageEdit-label': 'Edytor Obrazów',
+        'tool-imageEdit-desc': 'Edycja / inpainting istniejących obrazów',
+        'tool-videoGen-label': 'Generator Wideo (Grok)',
+        'tool-videoGen-desc': 'Wideo image-to-video przez Replicate Grok',
+        'tool-ttsGen-label': 'Generator Lektora (TTS)',
+        'tool-ttsGen-desc': 'Gemini TTS lub ElevenLabs TTS',
+        'tool-sttGen-label': 'Transkrypcja (STT)',
+        'tool-sttGen-desc': 'ElevenLabs Scribe / WhisperX word-level',
+        'tool-musicGen-label': 'Generator Muzyki',
+        'tool-musicGen-desc': 'Gemini Lyria 3 Pro lub ElevenLabs Music (z wokalami / instrumentalnie)',
+        'tool-sfxGen-label': 'Efekty Dźwiękowe (SFX)',
+        'tool-sfxGen-desc': 'ElevenLabs Text-to-SFX — odgłosy, dźwięki, ambient (0.5-22s)',
+        'tool-svgGen-label': 'Generator SVG',
+        'tool-svgGen-desc': 'Wektorowe grafiki SVG przez LLM',
+        'tool-grounding-label': 'Google Search Grounding',
+        'tool-grounding-desc': 'Live web access dla Gemini',
+        'tool-renderPreview-label': 'Render Preview',
+        'tool-renderPreview-desc': 'Multi-frame podgląd timeline dla Vision',
+        'tool-pythonTools-label': 'Środowiska Python',
+        'tool-pythonTools-desc': 'Tworzenie venv, instalacja pakietów, klonowanie repo',
         // Voice picker
         'voice-picker-title': 'Biblioteka Głosów ElevenLabs',
+        'voice-picker-title-male': 'Wybierz głos męski (filtr „Male" aktywny)',
+        'voice-picker-title-female': 'Wybierz głos żeński (filtr „Female" aktywny)',
+        'voice-picker-title-default': 'Biblioteka Głosów ElevenLabs (general default)',
         'voice-picker-search-ph': '🔎 Szukaj po nazwie / opisie...',
         'voice-picker-source-library': 'Public Library (rozszerzona)',
         'voice-picker-source-user': 'Moje głosy (My Voices)',
@@ -585,7 +633,55 @@ const i18nDict = {
         'tools-group-pyskills': 'Python Skills',
         'tools-group-background': 'Background processes',
         'tools-group-other': 'Other',
+        'tools-empty-filter': 'No tools match the filter.',
+        'tools-stats': '{total} tools · {active} active',
+        'tools-toggle-title': 'Enable / Disable',
+        'tools-detail-overview': 'Overview',
+        'tools-detail-settings': 'Settings',
+        'tools-detail-env': 'Environment',
+        'tools-detail-runtime': 'Runtime',
+        'tools-detail-row-name': 'Name',
+        'tools-detail-row-type': 'Type',
+        'tools-detail-row-state': 'State',
+        'tools-detail-row-env': 'venv environment',
+        'tools-detail-row-packages': 'Packages',
+        'tools-detail-row-created': 'Created',
+        'tools-detail-row-flag': 'Feature flag',
+        'tools-detail-row-venv-folder': 'venv folder',
+        'tools-detail-stop-process': '⏹ Stop process',
+        'tools-detail-stopped': 'Process stopped',
+        'tools-settings-reset': '↺ Reset to defaults',
+        'tools-settings-reset-confirm': 'Reset this tool\'s settings to defaults?',
+        'tools-settings-no-config': 'This tool has no predefined settings. You can add your own key/value pairs — the agent will see them in context.',
+        'tools-settings-section-custom': 'Custom parameters',
+        'tools-settings-kv-label': 'Key/value pairs',
+        // Builtin tool labels & descriptions
+        'tool-imageGen-label': 'Image Generator',
+        'tool-imageGen-desc': 'Generate images (Gemini / OpenRouter)',
+        'tool-imageEdit-label': 'Image Editor',
+        'tool-imageEdit-desc': 'Edit / inpainting on existing images',
+        'tool-videoGen-label': 'Video Generator (Grok)',
+        'tool-videoGen-desc': 'Image-to-video via Replicate Grok',
+        'tool-ttsGen-label': 'Voice Generator (TTS)',
+        'tool-ttsGen-desc': 'Gemini TTS or ElevenLabs TTS',
+        'tool-sttGen-label': 'Transcription (STT)',
+        'tool-sttGen-desc': 'ElevenLabs Scribe / WhisperX word-level',
+        'tool-musicGen-label': 'Music Generator',
+        'tool-musicGen-desc': 'Gemini Lyria 3 Pro or ElevenLabs Music (vocals / instrumental)',
+        'tool-sfxGen-label': 'Sound Effects (SFX)',
+        'tool-sfxGen-desc': 'ElevenLabs Text-to-SFX — sounds, ambient (0.5-22s)',
+        'tool-svgGen-label': 'SVG Generator',
+        'tool-svgGen-desc': 'Vector SVG graphics via LLM',
+        'tool-grounding-label': 'Google Search Grounding',
+        'tool-grounding-desc': 'Live web access for Gemini',
+        'tool-renderPreview-label': 'Render Preview',
+        'tool-renderPreview-desc': 'Multi-frame timeline preview for Vision',
+        'tool-pythonTools-label': 'Python Environments',
+        'tool-pythonTools-desc': 'venv + pip + git clone + custom scripts',
         'voice-picker-title': 'ElevenLabs Voice Library',
+        'voice-picker-title-male': 'Pick a male voice (Male filter locked)',
+        'voice-picker-title-female': 'Pick a female voice (Female filter locked)',
+        'voice-picker-title-default': 'ElevenLabs Voice Library (general default)',
         'voice-picker-search-ph': '🔎 Search by name / description...',
         'voice-picker-source-library': 'Public Library (extended)',
         'voice-picker-source-user': 'My Voices',
@@ -662,7 +758,45 @@ const i18nDict = {
         'api-help-usage': 'Verwendet für',
         'api-help-notes': 'Hinweise',
         'api-help-troubleshoot': 'Häufige Probleme',
-        'sessions-title': 'Sitzungsverlauf', 'new-session-btn': '+ Neue Sitzung'
+        'sessions-title': 'Sitzungsverlauf', 'new-session-btn': '+ Neue Sitzung',
+        // Tools modal
+        'tools-modal-title': 'Werkzeuge — Toolkit-Panel',
+        'tools-filter-ph': '🔎 Filter...',
+        'tools-refresh': '↻ Aktualisieren',
+        'tools-select-prompt': 'Wähle ein Werkzeug aus der Liste links aus.',
+        'tools-status-on': 'aktiv', 'tools-status-off': 'deaktiviert',
+        'tools-group-generators': 'Generatoren',
+        'tools-group-integrations': 'Integrationen',
+        'tools-group-pyskills': 'Python-Skills',
+        'tools-group-background': 'Hintergrundprozesse',
+        'tools-group-other': 'Sonstige',
+        'tools-empty-filter': 'Keine Werkzeuge passen zum Filter.',
+        'tools-stats': '{total} Werkzeuge · {active} aktiv',
+        'tools-toggle-title': 'Aktivieren / Deaktivieren',
+        'tools-detail-overview': 'Übersicht',
+        'tools-detail-settings': 'Einstellungen',
+        'tools-detail-env': 'Umgebung',
+        'tools-detail-runtime': 'Laufzeit',
+        'tools-detail-row-name': 'Name',
+        'tools-detail-row-type': 'Typ',
+        'tools-detail-row-state': 'Status',
+        'tools-detail-row-env': 'venv-Umgebung',
+        'tools-detail-row-packages': 'Pakete',
+        'tools-detail-row-created': 'Erstellt',
+        'tools-detail-row-flag': 'Feature-Flag',
+        'tools-detail-row-venv-folder': 'venv-Ordner',
+        'tools-detail-stop-process': '⏹ Prozess stoppen',
+        'tools-settings-reset': '↺ Auf Standard zurücksetzen',
+        'tools-settings-reset-confirm': 'Einstellungen dieses Werkzeugs auf Standardwerte zurücksetzen?',
+        'tools-settings-no-config': 'Dieses Werkzeug hat keine vordefinierten Einstellungen. Du kannst eigene Schlüssel/Wert-Paare hinzufügen.',
+        'tool-imageGen-label': 'Bildgenerator',
+        'tool-videoGen-label': 'Videogenerator (Grok)',
+        'tool-ttsGen-label': 'Sprachgenerator (TTS)',
+        'tool-sttGen-label': 'Transkription (STT)',
+        'tool-musicGen-label': 'Musikgenerator',
+        'tool-sfxGen-label': 'Soundeffekte (SFX)',
+        'tool-svgGen-label': 'SVG-Generator',
+        'tool-pythonTools-label': 'Python-Umgebungen'
     },
     'es': {
         'greeting': 'HEXART.PL/AfterALL — ¡agente listo! ✨',
@@ -697,7 +831,45 @@ const i18nDict = {
         'api-help-usage': 'Se usa para',
         'api-help-notes': 'Notas',
         'api-help-troubleshoot': 'Problemas comunes',
-        'sessions-title': 'Historial de sesiones', 'new-session-btn': '+ Nueva sesión'
+        'sessions-title': 'Historial de sesiones', 'new-session-btn': '+ Nueva sesión',
+        // Tools modal
+        'tools-modal-title': 'Herramientas — Panel de Herramientas',
+        'tools-filter-ph': '🔎 Filtrar...',
+        'tools-refresh': '↻ Actualizar',
+        'tools-select-prompt': 'Selecciona una herramienta de la lista.',
+        'tools-status-on': 'activo', 'tools-status-off': 'desactivado',
+        'tools-group-generators': 'Generadores',
+        'tools-group-integrations': 'Integraciones',
+        'tools-group-pyskills': 'Skills de Python',
+        'tools-group-background': 'Procesos en segundo plano',
+        'tools-group-other': 'Otros',
+        'tools-empty-filter': 'Ninguna herramienta coincide con el filtro.',
+        'tools-stats': '{total} herramientas · {active} activas',
+        'tools-toggle-title': 'Activar / Desactivar',
+        'tools-detail-overview': 'Resumen',
+        'tools-detail-settings': 'Ajustes',
+        'tools-detail-env': 'Entorno',
+        'tools-detail-runtime': 'Tiempo de ejecución',
+        'tools-detail-row-name': 'Nombre',
+        'tools-detail-row-type': 'Tipo',
+        'tools-detail-row-state': 'Estado',
+        'tools-detail-row-env': 'Entorno venv',
+        'tools-detail-row-packages': 'Paquetes',
+        'tools-detail-row-created': 'Creado',
+        'tools-detail-row-flag': 'Feature flag',
+        'tools-detail-row-venv-folder': 'Carpeta venv',
+        'tools-detail-stop-process': '⏹ Detener proceso',
+        'tools-settings-reset': '↺ Restaurar predeterminados',
+        'tools-settings-reset-confirm': '¿Restaurar los ajustes predeterminados de esta herramienta?',
+        'tools-settings-no-config': 'Esta herramienta no tiene ajustes predefinidos. Puedes añadir tus propios pares clave/valor.',
+        'tool-imageGen-label': 'Generador de Imágenes',
+        'tool-videoGen-label': 'Generador de Vídeo (Grok)',
+        'tool-ttsGen-label': 'Generador de Voz (TTS)',
+        'tool-sttGen-label': 'Transcripción (STT)',
+        'tool-musicGen-label': 'Generador de Música',
+        'tool-sfxGen-label': 'Efectos de sonido (SFX)',
+        'tool-svgGen-label': 'Generador SVG',
+        'tool-pythonTools-label': 'Entornos Python'
     },
     'fr': {
         'greeting': 'HEXART.PL/AfterALL — agent prêt ! ✨',
@@ -732,7 +904,45 @@ const i18nDict = {
         'api-help-usage': 'Utilisé pour',
         'api-help-notes': 'Notes',
         'api-help-troubleshoot': 'Problèmes courants',
-        'sessions-title': 'Historique des sessions', 'new-session-btn': '+ Nouvelle session'
+        'sessions-title': 'Historique des sessions', 'new-session-btn': '+ Nouvelle session',
+        // Tools modal
+        'tools-modal-title': 'Outils — Panneau Toolkit',
+        'tools-filter-ph': '🔎 Filtrer...',
+        'tools-refresh': '↻ Actualiser',
+        'tools-select-prompt': 'Sélectionnez un outil dans la liste.',
+        'tools-status-on': 'actif', 'tools-status-off': 'désactivé',
+        'tools-group-generators': 'Générateurs',
+        'tools-group-integrations': 'Intégrations',
+        'tools-group-pyskills': 'Skills Python',
+        'tools-group-background': 'Processus en arrière-plan',
+        'tools-group-other': 'Autres',
+        'tools-empty-filter': 'Aucun outil ne correspond au filtre.',
+        'tools-stats': '{total} outils · {active} actifs',
+        'tools-toggle-title': 'Activer / Désactiver',
+        'tools-detail-overview': 'Aperçu',
+        'tools-detail-settings': 'Paramètres',
+        'tools-detail-env': 'Environnement',
+        'tools-detail-runtime': 'Runtime',
+        'tools-detail-row-name': 'Nom',
+        'tools-detail-row-type': 'Type',
+        'tools-detail-row-state': 'État',
+        'tools-detail-row-env': 'Environnement venv',
+        'tools-detail-row-packages': 'Paquets',
+        'tools-detail-row-created': 'Créé',
+        'tools-detail-row-flag': 'Feature flag',
+        'tools-detail-row-venv-folder': 'Dossier venv',
+        'tools-detail-stop-process': '⏹ Arrêter le processus',
+        'tools-settings-reset': '↺ Réinitialiser aux valeurs par défaut',
+        'tools-settings-reset-confirm': 'Réinitialiser les paramètres de cet outil ?',
+        'tools-settings-no-config': 'Cet outil n\'a pas de paramètres prédéfinis. Ajoutez vos propres paires clé/valeur.',
+        'tool-imageGen-label': 'Générateur d\'Images',
+        'tool-videoGen-label': 'Générateur Vidéo (Grok)',
+        'tool-ttsGen-label': 'Générateur de Voix (TTS)',
+        'tool-sttGen-label': 'Transcription (STT)',
+        'tool-musicGen-label': 'Générateur de Musique',
+        'tool-sfxGen-label': 'Effets Sonores (SFX)',
+        'tool-svgGen-label': 'Générateur SVG',
+        'tool-pythonTools-label': 'Environnements Python'
     },
     'ja': {
         'greeting': 'HEXART.PL/AfterALL — エージェント準備完了！✨',
@@ -767,7 +977,45 @@ const i18nDict = {
         'api-help-usage': '使用目的',
         'api-help-notes': '注意事項',
         'api-help-troubleshoot': 'よくある問題',
-        'sessions-title': 'セッション履歴', 'new-session-btn': '+ 新しいセッション'
+        'sessions-title': 'セッション履歴', 'new-session-btn': '+ 新しいセッション',
+        // Tools modal
+        'tools-modal-title': 'ツール — ツールキットパネル',
+        'tools-filter-ph': '🔎 フィルター...',
+        'tools-refresh': '↻ 更新',
+        'tools-select-prompt': 'リストからツールを選択してください。',
+        'tools-status-on': 'アクティブ', 'tools-status-off': '無効',
+        'tools-group-generators': 'ジェネレーター',
+        'tools-group-integrations': '統合',
+        'tools-group-pyskills': 'Python スキル',
+        'tools-group-background': 'バックグラウンドプロセス',
+        'tools-group-other': 'その他',
+        'tools-empty-filter': 'フィルターに一致するツールがありません。',
+        'tools-stats': '{total} ツール · {active} アクティブ',
+        'tools-toggle-title': '有効 / 無効',
+        'tools-detail-overview': '概要',
+        'tools-detail-settings': '設定',
+        'tools-detail-env': '環境',
+        'tools-detail-runtime': 'ランタイム',
+        'tools-detail-row-name': '名前',
+        'tools-detail-row-type': 'タイプ',
+        'tools-detail-row-state': '状態',
+        'tools-detail-row-env': 'venv 環境',
+        'tools-detail-row-packages': 'パッケージ',
+        'tools-detail-row-created': '作成日',
+        'tools-detail-row-flag': '機能フラグ',
+        'tools-detail-row-venv-folder': 'venv フォルダ',
+        'tools-detail-stop-process': '⏹ プロセス停止',
+        'tools-settings-reset': '↺ デフォルトに戻す',
+        'tools-settings-reset-confirm': 'このツールの設定をデフォルトに戻しますか？',
+        'tools-settings-no-config': 'このツールには定義済み設定がありません。独自のキー/値のペアを追加できます。',
+        'tool-imageGen-label': '画像ジェネレーター',
+        'tool-videoGen-label': '動画ジェネレーター (Grok)',
+        'tool-ttsGen-label': '音声ジェネレーター (TTS)',
+        'tool-sttGen-label': '転写 (STT)',
+        'tool-musicGen-label': '音楽ジェネレーター',
+        'tool-sfxGen-label': '効果音 (SFX)',
+        'tool-svgGen-label': 'SVG ジェネレーター',
+        'tool-pythonTools-label': 'Python 環境'
     }
 };
 // Helper: lookup translated string with EN/PL fallback
@@ -1655,13 +1903,13 @@ function t(key, fallback) {
         // Lock the gender filter when picking male/female default
         if (target === 'male') {
             vpGender.value = 'male'; vpGender.disabled = true;
-            voicePickerTitle.textContent = 'Wybierz głos męski (filtr „Male" aktywny)';
+            voicePickerTitle.textContent = tr('voice-picker-title-male');
         } else if (target === 'female') {
             vpGender.value = 'female'; vpGender.disabled = true;
-            voicePickerTitle.textContent = 'Wybierz głos żeński (filtr „Female" aktywny)';
+            voicePickerTitle.textContent = tr('voice-picker-title-female');
         } else {
             vpGender.disabled = false;
-            voicePickerTitle.textContent = 'Biblioteka Głosów ElevenLabs (general default)';
+            voicePickerTitle.textContent = tr('voice-picker-title-default');
         }
         voicePickerOverlay.classList.remove('hidden');
         if (voicePickerCache.length === 0) loadVoicePicker();
@@ -1854,22 +2102,24 @@ function t(key, fallback) {
         const tools = agent.listAllTools();
         const customTools = tools.filter(t => !t.isBuiltin);
         if (customTools.length === 0) {
-            toolsQuickList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:0.4rem;">Brak dodatkowych narzędzi. Skille Python utworzone przez agenta pojawią się tutaj.</div>';
+            toolsQuickList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:0.4rem;">' + escapeAttr(tr('tools-no-custom')) + '</div>';
             return;
         }
         customTools.forEach(t => {
             const row = document.createElement('div');
             row.className = 'feature-row';
+            const lbl = toolLabel(t);
+            const desc = toolDesc(t);
             row.innerHTML = `
                 <label class="toggle-switch">
                     <input type="checkbox" data-tool="${t.name}" ${t.enabled ? 'checked' : ''}>
                     <span class="slider"></span>
                 </label>
                 <div style="flex:1;">
-                    <div style="font-size: 12px; font-weight: 500;">${t.icon} ${escapeAttr(t.label)}</div>
-                    <div style="font-size: 10px; color: var(--text-secondary);">${escapeAttr(t.description)}</div>
+                    <div style="font-size: 12px; font-weight: 500;">${t.icon} ${escapeAttr(lbl)}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">${escapeAttr(desc)}</div>
                 </div>
-                <span class="badge ${t.kind === 'python_skill' ? 'feat' : ''}">${t.kind}</span>
+                <span class="badge ${t.kind === 'python_skill' ? 'feat' : ''}">${escapeAttr(t.kind)}</span>
             `;
             row.querySelector('input[data-tool]').addEventListener('change', (e) => {
                 agent.setToolEnabled(t.name, e.target.checked);
@@ -1902,18 +2152,39 @@ function t(key, fallback) {
     if (toolsRefreshBtn) toolsRefreshBtn.addEventListener('click', () => renderToolsSidebar());
     if (toolsFilter) toolsFilter.addEventListener('input', renderToolsSidebar);
 
+    // Resolve a tool's localized label/description (falls back to English fields, then to name)
+    function toolLabel(t) {
+        if (t.labelKey) {
+            const v = tr(t.labelKey);
+            if (v && v !== t.labelKey) return v;
+        }
+        return t.label || t.name;
+    }
+    function toolDesc(t) {
+        if (t.descKey) {
+            const v = tr(t.descKey);
+            if (v && v !== t.descKey) return v;
+        }
+        return t.description || '';
+    }
+    function toolGroupName(kind) {
+        switch (kind) {
+            case 'generator':    return tr('tools-group-generators');
+            case 'integration':  return tr('tools-group-integrations');
+            case 'python_skill': return tr('tools-group-pyskills');
+            case 'background':   return tr('tools-group-background');
+            default:             return tr('tools-group-other');
+        }
+    }
+
     function renderToolsSidebar() {
         const tools = agent.listAllTools();
         const q = (toolsFilter && toolsFilter.value || '').toLowerCase().trim();
-        const filtered = q ? tools.filter(t => (t.name + ' ' + t.label + ' ' + t.description).toLowerCase().indexOf(q) !== -1) : tools;
+        const filtered = q ? tools.filter(t => (t.name + ' ' + toolLabel(t) + ' ' + toolDesc(t)).toLowerCase().indexOf(q) !== -1) : tools;
         toolsSidebarList.innerHTML = '';
         const groups = {};
         filtered.forEach(t => {
-            const g = t.kind === 'generator' ? 'Generatory'
-                    : t.kind === 'integration' ? 'Integracje'
-                    : t.kind === 'python_skill' ? 'Python Skille'
-                    : t.kind === 'background' ? 'Procesy w tle'
-                    : 'Pozostałe';
+            const g = toolGroupName(t.kind);
             (groups[g] = groups[g] || []).push(t);
         });
         Object.keys(groups).forEach(gName => {
@@ -1924,13 +2195,15 @@ function t(key, fallback) {
             groups[gName].forEach(t => {
                 const row = document.createElement('div');
                 row.className = 'tools-sidebar-row' + (t.name === selectedToolName ? ' selected' : '');
+                const lbl = toolLabel(t);
+                const desc = toolDesc(t);
                 row.innerHTML = `
                     <div class="tools-row-icon">${t.icon}</div>
                     <div class="tools-row-meta">
-                        <div class="tools-row-name">${escapeAttr(t.label)}</div>
-                        <div class="tools-row-desc">${escapeAttr((t.description || '').substring(0, 50))}${(t.description || '').length > 50 ? '...' : ''}</div>
+                        <div class="tools-row-name">${escapeAttr(lbl)}</div>
+                        <div class="tools-row-desc">${escapeAttr(desc.substring(0, 50))}${desc.length > 50 ? '...' : ''}</div>
                     </div>
-                    <label class="toggle-switch small" title="Aktywuj / Dezaktywuj">
+                    <label class="toggle-switch small" title="${escapeAttr(tr('tools-toggle-title'))}">
                         <input type="checkbox" ${t.enabled ? 'checked' : ''} data-tool-toggle="${t.name}">
                         <span class="slider"></span>
                     </label>
@@ -1949,29 +2222,38 @@ function t(key, fallback) {
                         agent.setToolEnabled(t.name, e.target.checked);
                     }
                     addLog('Tool "' + t.name + '": ' + (e.target.checked ? 'ON' : 'OFF'), 'info');
-                    // Refresh quick list in features tab
                     renderToolsQuickList();
                 });
                 toolsSidebarList.appendChild(row);
             });
         });
         if (filtered.length === 0) {
-            toolsSidebarList.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary); font-size:11px;">Brak narzędzi pasujących do filtra.</div>';
+            toolsSidebarList.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary); font-size:11px;">' + escapeAttr(tr('tools-empty-filter')) + '</div>';
         }
-        if (toolsStats) toolsStats.textContent = tools.length + ' narzędzi · ' + tools.filter(t => t.enabled).length + ' aktywnych';
+        if (toolsStats) {
+            const totalCount = tools.length;
+            const activeCount = tools.filter(t => t.enabled).length;
+            toolsStats.textContent = tr('tools-stats').replace('{total}', totalCount).replace('{active}', activeCount);
+        }
     }
 
     function renderToolDetail(tool) {
         toolDetailPane.innerHTML = '';
         const wrap = document.createElement('div');
+        const lbl = toolLabel(tool);
+        const desc = toolDesc(tool);
+        const statusLabel = tool.enabled
+            ? '<span style="color:#10b981;">' + escapeAttr(tr('tools-status-on')) + '</span>'
+            : '<span style="color:#ef4444;">' + escapeAttr(tr('tools-status-off')) + '</span>';
+
         // Header
         const header = document.createElement('div');
         header.className = 'tool-detail-header';
         header.innerHTML = `
             <div style="font-size:24px;">${tool.icon}</div>
             <div style="flex:1;">
-                <h3 style="margin:0; color: var(--accent);">${escapeAttr(tool.label)}</h3>
-                <div style="font-size: 11px; color: var(--text-secondary);">${tool.kind} · ${tool.enabled ? '<span style="color:#10b981;">aktywny</span>' : '<span style="color:#ef4444;">wyłączony</span>'}</div>
+                <h3 style="margin:0; color: var(--accent);">${escapeAttr(lbl)}</h3>
+                <div style="font-size: 11px; color: var(--text-secondary);">${escapeAttr(tool.kind)} · ${statusLabel}</div>
             </div>
             <label class="toggle-switch">
                 <input type="checkbox" id="detail-toggle" ${tool.enabled ? 'checked' : ''}>
@@ -1981,20 +2263,20 @@ function t(key, fallback) {
         wrap.appendChild(header);
 
         // Description
-        if (tool.description) {
-            const desc = document.createElement('div');
-            desc.className = 'tool-detail-desc';
-            desc.textContent = tool.description;
-            wrap.appendChild(desc);
+        if (desc) {
+            const descEl = document.createElement('div');
+            descEl.className = 'tool-detail-desc';
+            descEl.textContent = desc;
+            wrap.appendChild(descEl);
         }
 
-        // Tabs: Overview / Settings / Runtime info
+        // Tabs: Overview / Settings / [Environment] / [Runtime]
         const tabs = document.createElement('div');
         tabs.className = 'tool-detail-tabs';
-        const tabIds = ['Przegląd', 'Ustawienia'];
-        if (tool.kind === 'python_skill' || tool.kind === 'background') tabIds.push('Środowisko');
-        if (tool.runtime) tabIds.push('Runtime');
-        tabIds.forEach((label, idx) => {
+        const tabLabels = [tr('tools-detail-overview'), tr('tools-detail-settings')];
+        if (tool.kind === 'python_skill' || tool.kind === 'background') tabLabels.push(tr('tools-detail-env'));
+        if (tool.runtime) tabLabels.push(tr('tools-detail-runtime'));
+        tabLabels.forEach((label, idx) => {
             const tab = document.createElement('button');
             tab.className = 'tool-detail-tab' + (idx === 0 ? ' active' : '');
             tab.textContent = label;
@@ -2014,13 +2296,13 @@ function t(key, fallback) {
         const pane1 = document.createElement('div');
         pane1.className = 'tool-detail-pane';
         const overviewRows = [];
-        overviewRows.push(['Nazwa', tool.name]);
-        overviewRows.push(['Typ', tool.kind]);
-        overviewRows.push(['Stan', tool.enabled ? 'Aktywny' : 'Wyłączony']);
-        if (tool.env) overviewRows.push(['Środowisko venv', tool.env]);
-        if (tool.packages && tool.packages.length) overviewRows.push(['Pakiety', tool.packages.join(', ')]);
-        if (tool.createdAt) overviewRows.push(['Utworzono', tool.createdAt]);
-        if (tool.featureFlag) overviewRows.push(['Feature flag', tool.featureFlag]);
+        overviewRows.push([tr('tools-detail-row-name'), tool.name]);
+        overviewRows.push([tr('tools-detail-row-type'), tool.kind]);
+        overviewRows.push([tr('tools-detail-row-state'), tool.enabled ? tr('tools-status-on') : tr('tools-status-off')]);
+        if (tool.env) overviewRows.push([tr('tools-detail-row-env'), tool.env]);
+        if (tool.packages && tool.packages.length) overviewRows.push([tr('tools-detail-row-packages'), tool.packages.join(', ')]);
+        if (tool.createdAt) overviewRows.push([tr('tools-detail-row-created'), tool.createdAt]);
+        if (tool.featureFlag) overviewRows.push([tr('tools-detail-row-flag'), tool.featureFlag]);
         overviewRows.forEach(([k, v]) => {
             const div = document.createElement('div');
             div.className = 'kv-row';
@@ -2043,7 +2325,7 @@ function t(key, fallback) {
             const envContent = document.createElement('div');
             if (tool.env) {
                 envContent.innerHTML = `
-                    <div class="kv-row"><div class="k">Folder venv</div><div class="v"><code>${escapeAttr(agent.getPythonSandboxRoot())}/${escapeAttr(tool.env)}</code></div></div>
+                    <div class="kv-row"><div class="k">${escapeAttr(tr('tools-detail-row-venv-folder'))}</div><div class="v"><code>${escapeAttr(agent.getPythonSandboxRoot())}/${escapeAttr(tool.env)}</code></div></div>
                 `;
                 if (tool.raw && tool.raw.scriptContent) {
                     const codeBlock = document.createElement('pre');
@@ -2069,12 +2351,12 @@ function t(key, fallback) {
             pane4.className = 'tool-detail-pane hidden';
             const stopBtn = document.createElement('button');
             stopBtn.className = 'mini-btn';
-            stopBtn.textContent = '⏹ Zatrzymaj proces';
+            stopBtn.textContent = tr('tools-detail-stop-process');
             stopBtn.addEventListener('click', () => {
                 if (agent.killBackgroundProcess) {
                     const name = tool.name.replace(/^bg_/, '');
                     if (agent.killBackgroundProcess(name)) {
-                        addLog('Zatrzymano proces: ' + name, 'success');
+                        addLog(tr('tools-detail-stopped') + ': ' + name, 'success');
                         renderToolsSidebar();
                     }
                 }
@@ -2471,9 +2753,11 @@ function t(key, fallback) {
             // Unknown / no-config tool — show generic message + basic kv editor
             const info = document.createElement('div');
             info.style.cssText = 'font-size:12px; color:var(--text-secondary); padding:0.8rem; background:rgba(0,0,0,0.15); border-radius:6px; margin-bottom: 0.6rem;';
-            info.textContent = pickI18n({ pl: 'To narzędzie nie ma predefiniowanych ustawień. Możesz dodać własne klucz/wartość poniżej — agent zobaczy je w kontekście.', en: 'This tool has no predefined settings. You can add your own key/value pairs below — the agent will see them in context.' });
+            info.textContent = tr('tools-settings-no-config');
             pane.appendChild(info);
-            schema = { sections: [{ title: { pl: 'Własne parametry', en: 'Custom parameters' }, fields: [{ key: '__custom', label: { pl: 'Pary klucz/wartość', en: 'Key/value pairs' }, type: 'kv' }] }] };
+            const customSectionLabel = tr('tools-settings-section-custom');
+            const kvLabel = tr('tools-settings-kv-label');
+            schema = { sections: [{ title: { pl: customSectionLabel, en: customSectionLabel }, fields: [{ key: '__custom', label: { pl: kvLabel, en: kvLabel }, type: 'kv' }] }] };
         }
         const current = agent.getToolSettings(tool.name);
 
@@ -2499,9 +2783,9 @@ function t(key, fallback) {
         actions.className = 'tool-form-actions';
         const resetBtn = document.createElement('button');
         resetBtn.className = 'tool-form-btn danger';
-        resetBtn.textContent = pickI18n({ pl: '↺ Przywróć domyślne', en: '↺ Reset to defaults' });
+        resetBtn.textContent = tr('tools-settings-reset');
         resetBtn.addEventListener('click', () => {
-            if (confirm(pickI18n({ pl: 'Na pewno przywrócić ustawienia domyślne tego narzędzia?', en: 'Reset this tool\'s settings to defaults?' }))) {
+            if (confirm(tr('tools-settings-reset-confirm'))) {
                 agent.setToolSettings(tool.name, {});
                 renderToolDetail(tool);
             }

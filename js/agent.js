@@ -288,18 +288,21 @@ class AisistAgent {
     listAllTools() {
         const tools = [];
         // Built-in generators (feature-flag controlled)
+        // Each builtin carries an i18n key pair (labelKey / descKey) — UI resolves
+        // them at render time via the i18nDict. The label/description fields below
+        // are English fallbacks used only when i18nDict has no entry for the active language.
         const builtins = [
-            { name: 'imageGen', label: 'Generator Obrazów', kind: 'generator', icon: '🖼', description: 'Generowanie obrazów (Gemini / OpenRouter)', featureFlag: 'imageGen' },
-            { name: 'imageEdit', label: 'Edytor Obrazów', kind: 'generator', icon: '✂', description: 'Edycja / inpainting istniejących obrazów', featureFlag: 'imageEdit' },
-            { name: 'videoGen', label: 'Generator Wideo (Grok)', kind: 'generator', icon: '🎬', description: 'Wideo image-to-video przez Replicate Grok', featureFlag: 'videoGen' },
-            { name: 'ttsGen', label: 'Generator Lektora (TTS)', kind: 'generator', icon: '🎙', description: 'Gemini TTS lub ElevenLabs TTS', featureFlag: 'ttsGen' },
-            { name: 'sttGen', label: 'Transkrypcja (STT)', kind: 'generator', icon: '📝', description: 'ElevenLabs Scribe / WhisperX word-level', featureFlag: 'sttGen' },
-            { name: 'musicGen', label: 'Generator Muzyki', kind: 'generator', icon: '🎵', description: 'Gemini Lyria 3 Pro lub ElevenLabs Music (z vokalami / instrumentalna)', featureFlag: 'musicGen' },
-            { name: 'sfxGen', label: 'Efekty Dźwiękowe (SFX)', kind: 'generator', icon: '🔊', description: 'ElevenLabs Text-to-SFX — odgłosy, dźwięki, ambient (0.5-22s)', featureFlag: 'sfxGen' },
-            { name: 'svgGen', label: 'Generator SVG', kind: 'generator', icon: '✦', description: 'Wektorowe grafiki SVG przez LLM', featureFlag: 'svgGen' },
-            { name: 'grounding', label: 'Google Search Grounding', kind: 'integration', icon: '🌐', description: 'Live web access dla Gemini', featureFlag: 'grounding' },
-            { name: 'renderPreview', label: 'Render Preview', kind: 'integration', icon: '📷', description: 'Multi-frame podgląd timeline dla Vision', featureFlag: 'renderPreview' },
-            { name: 'pythonTools', label: 'Środowiska Python', kind: 'integration', icon: '🐍', description: 'Tworzenie venv, instalacja pakietów, klonowanie repo', featureFlag: 'pythonTools' }
+            { name: 'imageGen',      labelKey: 'tool-imageGen-label',      descKey: 'tool-imageGen-desc',      label: 'Image Generator',      kind: 'generator',   icon: '🖼', description: 'Generates images (Gemini / OpenRouter)',                  featureFlag: 'imageGen' },
+            { name: 'imageEdit',     labelKey: 'tool-imageEdit-label',     descKey: 'tool-imageEdit-desc',     label: 'Image Editor',         kind: 'generator',   icon: '✂', description: 'Edit / inpainting on existing images',                    featureFlag: 'imageEdit' },
+            { name: 'videoGen',      labelKey: 'tool-videoGen-label',      descKey: 'tool-videoGen-desc',      label: 'Video Generator (Grok)', kind: 'generator', icon: '🎬', description: 'Image-to-video via Replicate Grok',                       featureFlag: 'videoGen' },
+            { name: 'ttsGen',        labelKey: 'tool-ttsGen-label',        descKey: 'tool-ttsGen-desc',        label: 'Voice Generator (TTS)', kind: 'generator',  icon: '🎙', description: 'Gemini TTS or ElevenLabs TTS',                            featureFlag: 'ttsGen' },
+            { name: 'sttGen',        labelKey: 'tool-sttGen-label',        descKey: 'tool-sttGen-desc',        label: 'Transcription (STT)',  kind: 'generator',   icon: '📝', description: 'ElevenLabs Scribe / WhisperX word-level',                 featureFlag: 'sttGen' },
+            { name: 'musicGen',      labelKey: 'tool-musicGen-label',      descKey: 'tool-musicGen-desc',      label: 'Music Generator',      kind: 'generator',   icon: '🎵', description: 'Gemini Lyria 3 Pro or ElevenLabs Music (vocals / instrumental)', featureFlag: 'musicGen' },
+            { name: 'sfxGen',        labelKey: 'tool-sfxGen-label',        descKey: 'tool-sfxGen-desc',        label: 'Sound Effects (SFX)',  kind: 'generator',   icon: '🔊', description: 'ElevenLabs Text-to-SFX — sounds, ambient (0.5-22s)',     featureFlag: 'sfxGen' },
+            { name: 'svgGen',        labelKey: 'tool-svgGen-label',        descKey: 'tool-svgGen-desc',        label: 'SVG Generator',        kind: 'generator',   icon: '✦', description: 'Vector SVG graphics via LLM',                              featureFlag: 'svgGen' },
+            { name: 'grounding',     labelKey: 'tool-grounding-label',     descKey: 'tool-grounding-desc',     label: 'Google Search Grounding', kind: 'integration', icon: '🌐', description: 'Live web access for Gemini',                          featureFlag: 'grounding' },
+            { name: 'renderPreview', labelKey: 'tool-renderPreview-label', descKey: 'tool-renderPreview-desc', label: 'Render Preview',       kind: 'integration', icon: '📷', description: 'Multi-frame timeline preview for Vision',                 featureFlag: 'renderPreview' },
+            { name: 'pythonTools',   labelKey: 'tool-pythonTools-label',   descKey: 'tool-pythonTools-desc',   label: 'Python Environments',  kind: 'integration', icon: '🐍', description: 'venv + pip + git clone + custom scripts',                featureFlag: 'pythonTools' }
         ];
         builtins.forEach(b => {
             tools.push(Object.assign({}, b, {
