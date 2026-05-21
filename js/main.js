@@ -5298,13 +5298,16 @@ function t(key, fallback) {
     function addLog(msg, type = 'info') {
         const d = new Date();
         const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}.${d.getMilliseconds().toString().padStart(3, '0')}`;
-        
+
         const logEntry = document.createElement('div');
         logEntry.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-${type}">${msg}</span>`;
         logMessages.appendChild(logEntry);
-        
+
         logConsole.scrollTop = logConsole.scrollHeight;
     }
+    // Expose addLog globally so other modules (agent.js, providers.js) can
+    // push diagnostics into the same log console without ad-hoc plumbing.
+    window.afterallAddLog = addLog;
 
     function showTyping() {
         if (document.getElementById('active-typing-indicator')) return;

@@ -195,14 +195,30 @@
             return all.filter(m => /tts/i.test(m.id));
         }
 
-        _buildGenPayload(args) {
+        _buildGenPayload(args, stream) {
+            // IMPORTANT: when streaming, we MUST NOT request
+            // responseMimeType=application/json. Gemini's streaming endpoint
+            // buffers the entire response server-side when JSON mode is on
+            // (because partial JSON isn't a valid JSON document), so streaming
+            // in JSON mode yields a single chunk at the very end and looks
+            // identical to a non-streaming call. The system prompt already
+            // tells the model to emit pure JSON, and the response parser is
+            // tolerant of markdown fences and a tiny preamble.
+            const baseGenCfg = Object.assign({
+                temperature: 0.2,
+                maxOutputTokens: 16384
+            }, args.generationConfig || {});
+            if (!stream) {
+                // Non-streaming: keep the strict JSON-mode hint
+                if (!baseGenCfg.responseMimeType) baseGenCfg.responseMimeType = 'application/json';
+            } else {
+                // Streaming: drop the JSON-mode hint so the server emits tokens
+                // as they're generated.
+                delete baseGenCfg.responseMimeType;
+            }
             const payload = {
                 contents: args.messages,
-                generationConfig: Object.assign({
-                    temperature: 0.2,
-                    maxOutputTokens: 16384,
-                    responseMimeType: 'application/json'
-                }, args.generationConfig || {})
+                generationConfig: baseGenCfg
             };
             if (args.systemInstruction) {
                 payload.systemInstruction = { parts: [{ text: args.systemInstruction }] };
@@ -217,7 +233,7 @@
             if (!this.cfg.apiKey) throw new Error('Brak klucza Gemini API.');
             const model = args.model || 'gemini-2.5-flash';
             const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(this.cfg.apiKey);
-            const payload = this._buildGenPayload(args);
+            const payload = this._buildGenPayload(args, /* stream */ false);
             const data = await httpJSON(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -239,7 +255,8 @@
             const model = args.model || 'gemini-2.5-flash';
             // streamGenerateContent + alt=sse → clean Server-Sent Events with `data: {...}\n\n` framing
             const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(this.cfg.apiKey);
-            const payload = this._buildGenPayload(args);
+            // CRITICAL: pass stream=true so _buildGenPayload drops responseMimeType.
+            const payload = this._buildGenPayload(args, /* stream */ true);
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
@@ -384,7 +401,13 @@
                     ? args.generationConfig.temperature : 0.2,
                 max_tokens: (args.generationConfig && args.generationConfig.maxOutputTokens) || 16384
             };
-            if (args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
+            // JSON mode is incompatible with progressive streaming: when the
+            // upstream provider sees response_format=json_object it buffers
+            // the entire response server-side and emits it as one final
+            // chunk. We only request strict JSON for non-streaming calls;
+            // the streaming path relies on the system prompt to keep the
+            // model emitting valid JSON.
+            if (!stream && args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
                 payload.response_format = { type: 'json_object' };
             }
             if (stream) payload.stream = true;
@@ -605,7 +628,11 @@
                 payload.temperature = (cfg.temperature != null) ? cfg.temperature : 0.2;
                 payload.max_tokens  = cfg.maxOutputTokens || 16384;
             }
-            if (cfg.responseMimeType === 'application/json') {
+            // Streaming + JSON mode = the upstream buffers the whole response
+            // and emits it at the end (since partial JSON isn't valid). Skip
+            // the JSON-mode hint on stream calls so tokens flow as generated;
+            // the system prompt still instructs the model to emit JSON.
+            if (!stream && cfg.responseMimeType === 'application/json') {
                 payload.response_format = { type: 'json_object' };
             }
             if (stream) payload.stream = true;
@@ -1010,7 +1037,10 @@
                 max_tokens: (args.generationConfig && args.generationConfig.maxOutputTokens) || 8192,
                 stream: !!stream
             };
-            if (args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
+            // JSON mode + streaming buffers the response server-side; drop the
+            // hint on stream calls. LM Studio's local server respects the
+            // OpenAI contract, so the same caveat applies.
+            if (!stream && args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
                 payload.response_format = { type: 'json_object' };
             }
             return payload;

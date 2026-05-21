@@ -2624,21 +2624,52 @@ ${this.getSkillsSummary()}
             signal: signal
         };
         let completion;
+        // Streaming diagnostics — surfaced to the in-app log console (not just
+        // DevTools) so a silent fallback to non-streaming is visible to the user.
+        const logFn = (typeof window !== 'undefined' && typeof window.afterallAddLog === 'function')
+            ? window.afterallAddLog
+            : null;
         if (typeof onStreamUpdate === 'function' && typeof provider.streamChatCompletion === 'function') {
+            const streamStart = Date.now();
+            let firstChunkAt = 0;
+            let chunkCount = 0;
             try {
+                if (logFn) logFn('Stream open · provider=' + this.llmProvider + ' · model=' + model, 'info');
                 completion = await provider.streamChatCompletion(args, (delta, full) => {
+                    if (!firstChunkAt && delta) {
+                        firstChunkAt = Date.now();
+                        if (logFn) logFn('First chunk at +' + (firstChunkAt - streamStart) + 'ms (' + (delta.length || 0) + ' chars)', 'info');
+                    }
+                    chunkCount++;
                     try { onStreamUpdate(delta, full); } catch (_) {}
                 });
+                if (logFn) {
+                    const totalMs = Date.now() - streamStart;
+                    if (firstChunkAt && chunkCount > 1) {
+                        logFn('Stream done · ' + chunkCount + ' chunks · ' + totalMs + 'ms total · TTFC ' + (firstChunkAt - streamStart) + 'ms', 'success');
+                    } else if (chunkCount === 1) {
+                        // One chunk = upstream buffered the whole response (JSON
+                        // mode or similar). Worth pointing out so users know
+                        // why the live block didn't tick.
+                        logFn('Stream completed with 1 chunk (upstream buffered the full response · ' + totalMs + 'ms).', 'warning');
+                    } else {
+                        logFn('Stream completed without text chunks (' + totalMs + 'ms) — provider returned empty body.', 'warning');
+                    }
+                }
             } catch (streamErr) {
+                if (signal && signal.aborted) throw streamErr; // user-cancelled — don't retry
                 // Streaming failed mid-flight — fall back to non-streaming so we at least get a result
                 console.warn('Streaming failed, falling back to non-streaming:', streamErr);
-                if (signal && signal.aborted) throw streamErr; // user-cancelled — don't retry
+                if (logFn) logFn('Streaming failed (' + (streamErr.message || streamErr) + ') — falling back to non-streaming.', 'warning');
                 completion = await provider.chatCompletion(args);
                 if (typeof onStreamUpdate === 'function') {
                     try { onStreamUpdate(completion.text || '', completion.text || ''); } catch (_) {}
                 }
             }
         } else {
+            if (logFn && typeof onStreamUpdate === 'function') {
+                logFn('Non-streaming call (provider ' + this.llmProvider + ' has no streamChatCompletion).', 'warning');
+            }
             completion = await provider.chatCompletion(args);
         }
         const rawText = completion.text || '';
