@@ -7005,7 +7005,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(msg, 'info');
                                 pipelineUpdate(stepId, { message: msg });
                             }, imgIdx).then(res => {
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'Obraz', res, prompt: imgPrompt, index: imgIdx };
                             });
                             imagePromises.push(p);
@@ -7021,7 +7021,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(msg, 'info');
                                 pipelineUpdate(stepId, { message: msg });
                             }).then(res => {
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || ('Gotowe (' + (res.durationSec || '?') + 's)') });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || ('Gotowe (' + (res.durationSec || '?') + 's)'), assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'Lektor', res, prompt: ttsPrompt };
                             });
                             ttsPromises.push(p);
@@ -7046,7 +7046,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     addLog(msg, 'info');
                                     pipelineUpdate(stepId, { message: msg });
                                 });
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'Wideo Grok', res, prompt: grokItem.prompt };
                             };
                             parallelPromises.push(videoTask());
@@ -7091,7 +7091,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     addLog(msg, 'info');
                                     pipelineUpdate(stepId, { message: msg });
                                 });
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'Muzyka', res, prompt: finalMusicPrompt };
                             };
                             parallelPromises.push(musicTask());
@@ -7110,7 +7110,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(msg, 'info');
                                 pipelineUpdate(stepId, { message: msg });
                             }).then(res => {
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'SFX', res, prompt: item.prompt };
                             });
                             parallelPromises.push(p);
@@ -7131,7 +7131,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     addLog(msg, 'info');
                                     pipelineUpdate(stepId, { message: msg });
                                 });
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'Napisy ElevenLabs', res, prompt: 'Transkrypcja audio' };
                             };
                             parallelPromises.push(transcribeTask());
@@ -7147,7 +7147,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(msg, 'info');
                                 pipelineUpdate(stepId, { message: msg });
                             }).then(res => {
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'SVG', res, prompt: svgPrompt };
                             });
                             parallelPromises.push(p);
@@ -7187,7 +7187,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     addLog(msg, 'info');
                                     pipelineUpdate(stepId, { message: msg });
                                 });
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe' });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || 'Gotowe', assetPath: (!res.error && res.filePath) ? res.filePath : null, assetDuration: res.durationSec || null });
                                 return { type: 'WhisperX', res, prompt: 'Transkrypcja word-level' };
                             };
                             parallelPromises.push(wxTask());
@@ -7203,7 +7203,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 addLog(msg, 'info');
                                 pipelineUpdate(stepId, { message: msg });
                             }).then(res => {
-                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || ('env: ' + (pyTask.env || 'default')) });
+                                pipelineUpdate(stepId, { status: res.error ? 'failed' : 'done', message: res.error || ('env: ' + (pyTask.env || 'default')), assetPath: (!res.error && res.scriptPath) ? res.scriptPath : null });
                                 return res;
                             }).then(res => {
                                 if (res.success && res.results) {

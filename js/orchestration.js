@@ -237,7 +237,21 @@
                 && (patch.status === 'done' || patch.status === 'failed' || patch.status === 'warning')) {
                 s._justChanged = patch.status;
             }
+            // Maintain a per-step message log (capped) so the expanded view
+            // can show live progress. Only push when the message actually
+            // changed — avoids spamming the log with identical "live" ticks.
+            if (patch.message && patch.message !== s.message) {
+                if (!s._messageLog) s._messageLog = [];
+                s._messageLog.push({
+                    ts: Date.now(),
+                    text: patch.message,
+                    status: patch.status || s.status
+                });
+                if (s._messageLog.length > 30) s._messageLog.shift();
+            }
             Object.assign(s, patch);
+            // Invalidate cached DOM signature so _renderStep rebuilds this row
+            s._renderedSig = null;
             this._render();
         }
         setStepProgress(id, progress, message) {
@@ -287,33 +301,152 @@
             const txt = done + ' / ' + total + ' complete' + (failed > 0 ? ' · ' + failed + ' failed' : '');
             this._el.querySelector('.pipeline-summary').textContent = txt;
         }
+        // Reuse the existing DOM node when nothing has changed. The cached
+        // node preserves the user's expanded state and — crucially — keeps
+        // audio/video elements playing across sibling-step renders.
+        _stepSignature(s) {
+            return [
+                s.status, s.label, s.message, s.assetPath || '',
+                (s._messageLog || []).length,
+                s.startTime || 0, s.endTime || 0, s.progress || 0
+            ].join('|');
+        }
         _renderStep(s) {
-            const row = document.createElement('div');
-            row.className = 'ps-step ps-step-' + s.status;
-            // Trigger a one-shot stamp animation when the step just
-            // transitioned to a terminal state. _justChanged is cleared
-            // after consumption so subsequent re-renders are still.
+            const sig = this._stepSignature(s);
+            if (s._domNode && s._renderedSig === sig) {
+                // Nothing changed — recycle the DOM node and bail.
+                return s._domNode;
+            }
+
+            const details = document.createElement('details');
+            details.className = 'ps-step ps-step-expandable ps-step-' + s.status;
+            details.open = !!s._expanded;
             if (s._justChanged) {
-                row.classList.add('ps-step-just-' + s._justChanged);
+                details.classList.add('ps-step-just-' + s._justChanged);
                 s._justChanged = null;
             }
+
             const kindIc = s.icon || this._kindIcon(s.kind);
-            const dur = s.startTime && s.endTime ? ((s.endTime - s.startTime) / 1000).toFixed(1) + 's' : (s.startTime ? 'live' : '');
+            const dur = s.startTime && s.endTime
+                ? ((s.endTime - s.startTime) / 1000).toFixed(1) + 's'
+                : (s.startTime ? 'live' : '');
             let progressBar = '';
             if (s.status === 'running' && typeof s.progress === 'number') {
                 progressBar = '<div class="ps-progress"><div class="ps-progress-fill" style="width:' + Math.min(100, Math.max(0, s.progress)) + '%"></div></div>';
             }
-            row.innerHTML = `
-                ${this._statusIcon(s.status)}
-                <span class="ps-kind">${kindIc}</span>
-                <div class="ps-meta">
-                    <div class="ps-label">${escapeHTML(s.label)}</div>
-                    ${s.message ? '<div class="ps-msg">' + escapeHTML(s.message) + '</div>' : ''}
-                    ${progressBar}
-                </div>
-                <span class="ps-time">${dur}</span>
-            `;
-            return row;
+
+            const summary = document.createElement('summary');
+            summary.className = 'ps-step-summary';
+            summary.innerHTML = ''
+                + this._statusIcon(s.status)
+                + '<span class="ps-kind">' + kindIc + '</span>'
+                + '<div class="ps-meta">'
+                +   '<div class="ps-label">' + escapeHTML(s.label) + '</div>'
+                +   (s.message ? '<div class="ps-msg">' + escapeHTML(s.message) + '</div>' : '')
+                +   progressBar
+                + '</div>'
+                + '<span class="ps-time">' + dur + '</span>'
+                + '<span class="ps-expand-chevron">▾</span>';
+            details.appendChild(summary);
+
+            // Expanded body: live log + asset preview (when present)
+            const body = document.createElement('div');
+            body.className = 'ps-step-detail';
+            const logEl = document.createElement('div');
+            logEl.className = 'ps-step-log';
+            (s._messageLog || []).forEach(entry => {
+                const dt = s.startTime ? Math.max(0, (entry.ts - s.startTime) / 1000) : 0;
+                const tsLabel = '+' + dt.toFixed(1) + 's';
+                const row = document.createElement('div');
+                row.className = 'ps-log-entry ps-log-' + (entry.status || 'running');
+                row.innerHTML = '<span class="ps-log-ts">' + tsLabel + '</span>'
+                              + '<span class="ps-log-text">' + escapeHTML(entry.text) + '</span>';
+                logEl.appendChild(row);
+            });
+            if (!(s._messageLog && s._messageLog.length)) {
+                const empty = document.createElement('div');
+                empty.className = 'ps-log-empty';
+                empty.textContent = '(no log entries yet)';
+                logEl.appendChild(empty);
+            }
+            body.appendChild(logEl);
+
+            if (s.assetPath) {
+                const previewEl = this._renderAssetPreview(s);
+                if (previewEl) body.appendChild(previewEl);
+            }
+            details.appendChild(body);
+
+            // Persist expanded state across re-renders triggered by sibling updates
+            details.addEventListener('toggle', () => { s._expanded = details.open; });
+
+            s._domNode = details;
+            s._renderedSig = sig;
+            return details;
+        }
+
+        _pathToFileUrl(p) {
+            if (!p) return '';
+            let url = String(p).replace(/\\/g, '/');
+            if (/^(file|https?):\/\//i.test(url)) return url;
+            // Windows-style absolute path C:/...  ->  file:///C:/...
+            // POSIX absolute /...                 ->  file:///...
+            if (/^[a-zA-Z]:\//.test(url)) return 'file:///' + url;
+            if (url.startsWith('/'))       return 'file://' + url;
+            return 'file:///' + url;
+        }
+        _renderAssetPreview(s) {
+            const wrap = document.createElement('div');
+            wrap.className = 'ps-step-asset';
+            const url = this._pathToFileUrl(s.assetPath);
+            const fileName = String(s.assetPath).replace(/\\/g, '/').split('/').pop();
+            const kind = (s.kind || '').toLowerCase();
+
+            // Pick a media element based on the step kind. We fall back to a
+            // plain file link for anything we don't know how to render inline.
+            const isImage = /image|svg|edit/.test(kind);
+            const isAudio = /tts|music|sfx|stt/.test(kind);
+            const isVideo = /video/.test(kind);
+
+            if (isImage) {
+                const img = document.createElement('img');
+                img.className = 'ps-asset-image';
+                img.src = url;
+                img.alt = fileName;
+                img.loading = 'lazy';
+                wrap.appendChild(img);
+            } else if (isAudio) {
+                const audio = document.createElement('audio');
+                audio.className = 'ps-asset-audio';
+                audio.controls = true;
+                audio.preload = 'metadata';
+                audio.src = url;
+                wrap.appendChild(audio);
+            } else if (isVideo) {
+                const video = document.createElement('video');
+                video.className = 'ps-asset-video';
+                video.controls = true;
+                video.preload = 'metadata';
+                video.src = url;
+                wrap.appendChild(video);
+            }
+
+            const link = document.createElement('a');
+            link.className = 'ps-asset-link';
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const sizeLabel = (typeof s.assetSize === 'number' && s.assetSize > 0)
+                ? ' · ' + (s.assetSize >= 1048576
+                    ? (s.assetSize / 1048576).toFixed(1) + ' MB'
+                    : Math.round(s.assetSize / 1024) + ' KB')
+                : '';
+            const durationLabel = (typeof s.assetDuration === 'number' && s.assetDuration > 0)
+                ? ' · ' + s.assetDuration.toFixed(1) + 's'
+                : '';
+            link.textContent = '📁 ' + fileName + durationLabel + sizeLabel;
+            wrap.appendChild(link);
+            return wrap;
         }
         _renderParallelGroup(group) {
             const wrap = document.createElement('div');
