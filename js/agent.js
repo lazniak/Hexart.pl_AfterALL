@@ -290,6 +290,62 @@ class AisistAgent {
         }
         return this.getActiveLLMModel();
     }
+    // ----- Token budget guard -----------------------------------------
+    //
+    // Rough char-based token estimate: ~4 chars/token is the industry
+    // approximation for English-Latin scripts. Good enough to decide when
+    // to start dropping history turns. We don't need exact tokenization
+    // here — only a one-sided guard against blowing tight TPM limits.
+    _approxTokens(text) {
+        if (!text) return 0;
+        return Math.ceil(String(text).length / 4);
+    }
+
+    // Maximum prompt tokens we're willing to send to a given model. Tight
+    // on known low-TPM endpoints, generous for everything else. Defaults
+    // to 60 k which fits inside Gemini Pro / Claude / GPT-4o budgets while
+    // leaving plenty of room for the output.
+    _budgetFor(modelId) {
+        if (!modelId) return 60000;
+        const id = String(modelId).toLowerCase();
+        // OpenAI search endpoints — 6 k TPM at Tier 1
+        if (/gpt-[0-9.]+-search/.test(id)) return 5000;
+        // Perplexity Sonar — 32 k context but rate-limited per query
+        if (/^perplexity\//.test(id) || /sonar/.test(id)) return 24000;
+        // Tiny / nano models
+        if (/-mini|-nano|-flash-lite|-8b/.test(id)) return 32000;
+        // Modern flagships handle a lot more
+        if (/gpt-5|gpt-4o|claude-opus|claude-sonnet|gemini-[23]/.test(id)) return 200000;
+        return 60000;
+    }
+
+    // Estimate the prompt size for a given system+history+userMsg combo
+    // and trim oldest history turns until we're under the budget. Returns
+    // the (possibly shortened) history array. The current userMsg is
+    // ALWAYS preserved — only history is sacrificed.
+    _trimHistoryForBudget(history, userMsg, modelId) {
+        const budget = this._budgetFor(modelId);
+        const sysTokens  = this._approxTokens(this.systemInstruction);
+        const userTokens = this._approxTokens(JSON.stringify(userMsg || ''));
+        let trimmed = (history || []).slice();
+        let histTokens = this._approxTokens(JSON.stringify(trimmed));
+        let droppedCount = 0;
+        while (sysTokens + userTokens + histTokens > budget && trimmed.length > 0) {
+            trimmed.shift();
+            histTokens = this._approxTokens(JSON.stringify(trimmed));
+            droppedCount++;
+        }
+        if (droppedCount > 0) {
+            const logFn = (typeof window !== 'undefined' && typeof window.afterallAddLog === 'function')
+                ? window.afterallAddLog : null;
+            if (logFn) {
+                logFn('Token-budget trim: dropped ' + droppedCount + ' oldest history turns to fit ' + modelId
+                    + ' (~' + (sysTokens + userTokens + histTokens) + ' / ' + budget + ' tok).', 'warning');
+            }
+        }
+        return trimmed;
+    }
+
     getActiveImageModel() {
         switch (this.imgProvider) {
             case 'openrouter': return this.openrouterImageModel;
@@ -3015,20 +3071,66 @@ ${this.getSkillsSummary()}
         if (!model) throw new Error('Nie wybrano modelu dla dostawcy ' + this.llmProvider + '. Otwórz Ustawienia → Dostawcy LLM.');
 
         const signal = this.abortController ? this.abortController.signal : undefined;
+
+        // ----- Context-packing strategy -----------------------------------
+        //
+        // Default: full orchestration system prompt + last MAX_HISTORY_TURNS
+        // turns verbatim + the current userMsg.
+        //
+        // Grounding swap-out: when the user enabled grounding and we routed
+        // to a dedicated web-search model (gpt-5-search-api,
+        // perplexity/sonar-pro-search, …), we DO NOT need the orchestration
+        // framework — that model just needs to answer one question backed by
+        // web sources. Strip the system prompt, drop history, and send a
+        // tiny "answer concisely with sources" instruction instead. Saves
+        // ~10–15 k tokens per grounding call and stays inside low-TPM tiers
+        // like the 6 k/min OpenAI search API.
+        //
+        // Token guard: even on the regular path, estimate the request size
+        // and drop the OLDEST history turns until we're under a per-model
+        // budget — with an in-app warning when trimming happens.
+        const isGroundingSwap = wantsGrounding && (
+            (this.llmProvider === 'openrouter' && model === this.openrouterGroundingModel && model) ||
+            (this.llmProvider === 'openai'     && model === this.openaiGroundingModel     && model) ||
+            (this.llmProvider === 'lmstudio'   && model === this.lmstudioGroundingModel   && model)
+        );
+
+        let messagesForCall;
+        let systemForCall;
+        if (isGroundingSwap) {
+            // Distil the user's request to a search-shaped question. The
+            // userPrompt is the raw user text; we keep just that plus a
+            // short instruction. Skip aeContext, history, screenshots —
+            // none of that helps a web search.
+            const question = (userPrompt || '').trim();
+            systemForCall = 'You are a web-search assistant. Answer the user\'s question concisely (2-6 sentences), cite sources inline with [N] markers and list URLs at the bottom. Use up-to-date information from the live web.';
+            messagesForCall = [{ role: 'user', parts: [{ text: question }] }];
+            const logFnEarly = (typeof window !== 'undefined' && typeof window.afterallAddLog === 'function')
+                ? window.afterallAddLog : null;
+            if (logFnEarly) {
+                logFnEarly('Grounding call — using lean payload (skipped system prompt + ' + this.history.length + ' history turns).', 'info');
+            }
+        } else {
+            systemForCall = this.systemInstruction;
+            messagesForCall = this._trimHistoryForBudget(this.history, userMsg, model);
+        }
+
         // If a stream callback was provided, use streaming so the live thinking UI updates as
         // chunks arrive. Otherwise fall back to the non-streaming chatCompletion path.
         const args = {
-            systemInstruction: this.systemInstruction,
-            messages: [...this.history, userMsg],
+            systemInstruction: systemForCall,
+            messages: [...messagesForCall, userMsg],
             model: model,
             generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 16384,
-                responseMimeType: 'application/json'
+                temperature: isGroundingSwap ? 0.4 : 0.2,
+                maxOutputTokens: isGroundingSwap ? 2048 : 16384,
+                responseMimeType: isGroundingSwap ? null : 'application/json'
             },
             grounding: this.llmProvider === 'gemini' && this.useGrounding && this.isFeatureEnabled('grounding'),
             signal: signal
         };
+        // _buildPayload helpers respect missing responseMimeType — no extra
+        // JSON-mode hint goes on the wire for grounding calls.
         let completion;
         // Streaming diagnostics — surfaced to the in-app log console (not just
         // DevTools) so a silent fallback to non-streaming is visible to the user.
