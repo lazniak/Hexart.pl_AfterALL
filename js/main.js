@@ -2098,9 +2098,13 @@ function t(key, fallback) {
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
     // Model fields are now plain text inputs (OpenRouter pattern). Load the
     // stored value straight in — the picker (📋) writes back into them too.
+    // Note: `ttsModelSelect2` is const-declared later in the IIFE so we
+    // can't reference it here without a Temporal Dead Zone error. Look it
+    // up directly via getElementById instead — same target, no TDZ.
     if (baseModelSelect)           baseModelSelect.value           = agent.geminiModel       || '';
     if (imageModelSelect)          imageModelSelect.value          = agent.geminiImageModel  || '';
-    if (ttsModelSelect2)           ttsModelSelect2.value           = agent.ttsModel          || '';
+    const _ttsModelEl              = document.getElementById('ttsmodel-select-2');
+    if (_ttsModelEl)               _ttsModelEl.value               = agent.ttsModel          || '';
     if (lmstudioLLMModelSelect)    lmstudioLLMModelSelect.value    = agent.lmstudioLLMModel  || '';
     if (lmstudioGroundingSelect)   lmstudioGroundingSelect.value   = agent.lmstudioGroundingModel || '';
     if (openaiLLMModelSelect)      openaiLLMModelSelect.value      = agent.openaiLLMModel    || '';
