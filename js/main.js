@@ -518,7 +518,37 @@ const i18nDict = {
         'tab-tts-stt': 'TTS / STT',
         'tab-features': 'Funkcje',
         'tab-paths': 'Ścieżki / Sandbox',
+        'tab-permissions': 'Uprawnienia',
+        'tab-mcp': 'MCP Bridge',
         'tab-secrets': 'Klucze API',
+        // Permissions tab
+        'perm-card-title': '⚖ Zapisane decyzje uprawnień',
+        'perm-card-hint': 'Lista zapamiętanych decyzji „Allow" / „Deny" dla operacji, które mogą wpłynąć na istniejące dane. Możesz odwołać dowolną w każdej chwili.',
+        'perm-clear-all': 'Wyczyść wszystkie',
+        'perm-protect-title': '🛡 Ochrona istniejących danych',
+        'perm-protect-hint': 'Agent przy starcie każdego zadania robi snapshot projektu. Operacje na elementach z snapshotu (np. usuwanie warstw, kompozycji, plików) wymagają Twojej zgody. Pliki tymczasowe (prefiks aisist_*) są zawsze bezpieczne dla agenta.',
+        'perm-strict-mode': 'Tryb ostrożny (pytaj nawet o operacje na elementach utworzonych w trakcie zadania)',
+        'perm-warn-in-plan': 'Ostrzegaj, gdy agent planuje usunięcie (jeszcze przed wykonaniem)',
+        'perm-no-rules': 'Brak zapisanych decyzji uprawnień.',
+        // Permission rule list rows
+        'perm-rule-saved': 'zapisano',
+        'perm-rule-expires': 'wygasa',
+        'perm-rule-revoke-title': 'Cofnij decyzję',
+        'perm-clear-all-confirm': 'Wyczyścić wszystkie zapisane decyzje uprawnień?',
+        // Permission request modal
+        'perm-request-intro': 'Agent prosi o zgodę na operację, która może wpłynąć na istniejące dane projektu.',
+        'perm-request-target-label': 'Cel:',
+        'perm-request-reason-label': 'Uzasadnienie agenta:',
+        'perm-request-no-reason': '(brak uzasadnienia)',
+        // Operation labels
+        'perm-op-delete-layer': 'Usuwanie warstwy',
+        'perm-op-delete-project-item': 'Usuwanie elementu z projektu',
+        'perm-op-overwrite-user-file': 'Nadpisanie pliku użytkownika',
+        'perm-op-modify-protected': 'Modyfikacja chronionego elementu',
+        'perm-op-run-long-python': 'Długie zadanie Python',
+        'perm-op-install-python-packages': 'Instalacja pakietów Python',
+        'perm-op-external-http-call': 'Połączenie z internetem',
+        'perm-op-file-system-write': 'Zapis na dysku',
         // Settings - General
         'ui-lang-label': 'Język Interfejsu (UI)',
         'proj-lang-label': 'Język Komunikacji (Project Content)',
@@ -980,7 +1010,31 @@ const i18nDict = {
         'amsg-task-aborted-user': 'The task was interrupted at your request. What\'s next?',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
-        'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
+        'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-permissions': 'Permissions', 'tab-mcp': 'MCP Bridge', 'tab-secrets': 'API Keys',
+        'perm-card-title': '⚖ Saved permission decisions',
+        'perm-card-hint': 'List of remembered "Allow" / "Deny" decisions for operations that may affect existing data. You can revoke any of them at any time.',
+        'perm-clear-all': 'Clear all',
+        'perm-protect-title': '🛡 Protecting existing data',
+        'perm-protect-hint': 'At the start of every task the agent takes a project snapshot. Operations on elements captured in that snapshot (e.g. deleting layers, comps, files) require your consent. Temporary files (aisist_* prefix) are always safe for the agent.',
+        'perm-strict-mode': 'Strict mode (ask even about operations on elements created during the current task)',
+        'perm-warn-in-plan': 'Warn when the agent plans a deletion (before execution)',
+        'perm-no-rules': 'No saved permission decisions.',
+        'perm-rule-saved': 'saved',
+        'perm-rule-expires': 'expires',
+        'perm-rule-revoke-title': 'Revoke decision',
+        'perm-clear-all-confirm': 'Clear all saved permission decisions?',
+        'perm-request-intro': 'The agent is requesting permission for an operation that may affect existing project data.',
+        'perm-request-target-label': 'Target:',
+        'perm-request-reason-label': "Agent's reason:",
+        'perm-request-no-reason': '(no reason given)',
+        'perm-op-delete-layer': 'Delete layer',
+        'perm-op-delete-project-item': 'Delete project item',
+        'perm-op-overwrite-user-file': 'Overwrite user file',
+        'perm-op-modify-protected': 'Modify protected item',
+        'perm-op-run-long-python': 'Long-running Python task',
+        'perm-op-install-python-packages': 'Install Python packages',
+        'perm-op-external-http-call': 'External HTTP call',
+        'perm-op-file-system-write': 'Write to filesystem',
         'ui-lang-label': 'UI Language', 'proj-lang-label': 'Project Content Language',
         'tts-voice-label': 'Voice (Gemini TTS)',
         'auto-debug-label': 'Auto-debugging (max 3 retries)',
@@ -1287,7 +1341,31 @@ const i18nDict = {
         'prompt-placeholder': 'Befehl für After Effects eingeben...',
         'status-ready': 'Bereit', 'status-thinking': 'Denke nach...', 'status-processing': 'Verarbeite...', 'status-done': 'Aufgabe erledigt.',
         'settings-title': 'Einstellungen · HEXART.PL/AfterALL',
-        'tab-general': 'Allgemein', 'tab-providers': 'LLM-Anbieter', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Funktionen', 'tab-paths': 'Pfade / Sandbox', 'tab-secrets': 'API-Schlüssel',
+        'tab-general': 'Allgemein', 'tab-providers': 'LLM-Anbieter', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Funktionen', 'tab-paths': 'Pfade / Sandbox', 'tab-permissions': 'Berechtigungen', 'tab-mcp': 'MCP-Bridge', 'tab-secrets': 'API-Schlüssel',
+        'perm-card-title': '⚖ Gespeicherte Berechtigungs-Entscheidungen',
+        'perm-card-hint': 'Liste der gespeicherten „Allow" / „Deny"-Entscheidungen für Aktionen, die bestehende Daten betreffen können. Du kannst jede davon jederzeit widerrufen.',
+        'perm-clear-all': 'Alle löschen',
+        'perm-protect-title': '🛡 Schutz vorhandener Daten',
+        'perm-protect-hint': 'Zu Beginn jeder Aufgabe erstellt der Agent einen Projekt-Snapshot. Aktionen auf Elementen aus dem Snapshot (z. B. Löschen von Ebenen, Kompositionen, Dateien) erfordern deine Zustimmung. Temporäre Dateien (Präfix aisist_*) sind für den Agenten immer sicher.',
+        'perm-strict-mode': 'Strenger Modus (fragt auch bei Aktionen auf Elementen, die während der laufenden Aufgabe erstellt wurden)',
+        'perm-warn-in-plan': 'Warnen, wenn der Agent eine Löschung plant (vor der Ausführung)',
+        'perm-no-rules': 'Keine gespeicherten Berechtigungs-Entscheidungen.',
+        'perm-rule-saved': 'gespeichert',
+        'perm-rule-expires': 'läuft ab',
+        'perm-rule-revoke-title': 'Entscheidung widerrufen',
+        'perm-clear-all-confirm': 'Alle gespeicherten Berechtigungs-Entscheidungen löschen?',
+        'perm-request-intro': 'Der Agent bittet um Erlaubnis für eine Aktion, die bestehende Projektdaten betreffen kann.',
+        'perm-request-target-label': 'Ziel:',
+        'perm-request-reason-label': 'Begründung des Agenten:',
+        'perm-request-no-reason': '(keine Begründung)',
+        'perm-op-delete-layer': 'Ebene löschen',
+        'perm-op-delete-project-item': 'Projekt-Element löschen',
+        'perm-op-overwrite-user-file': 'Benutzerdatei überschreiben',
+        'perm-op-modify-protected': 'Geschütztes Element ändern',
+        'perm-op-run-long-python': 'Lang laufende Python-Aufgabe',
+        'perm-op-install-python-packages': 'Python-Pakete installieren',
+        'perm-op-external-http-call': 'Externer HTTP-Aufruf',
+        'perm-op-file-system-write': 'Auf Datenträger schreiben',
         'ui-lang-label': 'UI-Sprache', 'proj-lang-label': 'Projektinhalt-Sprache',
         'tts-voice-label': 'Stimme (Gemini TTS)',
         'auto-debug-label': 'Automatische Selbstreparatur (max. 3 Versuche)',
@@ -1435,7 +1513,31 @@ const i18nDict = {
         'prompt-placeholder': 'Escribe un comando para After Effects...',
         'status-ready': 'Listo', 'status-thinking': 'Pensando...', 'status-processing': 'Procesando...', 'status-done': 'Tarea completada.',
         'settings-title': 'Ajustes · HEXART.PL/AfterALL',
-        'tab-general': 'General', 'tab-providers': 'Proveedores LLM', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Funciones', 'tab-paths': 'Rutas / Sandbox', 'tab-secrets': 'Claves API',
+        'tab-general': 'General', 'tab-providers': 'Proveedores LLM', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Funciones', 'tab-paths': 'Rutas / Sandbox', 'tab-permissions': 'Permisos', 'tab-mcp': 'MCP Bridge', 'tab-secrets': 'Claves API',
+        'perm-card-title': '⚖ Decisiones de permisos guardadas',
+        'perm-card-hint': 'Lista de decisiones recordadas «Permitir» / «Denegar» para operaciones que pueden afectar a datos existentes. Puedes revocar cualquiera en cualquier momento.',
+        'perm-clear-all': 'Borrar todas',
+        'perm-protect-title': '🛡 Protección de datos existentes',
+        'perm-protect-hint': 'Al inicio de cada tarea el agente toma una captura del proyecto. Las operaciones sobre elementos del snapshot (p. ej. eliminar capas, composiciones o archivos) requieren tu consentimiento. Los archivos temporales (prefijo aisist_*) son siempre seguros para el agente.',
+        'perm-strict-mode': 'Modo estricto (preguntar también sobre operaciones en elementos creados durante la tarea actual)',
+        'perm-warn-in-plan': 'Avisar cuando el agente planee una eliminación (antes de ejecutarla)',
+        'perm-no-rules': 'No hay decisiones de permisos guardadas.',
+        'perm-rule-saved': 'guardado',
+        'perm-rule-expires': 'expira',
+        'perm-rule-revoke-title': 'Revocar decisión',
+        'perm-clear-all-confirm': '¿Borrar todas las decisiones de permisos guardadas?',
+        'perm-request-intro': 'El agente solicita permiso para una operación que puede afectar a datos existentes del proyecto.',
+        'perm-request-target-label': 'Objetivo:',
+        'perm-request-reason-label': 'Razón del agente:',
+        'perm-request-no-reason': '(sin razón indicada)',
+        'perm-op-delete-layer': 'Eliminar capa',
+        'perm-op-delete-project-item': 'Eliminar elemento del proyecto',
+        'perm-op-overwrite-user-file': 'Sobrescribir archivo de usuario',
+        'perm-op-modify-protected': 'Modificar elemento protegido',
+        'perm-op-run-long-python': 'Tarea Python de larga ejecución',
+        'perm-op-install-python-packages': 'Instalar paquetes Python',
+        'perm-op-external-http-call': 'Llamada HTTP externa',
+        'perm-op-file-system-write': 'Escribir en el disco',
         'ui-lang-label': 'Idioma de la UI', 'proj-lang-label': 'Idioma del proyecto',
         'tts-voice-label': 'Voz (Gemini TTS)',
         'auto-debug-label': 'Autocorrección (máx. 3 intentos)',
@@ -1570,7 +1672,31 @@ const i18nDict = {
         'prompt-placeholder': 'Saisissez une commande pour After Effects...',
         'status-ready': 'Prêt', 'status-thinking': 'Réflexion...', 'status-processing': 'Traitement...', 'status-done': 'Tâche terminée.',
         'settings-title': 'Paramètres · HEXART.PL/AfterALL',
-        'tab-general': 'Général', 'tab-providers': 'Fournisseurs LLM', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Fonctions', 'tab-paths': 'Chemins / Sandbox', 'tab-secrets': 'Clés API',
+        'tab-general': 'Général', 'tab-providers': 'Fournisseurs LLM', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Fonctions', 'tab-paths': 'Chemins / Sandbox', 'tab-permissions': 'Permissions', 'tab-mcp': 'MCP Bridge', 'tab-secrets': 'Clés API',
+        'perm-card-title': '⚖ Décisions de permission enregistrées',
+        'perm-card-hint': 'Liste des décisions « Autoriser » / « Refuser » mémorisées pour les opérations susceptibles d\'affecter des données existantes. Vous pouvez révoquer chacune d\'elles à tout moment.',
+        'perm-clear-all': 'Tout effacer',
+        'perm-protect-title': '🛡 Protection des données existantes',
+        'perm-protect-hint': 'Au démarrage de chaque tâche, l\'agent prend un instantané du projet. Les opérations sur des éléments de cet instantané (suppression de calques, de compositions, de fichiers…) requièrent votre consentement. Les fichiers temporaires (préfixe aisist_*) sont toujours sûrs pour l\'agent.',
+        'perm-strict-mode': 'Mode strict (demander aussi pour les opérations sur des éléments créés pendant la tâche en cours)',
+        'perm-warn-in-plan': 'Avertir lorsque l\'agent planifie une suppression (avant exécution)',
+        'perm-no-rules': 'Aucune décision de permission enregistrée.',
+        'perm-rule-saved': 'enregistré',
+        'perm-rule-expires': 'expire',
+        'perm-rule-revoke-title': 'Révoquer la décision',
+        'perm-clear-all-confirm': 'Effacer toutes les décisions de permission enregistrées ?',
+        'perm-request-intro': "L'agent demande la permission pour une opération qui peut affecter des données existantes du projet.",
+        'perm-request-target-label': 'Cible :',
+        'perm-request-reason-label': "Justification de l'agent :",
+        'perm-request-no-reason': '(aucune justification)',
+        'perm-op-delete-layer': 'Supprimer un calque',
+        'perm-op-delete-project-item': 'Supprimer un élément du projet',
+        'perm-op-overwrite-user-file': "Écraser un fichier de l'utilisateur",
+        'perm-op-modify-protected': 'Modifier un élément protégé',
+        'perm-op-run-long-python': 'Tâche Python longue',
+        'perm-op-install-python-packages': 'Installer des paquets Python',
+        'perm-op-external-http-call': 'Appel HTTP externe',
+        'perm-op-file-system-write': 'Écrire sur le disque',
         'ui-lang-label': 'Langue de l\'UI', 'proj-lang-label': 'Langue du contenu du projet',
         'tts-voice-label': 'Voix (Gemini TTS)',
         'auto-debug-label': 'Auto-correction (3 tentatives max.)',
@@ -1705,7 +1831,31 @@ const i18nDict = {
         'prompt-placeholder': 'After Effects へのコマンドを入力...',
         'status-ready': '準備完了', 'status-thinking': '考え中...', 'status-processing': '処理中...', 'status-done': 'タスク完了。',
         'settings-title': '設定 · HEXART.PL/AfterALL',
-        'tab-general': '一般', 'tab-providers': 'LLM プロバイダー', 'tab-tts-stt': 'TTS / STT', 'tab-features': '機能', 'tab-paths': 'パス / サンドボックス', 'tab-secrets': 'API キー',
+        'tab-general': '一般', 'tab-providers': 'LLM プロバイダー', 'tab-tts-stt': 'TTS / STT', 'tab-features': '機能', 'tab-paths': 'パス / サンドボックス', 'tab-permissions': '権限', 'tab-mcp': 'MCP ブリッジ', 'tab-secrets': 'API キー',
+        'perm-card-title': '⚖ 保存された権限の決定',
+        'perm-card-hint': '既存データに影響する可能性のある操作について記憶された「許可」/「拒否」決定の一覧です。いつでも個別に取り消せます。',
+        'perm-clear-all': 'すべて消去',
+        'perm-protect-title': '🛡 既存データの保護',
+        'perm-protect-hint': 'エージェントは各タスク開始時にプロジェクトのスナップショットを取ります。スナップショット内の要素に対する操作（レイヤー、コンポジション、ファイルの削除など）はユーザーの承認が必要です。一時ファイル（aisist_* プレフィックス）はエージェントが常に安全に扱えます。',
+        'perm-strict-mode': '厳格モード（現在のタスク中に作成された要素への操作についても確認します）',
+        'perm-warn-in-plan': 'エージェントが削除を計画した場合は実行前に警告',
+        'perm-no-rules': '保存された権限の決定はありません。',
+        'perm-rule-saved': '保存日',
+        'perm-rule-expires': '有効期限',
+        'perm-rule-revoke-title': '決定を取り消す',
+        'perm-clear-all-confirm': '保存されたすべての権限の決定を消去しますか？',
+        'perm-request-intro': 'エージェントが既存のプロジェクトデータに影響を与える可能性のある操作に対して許可を求めています。',
+        'perm-request-target-label': '対象:',
+        'perm-request-reason-label': 'エージェントの理由:',
+        'perm-request-no-reason': '（理由なし）',
+        'perm-op-delete-layer': 'レイヤーを削除',
+        'perm-op-delete-project-item': 'プロジェクト要素を削除',
+        'perm-op-overwrite-user-file': 'ユーザーのファイルを上書き',
+        'perm-op-modify-protected': '保護された要素を変更',
+        'perm-op-run-long-python': '長時間の Python タスク',
+        'perm-op-install-python-packages': 'Python パッケージをインストール',
+        'perm-op-external-http-call': '外部 HTTP 呼び出し',
+        'perm-op-file-system-write': 'ディスクへの書き込み',
         'ui-lang-label': 'UI 言語', 'proj-lang-label': 'プロジェクト言語',
         'tts-voice-label': '音声 (Gemini TTS)',
         'auto-debug-label': '自動セルフリペア (最大3回)',
@@ -1978,16 +2128,24 @@ function t(key, fallback) {
     const permDenyBtn = document.getElementById('perm-deny-btn');
     const permCloseBtn = document.getElementById('close-permission-btn');
 
+    // Icon + i18n key per operation. Label is resolved via tr() so it picks
+    // up the active UI language without any `_activeLang === 'pl' ?` ternaries.
     const operationLabels = {
-        delete_layer: { icon: '🗑', pl: 'Usuwanie warstwy', en: 'Delete layer' },
-        delete_project_item: { icon: '🗑', pl: 'Usuwanie elementu z projektu', en: 'Delete project item' },
-        overwrite_user_file: { icon: '⚠', pl: 'Nadpisanie pliku użytkownika', en: 'Overwrite user file' },
-        modify_protected: { icon: '✎', pl: 'Modyfikacja chronionego elementu', en: 'Modify protected item' },
-        run_long_python: { icon: '⏳', pl: 'Długie zadanie Python', en: 'Long-running Python task' },
-        install_python_packages: { icon: '📦', pl: 'Instalacja pakietów Python', en: 'Install Python packages' },
-        external_http_call: { icon: '🌐', pl: 'Połączenie z internetem', en: 'External HTTP call' },
-        file_system_write: { icon: '💾', pl: 'Zapis na dysku', en: 'Write to filesystem' }
+        delete_layer:           { icon: '🗑', key: 'perm-op-delete-layer' },
+        delete_project_item:    { icon: '🗑', key: 'perm-op-delete-project-item' },
+        overwrite_user_file:    { icon: '⚠', key: 'perm-op-overwrite-user-file' },
+        modify_protected:       { icon: '✎', key: 'perm-op-modify-protected' },
+        run_long_python:        { icon: '⏳', key: 'perm-op-run-long-python' },
+        install_python_packages:{ icon: '📦', key: 'perm-op-install-python-packages' },
+        external_http_call:     { icon: '🌐', key: 'perm-op-external-http-call' },
+        file_system_write:      { icon: '💾', key: 'perm-op-file-system-write' }
     };
+    function permOperationLabel(opName) {
+        const meta = operationLabels[opName];
+        if (!meta) return opName;
+        const v = tr(meta.key);
+        return (v && v !== meta.key) ? v : opName;
+    }
 
     function requestPermission(operation, target, reason) {
         return new Promise((resolve) => {
@@ -1996,22 +2154,21 @@ function t(key, fallback) {
             if (decision === 'allow') { resolve('allow'); return; }
             if (decision === 'deny') { resolve('deny'); return; }
             // Need to ask
-            const opMeta = operationLabels[operation] || { icon: '⚖', pl: operation, en: operation };
+            const opMeta = operationLabels[operation] || { icon: '⚖', key: null };
+            const opLabel = permOperationLabel(operation);
             permIcon.textContent = opMeta.icon;
-            permTitle.textContent = (opMeta[_activeLang] || opMeta.en) || operation;
-            permIntro.textContent = (_activeLang === 'pl')
-                ? 'Agent prosi o zgodę na operację która może wpłynąć na istniejące dane projektu.'
-                : 'The agent is requesting permission for an operation that may affect existing project data.';
-            permDetails.innerHTML = `
-                <div style="display:flex; gap:8px; align-items:center; margin-bottom: 6px;">
-                    <span style="font-size:18px;">${opMeta.icon}</span>
-                    <strong>${escapeAttr((opMeta[_activeLang] || opMeta.en))}</strong>
-                </div>
-                <div style="font-size:11.5px; color: var(--text-secondary); font-family: monospace; word-break: break-all;">
-                    ${(_activeLang === 'pl' ? 'Cel: ' : 'Target: ')}<span style="color: var(--text-primary);">${escapeAttr(target || '*')}</span>
-                </div>
-            `;
-            permReason.textContent = (_activeLang === 'pl' ? 'Uzasadnienie agenta: ' : 'Agent\'s reason: ') + (reason || (_activeLang === 'pl' ? '(brak uzasadnienia)' : '(no reason given)'));
+            permTitle.textContent = opLabel;
+            permIntro.textContent = tr('perm-request-intro');
+            permDetails.innerHTML = ''
+                + '<div style="display:flex; gap:8px; align-items:center; margin-bottom: 6px;">'
+                +   '<span style="font-size:18px;">' + opMeta.icon + '</span>'
+                +   '<strong>' + escapeAttr(opLabel) + '</strong>'
+                + '</div>'
+                + '<div style="font-size:11.5px; color: var(--text-secondary); font-family: monospace; word-break: break-all;">'
+                +   escapeAttr(tr('perm-request-target-label')) + ' '
+                +   '<span style="color: var(--text-primary);">' + escapeAttr(target || '*') + '</span>'
+                + '</div>';
+            permReason.textContent = tr('perm-request-reason-label') + ' ' + (reason || tr('perm-request-no-reason'));
             permScope.value = 'once';
             permOverlay.classList.remove('hidden');
 
@@ -2053,27 +2210,28 @@ function t(key, fallback) {
         listEl.innerHTML = '';
         if (rules.length === 0) {
             listEl.innerHTML = '<div style="font-size:11px; color: var(--text-secondary); text-align: center; padding: 0.6rem;">'
-                + (_activeLang === 'pl' ? 'Brak zapisanych decyzji uprawnień.' : 'No saved permission decisions.') + '</div>';
+                + escapeAttr(tr('perm-no-rules')) + '</div>';
             return;
         }
         rules.forEach(r => {
-            const opMeta = operationLabels[r.operation] || { icon: '⚖', pl: r.operation, en: r.operation };
+            const opMeta = operationLabels[r.operation] || { icon: '⚖', key: null };
+            const opLabel = permOperationLabel(r.operation);
             const row = document.createElement('div');
             row.className = 'perm-rule';
             const allowClass = r.decision === 'allow' ? 'allow' : 'deny';
             const decisionIcon = r.decision === 'allow' ? '✓' : '✕';
             const expiresLabel = r.expires_at
-                ? ' · expires ' + new Date(r.expires_at).toLocaleString()
+                ? ' · ' + tr('perm-rule-expires') + ' ' + new Date(r.expires_at).toLocaleString()
                 : '';
-            row.innerHTML = `
-                <div class="perm-rule-icon ${allowClass}">${decisionIcon}</div>
-                <div class="perm-rule-meta">
-                    <div class="perm-rule-op">${opMeta.icon} ${escapeAttr(opMeta[_activeLang] || opMeta.en)}</div>
-                    <div class="perm-rule-target">${escapeAttr(r.target || '*')}</div>
-                    <div class="perm-rule-meta-info">${escapeAttr(r.decision.toUpperCase())} · saved ${new Date(r.created_at).toLocaleDateString()}${expiresLabel}</div>
-                </div>
-                <button class="mini-btn" data-revoke="${escapeAttr(r.operation)}|${escapeAttr(r.target)}" title="Cofnij decyzję">✕</button>
-            `;
+            const savedLabel = tr('perm-rule-saved') + ' ' + new Date(r.created_at).toLocaleDateString();
+            row.innerHTML = ''
+                + '<div class="perm-rule-icon ' + allowClass + '">' + decisionIcon + '</div>'
+                + '<div class="perm-rule-meta">'
+                +   '<div class="perm-rule-op">' + opMeta.icon + ' ' + escapeAttr(opLabel) + '</div>'
+                +   '<div class="perm-rule-target">' + escapeAttr(r.target || '*') + '</div>'
+                +   '<div class="perm-rule-meta-info">' + escapeAttr(r.decision.toUpperCase()) + ' · ' + savedLabel + expiresLabel + '</div>'
+                + '</div>'
+                + '<button class="mini-btn" data-revoke="' + escapeAttr(r.operation) + '|' + escapeAttr(r.target) + '" title="' + escapeAttr(tr('perm-rule-revoke-title')) + '">✕</button>';
             row.querySelector('[data-revoke]').addEventListener('click', () => {
                 permManager.revoke(r.operation, r.target);
                 renderPermissionRules();
@@ -2084,7 +2242,7 @@ function t(key, fallback) {
     }
     const permClearAllBtn = document.getElementById('perm-clear-all-btn');
     if (permClearAllBtn) permClearAllBtn.addEventListener('click', () => {
-        if (confirm(_activeLang === 'pl' ? 'Wyczyścić wszystkie zapisane decyzje uprawnień?' : 'Clear all saved permission decisions?')) {
+        if (confirm(tr('perm-clear-all-confirm'))) {
             permManager.clearAll();
             renderPermissionRules();
         }
