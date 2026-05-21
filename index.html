@@ -768,10 +768,10 @@
             </div>
             <div class="settings-body" style="display:flex; flex-direction:column; gap:0.5rem;">
                 <div class="picker-filters">
-                    <input type="text" id="vp-search" data-i18n-ph="voice-picker-search-ph" placeholder="🔎 Szukaj po nazwie / opisie..." style="flex:2;">
+                    <input type="text" id="vp-search" data-i18n-ph="voice-picker-search-ph" placeholder="Search by name / description..." style="flex:2;">
                     <select id="vp-source">
                         <option value="library" data-i18n="voice-picker-source-library">Public Library</option>
-                        <option value="user" data-i18n="voice-picker-source-user">Moje głosy</option>
+                        <option value="user" data-i18n="voice-picker-source-user">My Voices</option>
                     </select>
                     <select id="vp-sort">
                         <option value="trending">Trending</option>
@@ -782,20 +782,20 @@
                 </div>
                 <div class="picker-filters">
                     <select id="vp-gender">
-                        <option value="" data-i18n="voice-picker-gender-any">Płeć: dowolna</option>
+                        <option value="" data-i18n="voice-picker-gender-any">Gender: any</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                         <option value="neutral">Neutral</option>
                         <option value="non-binary">Non-binary</option>
                     </select>
                     <select id="vp-age">
-                        <option value="" data-i18n="voice-picker-age-any">Wiek: dowolny</option>
+                        <option value="" data-i18n="voice-picker-age-any">Age: any</option>
                         <option value="young">Young</option>
                         <option value="middle_aged">Middle aged</option>
                         <option value="old">Old</option>
                     </select>
                     <select id="vp-accent">
-                        <option value="" data-i18n="voice-picker-accent-any">Akcent: dowolny</option>
+                        <option value="" data-i18n="voice-picker-accent-any">Accent: any</option>
                         <option value="american">American</option>
                         <option value="british">British</option>
                         <option value="australian">Australian</option>
@@ -809,7 +809,7 @@
                         <option value="italian">Italian</option>
                     </select>
                     <select id="vp-use-case">
-                        <option value="" data-i18n="voice-picker-use-case-any">Zastosowanie: dowolne</option>
+                        <option value="" data-i18n="voice-picker-use-case-any">Use case: any</option>
                         <option value="narration">Narration</option>
                         <option value="conversational">Conversational</option>
                         <option value="characters">Characters / animation</option>
@@ -819,12 +819,12 @@
                         <option value="audiobook">Audiobook</option>
                     </select>
                 </div>
-                <div id="voice-picker-status" data-i18n="voice-picker-load-prompt" style="font-size:11px; color:var(--text-secondary); padding: 4px 0;">Naciśnij ↻ aby załadować głosy...</div>
+                <div id="voice-picker-status" data-i18n="voice-picker-load-prompt" style="font-size:11px; color:var(--text-secondary); padding: 4px 0;">Loading voices from ElevenLabs...</div>
                 <div id="voice-picker-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
-                <button id="reload-voice-list" class="mini-btn" data-i18n="voice-picker-load" style="flex:1;">↻ Pobierz / odśwież</button>
-                <button id="apply-voice-pick" data-i18n="voice-picker-apply" style="flex:2; background: linear-gradient(135deg, var(--accent), #b8862d); padding:8px; border-radius:6px; color:white; font-weight:500;">Zastosuj wybrany głos</button>
+                <button id="reload-voice-list" class="mini-btn" data-i18n="voice-picker-load" style="flex:1;">↻ Reload</button>
+                <button id="apply-voice-pick" class="primary-save" data-i18n="voice-picker-apply" style="flex:2;">Apply selected voice</button>
             </div>
         </div>
     </div>

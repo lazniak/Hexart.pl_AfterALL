@@ -90,9 +90,10 @@
         }
 
         // Search the public Voice Library — uses /v1/shared-voices
-        // filters: { gender, age, accent, use_case, language, search, page_size, sort }
+        // filters: { gender, age, accent, use_case, language, search, page_size, sort, page, featured }
+        // Returns: { voices: [...], hasMore: boolean, page: int, pageSize: int, total: int|null }
         async searchVoiceLibrary(filters) {
-            if (!this.apiKey) throw new Error('Brak klucza ElevenLabs.');
+            if (!this.apiKey) throw new Error('Missing ElevenLabs API key.');
             const http = _http();
             const params = new URLSearchParams();
             filters = filters || {};
@@ -103,12 +104,29 @@
             if (filters.language) params.set('language', filters.language);
             if (filters.search) params.set('search', filters.search);
             if (filters.sort) params.set('sort', filters.sort);
-            params.set('page_size', String(filters.page_size || 100));
-            params.set('featured', filters.featured === false ? 'false' : 'true');
+            const pageSize = Math.min(100, Math.max(1, filters.page_size || 100));
+            const page = Math.max(0, parseInt(filters.page, 10) || 0);
+            params.set('page_size', String(pageSize));
+            params.set('page', String(page));
+            // Only force featured=true when explicitly requested. Default is to
+            // let the server decide (omitting the param returns the full set
+            // sorted by `sort`, so users can scroll the entire library).
+            if (filters.featured === true) params.set('featured', 'true');
             const url = API_BASE + '/v1/shared-voices?' + params.toString();
             const data = await http(url, { method: 'GET', headers: this._headers() });
             const arr = data.voices || data.shared_voices || [];
-            return arr.map(v => this._normaliseVoice(v, 'library'));
+            // The API exposes `has_more` (boolean). If absent, infer from
+            // whether the response was a full page.
+            const hasMore = (typeof data.has_more === 'boolean')
+                ? data.has_more
+                : (arr.length >= pageSize);
+            return {
+                voices: arr.map(v => this._normaliseVoice(v, 'library')),
+                hasMore: hasMore,
+                page: page,
+                pageSize: pageSize,
+                total: (typeof data.total === 'number') ? data.total : null
+            };
         }
 
         // Add a shared voice to the user's library — required before using it for TTS.

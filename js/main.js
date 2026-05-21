@@ -195,9 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ELClient || !agent.elevenlabsApiKey) throw new Error('ElevenLabs not configured.');
             const client = new ELClient({ apiKey: agent.elevenlabsApiKey });
             if (body.source === 'user') return { voices: await client.listUserVoices(false) };
-            return { voices: await client.searchVoiceLibrary({
-                gender: body.gender, age: body.age, accent: body.accent, use_case: body.use_case, search: body.search, page_size: 100
-            }) };
+            const r = await client.searchVoiceLibrary({
+                gender: body.gender, age: body.age, accent: body.accent, use_case: body.use_case,
+                search: body.search, page: body.page || 0, page_size: 100
+            });
+            return { voices: r.voices, hasMore: r.hasMore, page: r.page };
         });
         bridge.on('/list_skills', async () => {
             const md = (agent.skills || []).filter(s => s.type === 'markdown').map(s => ({ name: s.name, type: 'markdown', title: s.title }));
@@ -666,7 +668,27 @@ const i18nDict = {
         'voice-picker-apply': 'Zastosuj wybrany głos',
         'voice-picker-preview': '▶ Preview',
         'voice-picker-add-to-my': '+ Dodaj do moich',
-        'voice-picker-load-prompt': 'Naciśnij ↻ aby załadować głosy...',
+        'voice-picker-load-prompt': 'Pobieram głosy z ElevenLabs...',
+        // Status / pagination messages
+        'voice-picker-loading': 'Pobieram głosy z ElevenLabs...',
+        'voice-picker-loading-more': '↻ Doładowuję kolejne głosy...',
+        'voice-picker-end-of-list': '— koniec listy —',
+        'voice-picker-found-n': 'Znaleziono {n} głosów.',
+        'voice-picker-shown-n': 'Pokazano {n} głosów.',
+        'voice-picker-shown-more': 'Pokazano {n} głosów — przewiń, aby załadować więcej.',
+        'voice-picker-no-results': 'Brak głosów pasujących do filtrów. Zmień kryteria lub wybierz inne źródło.',
+        'voice-picker-permissions-error': '⚠ Klucz ElevenLabs nie ma uprawnienia voices_read — wygeneruj nowy klucz z All permissions na elevenlabs.io/app/settings/api-keys i wklej go w zakładce „API Keys".',
+        'voice-picker-error': 'Błąd: {msg}',
+        // Voice row
+        'voice-row-my-badge': 'Moja',
+        'voice-row-no-metadata': 'brak metadanych',
+        'voice-preview-btn': '▶ Preview',
+        'voice-add-btn': '+ Dodaj do moich',
+        'voice-add-busy': '...',
+        'voice-added': '✓ Dodano',
+        'voice-add-error': '✕ Błąd',
+        'log-voice-library-error': 'Voice library error: {msg}',
+        'log-voice-add-error': 'Voice add error: {msg}',
         // OpenRouter picker
         'or-picker-title': 'Katalog modeli OpenRouter',
         'or-picker-search-ph': '🔎 Szukaj po nazwie / providerze...',
@@ -998,7 +1020,26 @@ const i18nDict = {
         'voice-picker-apply': 'Apply selected voice',
         'voice-picker-preview': '▶ Preview',
         'voice-picker-add-to-my': '+ Add to my voices',
-        'voice-picker-load-prompt': 'Press ↻ to load voices...',
+        'voice-picker-load-prompt': 'Loading voices from ElevenLabs...',
+        // Status / pagination messages
+        'voice-picker-loading': 'Loading voices from ElevenLabs...',
+        'voice-picker-loading-more': '↻ Loading more voices...',
+        'voice-picker-end-of-list': '— end of list —',
+        'voice-picker-found-n': 'Found {n} voices.',
+        'voice-picker-shown-n': 'Showing {n} voices.',
+        'voice-picker-shown-more': 'Showing {n} voices — scroll to load more.',
+        'voice-picker-no-results': 'No voices match the current filters. Try different criteria or pick another source.',
+        'voice-picker-permissions-error': '⚠ The ElevenLabs API key is missing the voices_read permission. Generate a new key with All permissions at elevenlabs.io/app/settings/api-keys and paste it into the "API Keys" tab.',
+        'voice-picker-error': 'Error: {msg}',
+        'voice-row-my-badge': 'Mine',
+        'voice-row-no-metadata': 'no metadata',
+        'voice-preview-btn': '▶ Preview',
+        'voice-add-btn': '+ Add to my voices',
+        'voice-add-busy': '...',
+        'voice-added': '✓ Added',
+        'voice-add-error': '✕ Error',
+        'log-voice-library-error': 'Voice library error: {msg}',
+        'log-voice-add-error': 'Voice add error: {msg}',
         'or-picker-title': 'OpenRouter Model Catalog',
         'or-picker-search-ph': '🔎 Search by name / provider...',
         'or-sort-price-asc': 'Price ↑ (cheapest)',
@@ -2589,6 +2630,22 @@ function t(key, fallback) {
     let voicePickerSelectedVoice = null;
     let voicePickerCache = [];
     let voicePickerCurrentPreviewAudio = null;
+    // Pagination state for the public Voice Library (server-side paginated)
+    let voicePickerPage = 0;
+    let voicePickerHasMore = false;
+    let voicePickerLoading = false;
+    // Debounce timer for live search box on the public library
+    let voicePickerSearchDebounce = null;
+    // Track the currently rendered set so we can append new rows without
+    // wiping selected state during infinite scroll.
+    let voicePickerRenderedCount = 0;
+
+    function voicePickerErrorMessage(e) {
+        if (e && (/missing_permissions/i.test(e.message) || /voices_read/i.test(e.message))) {
+            return tr('voice-picker-permissions-error');
+        }
+        return tr('voice-picker-error').replace('{msg}', (e && e.message) || String(e));
+    }
 
     function openVoicePicker(target) {
         if (!agent.elevenlabsApiKey) {
@@ -2609,47 +2666,105 @@ function t(key, fallback) {
             voicePickerTitle.textContent = tr('voice-picker-title-default');
         }
         voicePickerOverlay.classList.remove('hidden');
-        if (voicePickerCache.length === 0) loadVoicePicker();
-        else renderVoicePicker();
+        // Always trigger a fresh fetch — the user may have added voices since
+        // the modal was last open, and the cache may not match the currently
+        // selected source. Reset paging + cache.
+        voicePickerCache = [];
+        voicePickerPage = 0;
+        voicePickerHasMore = false;
+        voicePickerRenderedCount = 0;
+        loadVoicePicker(false);
     }
-    async function loadVoicePicker() {
+
+    // append=false: replace cache and re-render from scratch (filter change,
+    //                source change, initial open)
+    // append=true:  fetch next page and append to existing list (scroll)
+    async function loadVoicePicker(append) {
+        if (voicePickerLoading) return;
+        voicePickerLoading = true;
         try {
-            voicePickerStatus.textContent = 'Pobieram głosy z ElevenLabs...';
-            voicePickerList.innerHTML = '';
+            const source = vpSource.value;
+            if (!append) {
+                voicePickerStatus.textContent = tr('voice-picker-loading');
+                voicePickerList.innerHTML = '';
+                voicePickerCache = [];
+                voicePickerPage = 0;
+                voicePickerRenderedCount = 0;
+            } else {
+                // Show a non-blocking "loading more" hint at the bottom
+                appendLoadingMoreRow();
+            }
             const ELClient = window.AfterAllElevenLabs;
             const client = new ELClient({ apiKey: agent.elevenlabsApiKey });
-            const source = vpSource.value;
-            let list = [];
+            let newVoices = [];
             if (source === 'user') {
-                list = await client.listUserVoices(true);
+                // User voices: API returns the full list in one shot — no pagination.
+                newVoices = await client.listUserVoices(true);
+                voicePickerHasMore = false;
             } else {
-                // Public library search — pass filters
-                list = await client.searchVoiceLibrary({
+                const r = await client.searchVoiceLibrary({
                     gender: vpGender.value || undefined,
                     age: vpAge.value || undefined,
                     accent: vpAccent.value || undefined,
                     use_case: vpUseCase.value || undefined,
                     search: vpSearch.value || undefined,
                     sort: vpSort.value || undefined,
+                    page: append ? voicePickerPage : 0,
                     page_size: 100
                 });
+                newVoices = r.voices;
+                voicePickerHasMore = !!r.hasMore;
+                voicePickerPage = (r.page || 0) + 1;
             }
-            voicePickerCache = list;
-            voicePickerStatus.textContent = 'Znaleziono ' + list.length + ' głosów.';
-            renderVoicePicker();
+            removeLoadingMoreRow();
+            if (append) {
+                // Dedup by voice_id to defend against API duplicates
+                const seen = new Set(voicePickerCache.map(v => v.voice_id));
+                newVoices.forEach(v => { if (!seen.has(v.voice_id)) voicePickerCache.push(v); });
+            } else {
+                voicePickerCache = newVoices;
+            }
+            renderVoicePicker(append);
         } catch (e) {
-            let msg = 'Błąd: ' + e.message;
-            if (/missing_permissions/i.test(e.message) || /voices_read/i.test(e.message)) {
-                msg = '⚠ Klucz ElevenLabs nie ma uprawnienia voices_read — wygeneruj nowy z All permissions na elevenlabs.io/app/settings/api-keys';
-            }
+            removeLoadingMoreRow();
+            const msg = voicePickerErrorMessage(e);
             voicePickerStatus.textContent = msg;
-            addLog('Voice library error: ' + e.message, 'error');
+            addLog(tr('log-voice-library-error').replace('{msg}', e.message), 'error');
+        } finally {
+            voicePickerLoading = false;
         }
     }
-    function renderVoicePicker() {
-        let filtered = voicePickerCache.slice();
-        // Local filters work on user voices too (library uses server-side filters)
+
+    function appendLoadingMoreRow() {
+        let row = document.getElementById('voice-picker-loading-more');
+        if (row) return;
+        row = document.createElement('div');
+        row.id = 'voice-picker-loading-more';
+        row.className = 'voice-picker-loading-more';
+        row.textContent = tr('voice-picker-loading-more');
+        voicePickerList.appendChild(row);
+    }
+    function removeLoadingMoreRow() {
+        const row = document.getElementById('voice-picker-loading-more');
+        if (row && row.parentNode) row.parentNode.removeChild(row);
+    }
+    function appendEndOfListRow() {
+        // Avoid duplicates
+        if (document.getElementById('voice-picker-end-of-list')) return;
+        const row = document.createElement('div');
+        row.id = 'voice-picker-end-of-list';
+        row.className = 'voice-picker-end-of-list';
+        row.textContent = tr('voice-picker-end-of-list');
+        voicePickerList.appendChild(row);
+    }
+
+    function renderVoicePicker(append) {
         const src = vpSource.value;
+        let filtered = voicePickerCache.slice();
+        // For USER voices we apply filters client-side (the /v1/voices endpoint
+        // returns the full list and supports no filter params). For LIBRARY
+        // voices the server already filtered, so we only apply the target-lock
+        // gender guard.
         if (src === 'user') {
             if (vpGender.value) filtered = filtered.filter(v => (v.gender || '').includes(vpGender.value));
             if (vpAge.value) filtered = filtered.filter(v => (v.age || '').includes(vpAge.value));
@@ -2658,73 +2773,138 @@ function t(key, fallback) {
             const q = (vpSearch.value || '').toLowerCase().trim();
             if (q) filtered = filtered.filter(v => (v.name + ' ' + v.description).toLowerCase().indexOf(q) !== -1);
         }
-        // Enforce gender filter when locked
         if (voicePickerTarget === 'male') filtered = filtered.filter(v => (v.gender || '').toLowerCase().indexOf('male') === 0 || (v.gender === 'male'));
         if (voicePickerTarget === 'female') filtered = filtered.filter(v => (v.gender || '').toLowerCase().indexOf('female') === 0);
-        voicePickerList.innerHTML = '';
+
+        // Status text — different message depending on whether more is loadable
         if (filtered.length === 0) {
-            voicePickerList.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary);">Brak głosów pasujących do filtrów. Spróbuj zmienić kryteria lub załaduj inne źródło.</div>';
+            voicePickerList.innerHTML = '';
+            voicePickerList.innerHTML = '<div class="voice-picker-empty">' + escapeAttr(tr('voice-picker-no-results')) + '</div>';
+            voicePickerStatus.textContent = tr('voice-picker-found-n').replace('{n}', '0');
             return;
         }
-        voicePickerStatus.textContent = 'Pokazano ' + filtered.length + ' głosów.';
-        filtered.slice(0, 200).forEach(v => {
-            const row = document.createElement('div');
-            row.className = 'voice-row';
-            const meta = [v.gender, v.age, v.accent, v.useCase].filter(Boolean).join(' · ');
-            const isUser = v.source === 'user';
-            row.innerHTML = `
-                <div class="voice-row-head">
-                    <div class="voice-row-name">${escapeAttr(v.name)} ${isUser ? '<span class="badge feat">Moja</span>' : ''}</div>
-                    <div class="voice-row-id">${escapeAttr(v.voice_id)}</div>
-                </div>
-                <div class="voice-row-meta">${escapeAttr(meta) || '<span style="opacity:0.6;">brak metadanych</span>'}</div>
-                ${v.description ? '<div class="voice-row-desc">' + escapeAttr(v.description.substring(0, 200)) + '</div>' : ''}
-                <div class="voice-row-actions">
-                    ${v.preview_url ? '<button class="mini-btn voice-preview" data-preview="' + escapeAttr(v.preview_url) + '">▶ Preview</button>' : ''}
-                    ${!isUser && v.public_owner_id ? '<button class="mini-btn voice-add">+ Dodaj do moich</button>' : ''}
-                </div>
-            `;
-            row.addEventListener('click', () => {
-                voicePickerSelectedVoice = v;
-                Array.from(voicePickerList.children).forEach(c => c.classList.remove('picked'));
-                row.classList.add('picked');
-            });
-            const previewBtn = row.querySelector('.voice-preview');
-            if (previewBtn) previewBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (voicePickerCurrentPreviewAudio) {
-                    voicePickerCurrentPreviewAudio.pause();
-                    voicePickerCurrentPreviewAudio = null;
-                }
-                const audio = new Audio(previewBtn.getAttribute('data-preview'));
-                voicePickerCurrentPreviewAudio = audio;
-                audio.play().catch(err => addLog('Audio preview error: ' + err.message, 'warning'));
-            });
-            const addBtn = row.querySelector('.voice-add');
-            if (addBtn) addBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                try {
-                    addBtn.textContent = '...'; addBtn.disabled = true;
-                    const ELClient = window.AfterAllElevenLabs;
-                    const client = new ELClient({ apiKey: agent.elevenlabsApiKey });
-                    await client.addSharedVoice(v.public_owner_id, v.voice_id, v.name);
-                    addBtn.textContent = '✓ Dodano';
-                    addLog(tr('log-voice-added').replace('{name}', v.name), 'success');
-                } catch (err) {
-                    addBtn.textContent = '✕ Błąd'; addBtn.disabled = false;
-                    addLog('Voice add error: ' + err.message, 'error');
-                }
-            });
-            voicePickerList.appendChild(row);
+        if (src === 'user') {
+            voicePickerStatus.textContent = tr('voice-picker-shown-n').replace('{n}', String(filtered.length));
+        } else {
+            voicePickerStatus.textContent = voicePickerHasMore
+                ? tr('voice-picker-shown-more').replace('{n}', String(filtered.length))
+                : tr('voice-picker-shown-n').replace('{n}', String(filtered.length));
+        }
+
+        // When appending (scroll), only add rows we haven't rendered yet.
+        // When fresh, wipe the list and start from zero.
+        if (!append) {
+            voicePickerList.innerHTML = '';
+            voicePickerRenderedCount = 0;
+        }
+        const startIdx = voicePickerRenderedCount;
+        const newSlice = filtered.slice(startIdx);
+        newSlice.forEach(v => voicePickerList.appendChild(renderVoiceRow(v)));
+        voicePickerRenderedCount = filtered.length;
+
+        // End-of-list marker for the public library
+        removeLoadingMoreRow();
+        if (src !== 'user' && !voicePickerHasMore && filtered.length > 0) {
+            appendEndOfListRow();
+        }
+    }
+
+    function renderVoiceRow(v) {
+        const row = document.createElement('div');
+        row.className = 'voice-row';
+        const meta = [v.gender, v.age, v.accent, v.useCase].filter(Boolean).join(' · ');
+        const isUser = v.source === 'user';
+        const noMetaTag = '<span style="opacity:0.6;">' + escapeAttr(tr('voice-row-no-metadata')) + '</span>';
+        row.innerHTML = ''
+            + '<div class="voice-row-head">'
+            +   '<div class="voice-row-name">' + escapeAttr(v.name)
+            +     (isUser ? ' <span class="badge feat">' + escapeAttr(tr('voice-row-my-badge')) + '</span>' : '')
+            +   '</div>'
+            +   '<div class="voice-row-id">' + escapeAttr(v.voice_id) + '</div>'
+            + '</div>'
+            + '<div class="voice-row-meta">' + (meta ? escapeAttr(meta) : noMetaTag) + '</div>'
+            + (v.description ? '<div class="voice-row-desc">' + escapeAttr(v.description.substring(0, 200)) + '</div>' : '')
+            + '<div class="voice-row-actions">'
+            +   (v.preview_url ? '<button class="mini-btn voice-preview" data-preview="' + escapeAttr(v.preview_url) + '">' + escapeAttr(tr('voice-preview-btn')) + '</button>' : '')
+            +   (!isUser && v.public_owner_id ? '<button class="mini-btn voice-add">' + escapeAttr(tr('voice-add-btn')) + '</button>' : '')
+            + '</div>';
+        row.addEventListener('click', () => {
+            voicePickerSelectedVoice = v;
+            Array.from(voicePickerList.children).forEach(c => c.classList && c.classList.remove('picked'));
+            row.classList.add('picked');
+        });
+        const previewBtn = row.querySelector('.voice-preview');
+        if (previewBtn) previewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (voicePickerCurrentPreviewAudio) {
+                voicePickerCurrentPreviewAudio.pause();
+                voicePickerCurrentPreviewAudio = null;
+            }
+            const audio = new Audio(previewBtn.getAttribute('data-preview'));
+            voicePickerCurrentPreviewAudio = audio;
+            audio.play().catch(err => addLog('Audio preview error: ' + err.message, 'warning'));
+        });
+        const addBtn = row.querySelector('.voice-add');
+        if (addBtn) addBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                addBtn.textContent = tr('voice-add-busy');
+                addBtn.disabled = true;
+                const ELClient = window.AfterAllElevenLabs;
+                const client = new ELClient({ apiKey: agent.elevenlabsApiKey });
+                await client.addSharedVoice(v.public_owner_id, v.voice_id, v.name);
+                addBtn.textContent = tr('voice-added');
+                addLog(tr('log-voice-added').replace('{name}', v.name), 'success');
+            } catch (err) {
+                addBtn.textContent = tr('voice-add-error');
+                addBtn.disabled = false;
+                addLog(tr('log-voice-add-error').replace('{msg}', err.message), 'error');
+            }
+        });
+        return row;
+    }
+
+    // Filter / source change handlers — ALWAYS refetch when any filter changes
+    // because /v1/shared-voices does server-side filtering and the /v1/voices
+    // endpoint must be hit when the user switches source to "My Voices".
+    function debounceVoiceLibrarySearch() {
+        if (voicePickerSearchDebounce) clearTimeout(voicePickerSearchDebounce);
+        voicePickerSearchDebounce = setTimeout(() => {
+            voicePickerSearchDebounce = null;
+            loadVoicePicker(false);
+        }, 350);
+    }
+    [vpSource, vpSort, vpGender, vpAge, vpAccent, vpUseCase].forEach(el => {
+        if (!el) return;
+        el.addEventListener('change', () => loadVoicePicker(false));
+    });
+    if (vpSearch) {
+        vpSearch.addEventListener('input', () => {
+            // For the public library: debounce + server-side search.
+            // For user voices: instant client-side filter.
+            if (vpSource.value === 'user') {
+                renderVoicePicker(false);
+            } else {
+                debounceVoiceLibrarySearch();
+            }
         });
     }
-    [vpSearch, vpSource, vpSort, vpGender, vpAge, vpAccent, vpUseCase].forEach(el => {
-        if (!el) return;
-        // For library searches, trigger a reload; for user voices, just re-filter locally.
-        const reload = () => { if (vpSource.value === 'library') loadVoicePicker(); else renderVoicePicker(); };
-        el.addEventListener('change', reload);
-        if (el === vpSearch) el.addEventListener('input', () => { if (vpSource.value === 'user') renderVoicePicker(); });
-    });
+
+    // Infinite scroll — listen on the picker's body (the scrollable container)
+    const voicePickerBody = voicePickerOverlay
+        ? voicePickerOverlay.querySelector('.settings-body')
+        : null;
+    if (voicePickerBody) {
+        voicePickerBody.addEventListener('scroll', () => {
+            if (voicePickerLoading) return;
+            if (!voicePickerHasMore) return;
+            if (vpSource.value !== 'library') return;
+            const remaining = voicePickerBody.scrollHeight
+                - voicePickerBody.scrollTop
+                - voicePickerBody.clientHeight;
+            if (remaining < 160) loadVoicePicker(true);
+        });
+    }
     const closeVoicePicker = document.getElementById('close-voice-picker');
     if (closeVoicePicker) closeVoicePicker.addEventListener('click', () => {
         if (voicePickerCurrentPreviewAudio) { voicePickerCurrentPreviewAudio.pause(); voicePickerCurrentPreviewAudio = null; }
