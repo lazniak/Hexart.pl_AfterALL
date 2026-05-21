@@ -832,11 +832,13 @@
                         <option value="library" data-i18n="voice-picker-source-library">Public Library</option>
                         <option value="user" data-i18n="voice-picker-source-user">My Voices</option>
                     </select>
+                    <!-- ElevenLabs /v1/shared-voices accepts ONLY these four sort values.
+                         Display label maps to canonical API string. -->
                     <select id="vp-sort">
-                        <option value="trending">Trending</option>
-                        <option value="popular">Popular</option>
-                        <option value="latest">Latest</option>
-                        <option value="usage">Most used</option>
+                        <option value="trending" data-i18n="vp-sort-trending">Trending</option>
+                        <option value="cloned_by_count" data-i18n="vp-sort-popular">Popular (most cloned)</option>
+                        <option value="created_date" data-i18n="vp-sort-latest">Latest (newest first)</option>
+                        <option value="usage_character_count_1y" data-i18n="vp-sort-usage">Most used (last 12 months)</option>
                     </select>
                 </div>
                 <div class="picker-filters">

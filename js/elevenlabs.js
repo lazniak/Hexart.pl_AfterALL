@@ -103,7 +103,24 @@
             if (filters.use_case) params.set('use_cases', filters.use_case);
             if (filters.language) params.set('language', filters.language);
             if (filters.search) params.set('search', filters.search);
-            if (filters.sort) params.set('sort', filters.sort);
+            // The /v1/shared-voices endpoint accepts ONLY these four sort
+            // values. Legacy shorthand ('popular', 'latest', 'usage') maps
+            // to the canonical API names so older stored values keep working.
+            if (filters.sort) {
+                const SORT_MAP = {
+                    'trending': 'trending',
+                    'popular':  'cloned_by_count',
+                    'latest':   'created_date',
+                    'usage':    'usage_character_count_1y',
+                    'created_date': 'created_date',
+                    'usage_character_count_1y': 'usage_character_count_1y',
+                    'cloned_by_count': 'cloned_by_count'
+                };
+                const canonical = SORT_MAP[filters.sort];
+                if (canonical) params.set('sort', canonical);
+                // Unknown values are dropped silently — the API would reject them
+                // with a 400 otherwise, and we'd rather show the default (trending).
+            }
             const pageSize = Math.min(100, Math.max(1, filters.page_size || 100));
             const page = Math.max(0, parseInt(filters.page, 10) || 0);
             params.set('page_size', String(pageSize));

@@ -708,6 +708,11 @@ const i18nDict = {
         'voice-picker-preview': '▶ Preview',
         'voice-picker-add-to-my': '+ Dodaj do moich',
         'voice-picker-load-prompt': 'Pobieram głosy z ElevenLabs...',
+        // Voice Library sort options (mapped to ElevenLabs API sort values)
+        'vp-sort-trending': 'Trendujące',
+        'vp-sort-popular':  'Popularne (najczęściej klonowane)',
+        'vp-sort-latest':   'Najnowsze (od najświeższych)',
+        'vp-sort-usage':    'Najczęściej używane (ostatnie 12 mies.)',
         // Status / pagination messages
         'voice-picker-loading': 'Pobieram głosy z ElevenLabs...',
         'voice-picker-loading-more': '↻ Doładowuję kolejne głosy...',
@@ -1093,6 +1098,11 @@ const i18nDict = {
         'voice-picker-preview': '▶ Preview',
         'voice-picker-add-to-my': '+ Add to my voices',
         'voice-picker-load-prompt': 'Loading voices from ElevenLabs...',
+        // Voice Library sort options (mapped to ElevenLabs API sort values)
+        'vp-sort-trending': 'Trending',
+        'vp-sort-popular':  'Popular (most cloned)',
+        'vp-sort-latest':   'Latest (newest first)',
+        'vp-sort-usage':    'Most used (last 12 months)',
         // Status / pagination messages
         'voice-picker-loading': 'Loading voices from ElevenLabs...',
         'voice-picker-loading-more': '↻ Loading more voices...',
