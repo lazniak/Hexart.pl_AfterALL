@@ -842,6 +842,167 @@ except Exception as e:
         return s ? s.key : null;
     }
 
+    // =================================================================
+    // --- Plugin self-update from GitHub --------------------------------
+    // =================================================================
+    //
+    // The plugin lives at a known path inside %APPDATA%\Adobe\CEP\extensions.
+    // We:
+    //   • Read the local version from CSXS/manifest.xml (ExtensionBundleVersion)
+    //   • Hit https://api.github.com/repos/{owner}/{repo}/releases/latest
+    //     (anonymous, 60 req/hour per IP — plenty for occasional checks)
+    //   • Compare versions with a tolerant semver-ish parser
+    //   • If the source folder is a git checkout (.git present) we can
+    //     offer "git pull"; otherwise we point the user at the release
+    //     page and install.bat.
+    //
+    // Returns: {
+    //   current, latest, updateAvailable, releaseUrl, htmlUrl,
+    //   publishedAt, releaseName, hasGit, pluginRoot, error?
+    // }
+    // =================================================================
+    GITHUB_REPO_OWNER = 'lazniak';
+    GITHUB_REPO_NAME  = 'Hexart.pl_AfterALL';
+
+    pluginRoot() {
+        // js/agent.js lives at <pluginRoot>/js/agent.js
+        try { return path.resolve(__dirname, '..'); }
+        catch (_) { return process.cwd(); }
+    }
+
+    getCurrentVersion() {
+        try {
+            const manifestPath = path.join(this.pluginRoot(), 'CSXS', 'manifest.xml');
+            if (!fs.existsSync(manifestPath)) return null;
+            const xml = fs.readFileSync(manifestPath, 'utf8');
+            const m = xml.match(/ExtensionBundleVersion\s*=\s*"([^"]+)"/);
+            return m ? m[1] : null;
+        } catch (_) { return null; }
+    }
+
+    pluginHasGit() {
+        try { return fs.existsSync(path.join(this.pluginRoot(), '.git')); }
+        catch (_) { return false; }
+    }
+
+    // Tolerant semver-ish comparison: returns 1 if a>b, -1 if a<b, 0 if eq.
+    // Handles "2.0.0", "v2.0.0", "2.0.0-beta.1" (pre-releases sort lower).
+    _compareVersions(a, b) {
+        if (!a || !b) return 0;
+        const norm = s => String(s).trim().replace(/^v/i, '').split('-')[0];
+        const pre  = s => /-/.test(String(s));
+        const aMain = norm(a).split('.').map(n => parseInt(n, 10) || 0);
+        const bMain = norm(b).split('.').map(n => parseInt(n, 10) || 0);
+        const len = Math.max(aMain.length, bMain.length);
+        for (let i = 0; i < len; i++) {
+            const ai = aMain[i] || 0;
+            const bi = bMain[i] || 0;
+            if (ai > bi) return 1;
+            if (ai < bi) return -1;
+        }
+        // Same main version — pre-release loses to non-pre-release
+        if (pre(a) && !pre(b)) return -1;
+        if (!pre(a) && pre(b)) return 1;
+        return 0;
+    }
+
+    async checkForUpdates() {
+        const current = this.getCurrentVersion();
+        const result = {
+            current: current,
+            latest: null,
+            updateAvailable: false,
+            releaseUrl: null,
+            htmlUrl: 'https://github.com/' + this.GITHUB_REPO_OWNER + '/' + this.GITHUB_REPO_NAME,
+            publishedAt: null,
+            releaseName: null,
+            hasGit: this.pluginHasGit(),
+            pluginRoot: this.pluginRoot(),
+            error: null
+        };
+        try {
+            // Try /releases/latest first (semantic tags). Falls back to /tags
+            // for repositories that don't publish "releases" but do push tags.
+            const url = 'https://api.github.com/repos/'
+                + encodeURIComponent(this.GITHUB_REPO_OWNER) + '/'
+                + encodeURIComponent(this.GITHUB_REPO_NAME) + '/releases/latest';
+            const res = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/vnd.github+json',
+                    'User-Agent': 'hexart-afterall-update-check'
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                result.latest      = data.tag_name || data.name || null;
+                result.releaseUrl  = data.html_url || result.htmlUrl + '/releases';
+                result.publishedAt = data.published_at || null;
+                result.releaseName = data.name || null;
+            } else if (res.status === 404) {
+                // No formal releases — fall back to latest tag.
+                const tagsUrl = 'https://api.github.com/repos/'
+                    + encodeURIComponent(this.GITHUB_REPO_OWNER) + '/'
+                    + encodeURIComponent(this.GITHUB_REPO_NAME) + '/tags';
+                const tagsRes = await fetch(tagsUrl, {
+                    headers: {
+                        'Accept': 'application/vnd.github+json',
+                        'User-Agent': 'hexart-afterall-update-check'
+                    }
+                });
+                if (tagsRes.ok) {
+                    const tags = await tagsRes.json();
+                    if (Array.isArray(tags) && tags.length > 0) {
+                        result.latest     = tags[0].name || null;
+                        result.releaseUrl = result.htmlUrl + '/releases';
+                    } else {
+                        result.error = 'No releases or tags published yet.';
+                    }
+                } else {
+                    result.error = 'GitHub tags API returned HTTP ' + tagsRes.status;
+                }
+            } else if (res.status === 403) {
+                // Rate-limited (60/h anon, 5000/h auth). Be honest about it.
+                result.error = 'GitHub API rate limit reached (60 requests/hour per IP). Try again later.';
+            } else {
+                result.error = 'GitHub API returned HTTP ' + res.status;
+            }
+            if (result.latest && current) {
+                result.updateAvailable = this._compareVersions(result.latest, current) > 0;
+            }
+        } catch (e) {
+            result.error = e.message || String(e);
+        }
+        return result;
+    }
+
+    // Run `git pull origin main` inside the plugin root if the user opts in
+    // and the folder is a git checkout. Returns { ok, stdout, stderr }.
+    async pluginGitPull() {
+        if (!this.pluginHasGit()) {
+            return { ok: false, error: 'Plugin is not a git checkout (.git not found).' };
+        }
+        return new Promise((resolve) => {
+            const { spawn } = require('child_process');
+            const proc = spawn('git', ['pull', '--ff-only', 'origin', 'main'], {
+                cwd: this.pluginRoot(),
+                windowsHide: true
+            });
+            let out = '', err = '';
+            proc.stdout.on('data', d => { out += d.toString(); });
+            proc.stderr.on('data', d => { err += d.toString(); });
+            proc.on('error', e => resolve({ ok: false, error: e.message }));
+            proc.on('close', code => {
+                resolve({
+                    ok: code === 0,
+                    code: code,
+                    stdout: out.trim(),
+                    stderr: err.trim()
+                });
+            });
+        });
+    }
+
     // --- Skills System ---
     loadSkills() {
         try {

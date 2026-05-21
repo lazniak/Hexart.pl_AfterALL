@@ -175,6 +175,31 @@
                         <input type="checkbox" id="use-grounding" checked>
                         Włącz Google Search Grounding (dla Gemini)
                     </label>
+
+                    <!-- Updates card -->
+                    <div class="provider-card update-card" id="update-card" style="margin-top: 1rem;">
+                        <h3 data-i18n="update-card-title">🔄 Aktualizacje wtyczki</h3>
+                        <div class="update-row">
+                            <span class="update-row-label" data-i18n="update-version-label">Wersja zainstalowana:</span>
+                            <span class="update-row-value" id="update-current-version">—</span>
+                        </div>
+                        <div class="update-row">
+                            <span class="update-row-label" data-i18n="update-latest-label">Najnowsza na GitHub:</span>
+                            <span class="update-row-value" id="update-latest-version">—</span>
+                        </div>
+                        <div class="update-row hidden" id="update-published-row">
+                            <span class="update-row-label" data-i18n="update-published-label">Wydano:</span>
+                            <span class="update-row-value" id="update-published-at">—</span>
+                        </div>
+                        <div id="update-status" class="update-status update-status-idle" data-i18n="update-status-idle">Kliknij „Sprawdź" aby zweryfikować dostępność nowej wersji.</div>
+                        <div class="update-actions">
+                            <button type="button" id="update-check-btn" class="mini-btn" data-i18n="update-check-btn">↻ Sprawdź aktualizacje</button>
+                            <button type="button" id="update-git-pull-btn" class="mini-btn hidden" data-i18n="update-git-pull-btn">⬇ Pobierz przez git</button>
+                            <button type="button" id="update-open-release-btn" class="mini-btn hidden" data-i18n="update-open-release-btn">↗ Otwórz stronę wydania</button>
+                            <button type="button" id="update-open-repo-btn" class="mini-btn" data-i18n="update-open-repo-btn">↗ Repozytorium na GitHub</button>
+                        </div>
+                        <div id="update-log" class="update-log hidden"></div>
+                    </div>
                 </div>
 
                 <!-- Tab: Providers (LLM/Image) -->

@@ -565,6 +565,27 @@ const i18nDict = {
         'amsg-comfyui-validate-fail': '✕ Workflow JSON jest niepoprawny: {msg}',
         'error-prefix': 'Błąd',
         'press-reload-to-list': 'Naciśnij ↻ aby pobrać listę',
+        // Update card
+        'update-card-title':     '🔄 Aktualizacje wtyczki',
+        'update-version-label':  'Wersja zainstalowana:',
+        'update-latest-label':   'Najnowsza na GitHub:',
+        'update-published-label':'Wydano:',
+        'update-status-idle':    'Kliknij „Sprawdź" aby zweryfikować dostępność nowej wersji.',
+        'update-status-error':   '⚠ Błąd podczas sprawdzania: {msg}',
+        'update-status-available':'⬆ Dostępna nowsza wersja: {latest} (masz {current}).',
+        'update-status-uptodate':'✓ Masz najnowszą wersję ({current}).',
+        'update-status-no-release':'Nie znaleziono opublikowanych wydań w repozytorium.',
+        'update-check-btn':      '↻ Sprawdź aktualizacje',
+        'update-checking':       'Sprawdzam GitHub...',
+        'update-git-pull-btn':   '⬇ Pobierz przez git',
+        'update-git-pull-confirm':'Uruchomić „git pull origin main" w folderze wtyczki?',
+        'update-pulling':        'Pobieram zmiany przez git...',
+        'update-pull-ok':        '✓ Aktualizacja pobrana. Zamknij całkowicie AE i uruchom ponownie.',
+        'update-pull-fail':      '✕ git pull nie powiódł się — sprawdź log poniżej.',
+        'amsg-update-pull-ok':   '✓ Pobrano najnowszą wersję wtyczki z GitHub. <b>Zamknij całkowicie After Effects (sprawdź Menedżer Zadań) i uruchom ponownie</b>, aby załadować nową wersję.',
+        'update-open-release-btn':'↗ Otwórz stronę wydania',
+        'update-open-repo-btn':  '↗ Repozytorium na GitHub',
+        'update-unknown':        'nieznana',
         'openai-model-label': 'Model OpenAI',
         'openai-hint': 'Wymaga klucza OpenAI API. Obejmuje rodziny GPT-5, GPT-4o oraz modele rozumowania serii o.',
         'openai-image-model-label': 'Model obrazów OpenAI',
@@ -989,6 +1010,27 @@ const i18nDict = {
         'amsg-comfyui-validate-fail': '✕ Workflow JSON is invalid: {msg}',
         'error-prefix': 'Error',
         'press-reload-to-list': 'Press ↻ to load list',
+        // Update card
+        'update-card-title':     '🔄 Plugin updates',
+        'update-version-label':  'Installed version:',
+        'update-latest-label':   'Latest on GitHub:',
+        'update-published-label':'Released:',
+        'update-status-idle':    'Click "Check" to verify whether a newer version is available.',
+        'update-status-error':   '⚠ Update check error: {msg}',
+        'update-status-available':'⬆ Newer version available: {latest} (you have {current}).',
+        'update-status-uptodate':'✓ You are on the latest version ({current}).',
+        'update-status-no-release':'No releases published in the repository yet.',
+        'update-check-btn':      '↻ Check for updates',
+        'update-checking':       'Checking GitHub...',
+        'update-git-pull-btn':   '⬇ Pull via git',
+        'update-git-pull-confirm':'Run "git pull origin main" in the plugin folder?',
+        'update-pulling':        'Pulling changes via git...',
+        'update-pull-ok':        '✓ Update pulled. Close After Effects completely and start it again.',
+        'update-pull-fail':      '✕ git pull failed — see the log below.',
+        'amsg-update-pull-ok':   '✓ Latest plugin version pulled from GitHub. <b>Close After Effects completely (verify in Task Manager), then start it again</b> to load the new version.',
+        'update-open-release-btn':'↗ Open release page',
+        'update-open-repo-btn':  '↗ Repository on GitHub',
+        'update-unknown':        'unknown',
         // Provider tabs / fields
         'openai-model-label': 'OpenAI Model',
         'openai-hint': 'Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.',
@@ -4619,8 +4661,142 @@ function t(key, fallback) {
             if (agent.ttsProvider === 'elevenlabs' && agent.elevenlabsApiKey && elModelSelect && elModelSelect.options.length <= 1) {
                 loadElevenLabsModels(false);
             }
+            // Render the update card with the current local version + last-known result.
+            renderUpdateCardInitial();
         });
     }
+
+    // =====================================================================
+    // Plugin update detection (GitHub releases)
+    // =====================================================================
+    const updateCurrentVerEl = document.getElementById('update-current-version');
+    const updateLatestVerEl  = document.getElementById('update-latest-version');
+    const updatePublishedRow = document.getElementById('update-published-row');
+    const updatePublishedAt  = document.getElementById('update-published-at');
+    const updateStatusEl     = document.getElementById('update-status');
+    const updateCheckBtn     = document.getElementById('update-check-btn');
+    const updateGitPullBtn   = document.getElementById('update-git-pull-btn');
+    const updateOpenReleaseBtn = document.getElementById('update-open-release-btn');
+    const updateOpenRepoBtn  = document.getElementById('update-open-repo-btn');
+    const updateLogEl        = document.getElementById('update-log');
+
+    function renderUpdateCardInitial() {
+        if (!updateCurrentVerEl) return;
+        const cur = (typeof agent.getCurrentVersion === 'function') ? agent.getCurrentVersion() : null;
+        updateCurrentVerEl.textContent = cur || tr('update-unknown');
+        if (updateGitPullBtn) {
+            const hasGit = (typeof agent.pluginHasGit === 'function') ? agent.pluginHasGit() : false;
+            updateGitPullBtn.classList.toggle('hidden', !hasGit);
+        }
+    }
+
+    function setUpdateStatus(text, cls) {
+        if (!updateStatusEl) return;
+        updateStatusEl.textContent = text;
+        updateStatusEl.className = 'update-status update-status-' + (cls || 'idle');
+    }
+    function setUpdateLog(text, isError) {
+        if (!updateLogEl) return;
+        if (!text) { updateLogEl.classList.add('hidden'); updateLogEl.textContent = ''; return; }
+        updateLogEl.classList.remove('hidden');
+        updateLogEl.classList.toggle('update-log-error', !!isError);
+        updateLogEl.textContent = text;
+    }
+
+    async function runUpdateCheck(silent) {
+        if (!updateCheckBtn) return null;
+        if (!silent) {
+            updateCheckBtn.disabled = true;
+            updateCheckBtn.textContent = tr('update-checking');
+            setUpdateStatus(tr('update-checking'), 'pending');
+            setUpdateLog(null);
+        }
+        try {
+            const r = await agent.checkForUpdates();
+            renderUpdateCardInitial();
+            updateLatestVerEl.textContent = r.latest || tr('update-unknown');
+            if (r.publishedAt && updatePublishedRow && updatePublishedAt) {
+                updatePublishedRow.classList.remove('hidden');
+                try {
+                    updatePublishedAt.textContent = new Date(r.publishedAt).toLocaleString();
+                } catch (_) {
+                    updatePublishedAt.textContent = r.publishedAt;
+                }
+            }
+            if (r.error) {
+                setUpdateStatus(tr('update-status-error').replace('{msg}', r.error), 'error');
+            } else if (r.updateAvailable) {
+                setUpdateStatus(
+                    tr('update-status-available').replace('{current}', r.current || '?').replace('{latest}', r.latest || '?'),
+                    'available'
+                );
+                if (updateOpenReleaseBtn && r.releaseUrl) {
+                    updateOpenReleaseBtn.classList.remove('hidden');
+                    updateOpenReleaseBtn.setAttribute('data-url', r.releaseUrl);
+                }
+            } else if (r.latest) {
+                setUpdateStatus(
+                    tr('update-status-uptodate').replace('{current}', r.current || '?'),
+                    'ok'
+                );
+            } else {
+                setUpdateStatus(tr('update-status-no-release'), 'idle');
+            }
+            return r;
+        } catch (e) {
+            setUpdateStatus(tr('update-status-error').replace('{msg}', e.message || e), 'error');
+            return null;
+        } finally {
+            if (!silent && updateCheckBtn) {
+                updateCheckBtn.disabled = false;
+                updateCheckBtn.textContent = tr('update-check-btn');
+            }
+        }
+    }
+
+    if (updateCheckBtn) updateCheckBtn.addEventListener('click', () => runUpdateCheck(false));
+    if (updateOpenRepoBtn) updateOpenRepoBtn.addEventListener('click', () => {
+        try {
+            const csi = new CSInterface();
+            csi.openURLInDefaultBrowser('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME);
+        } catch (_) {
+            window.open('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME, '_blank');
+        }
+    });
+    if (updateOpenReleaseBtn) updateOpenReleaseBtn.addEventListener('click', () => {
+        const url = updateOpenReleaseBtn.getAttribute('data-url')
+            || ('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME + '/releases');
+        try {
+            const csi = new CSInterface();
+            csi.openURLInDefaultBrowser(url);
+        } catch (_) {
+            window.open(url, '_blank');
+        }
+    });
+    if (updateGitPullBtn) updateGitPullBtn.addEventListener('click', async () => {
+        if (!confirm(tr('update-git-pull-confirm'))) return;
+        updateGitPullBtn.disabled = true;
+        const original = updateGitPullBtn.textContent;
+        updateGitPullBtn.textContent = tr('update-pulling');
+        setUpdateStatus(tr('update-pulling'), 'pending');
+        try {
+            const r = await agent.pluginGitPull();
+            if (r.ok) {
+                setUpdateStatus(tr('update-pull-ok'), 'ok');
+                setUpdateLog((r.stdout || '') + (r.stderr ? '\n--- stderr ---\n' + r.stderr : ''), false);
+                appendMessage('system', tr('amsg-update-pull-ok'));
+            } else {
+                setUpdateStatus(tr('update-pull-fail'), 'error');
+                setUpdateLog((r.error || '') + (r.stdout ? '\n' + r.stdout : '') + (r.stderr ? '\n' + r.stderr : ''), true);
+            }
+        } finally {
+            updateGitPullBtn.disabled = false;
+            updateGitPullBtn.textContent = original;
+        }
+    });
+
+    // Silent check on plugin load — never blocks UI, only flips badge if newer.
+    setTimeout(() => { runUpdateCheck(true).catch(() => {}); }, 6500);
 
     // Initial greeting
     setTimeout(() => {
