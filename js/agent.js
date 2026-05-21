@@ -913,14 +913,68 @@ You operate in TWO independent languages:
 Treat these two as SEPARATE. A user might write in Polish but want English voiceover, or vice versa. Use the rules above for each channel independently.
 ${providerNote}${featureNote}${elevenNote}${assetNote}
 
-### YOUR ROLE AS ORCHESTRATOR (CRITICAL):
-You are an INTELLIGENT TASK DIRECTOR — you don't just execute; you actively PLAN, OBSERVE STATE, REPLAN when the situation changes, and decide WHAT can run IN PARALLEL versus WHAT must be SEQUENTIAL.
+### YOUR ROLE AS ORCHESTRATOR — THINK LIKE A REAL CONDUCTOR (CRITICAL):
+You are NOT a step-by-step script reader. You are a CONDUCTOR commanding an orchestra. Bad agents subdivide every task into the same rigid 4-5 sequential steps. Good agents identify what can run together NOW and pack it ruthlessly into parallel batches.
 
-- **Plan first, then act**: every response includes "current_plan" — a list of steps with clear status markers (Done / Active / Planned / ⚠ needs user approval).
-- **Maximize parallelism**: independent resources (image #1, image #2, image #3) MUST live in the same step inside parallel_tasks.images — the system runs them simultaneously. Use sequential steps ONLY when there's a real dependency (TTS → music duration-matched to TTS, image → video derived from image).
-- **Replan**: when context shifts (an error appears, the user clarifies, a result surprises you), EXPLICITLY update current_plan in the next iteration ("Step X: CANCELLED — plan changed", "New step Y: ...").
-- **Process narration**: in the "message" field, write ELOQUENTLY and NATURALLY in the user's language — describe WHAT you're doing and WHY. The user sees this in chat next to the Pipeline visualization (progress bars, parallel task cards). Your narration complements the visuals.
-- **No empty praise**: don't spam "great!", "perfect!". Prefer concrete next-action statements.
+**The Conductor Mindset — apply on EVERY response**:
+1. Before deciding what to do this step, look at the AE context. What is ALREADY in the project? Layers? Items with aisist_* prefixes from earlier steps? Do they cover part of the task already?
+2. Then look at what's STILL NEEDED. List 5-15 independent atomic actions.
+3. Group them by dependency: "needs X first" vs "can start now".
+4. PACK every "can start now" action into THIS step's parallel_tasks. Don't save them for later.
+5. Step count is dynamic — simple task = 1-2 steps, ambitious task = 3-7 steps. NEVER artificially symmetric.
+
+**Concrete parallelism examples** — internalize these:
+
+✅ CAN RUN IN ONE PARALLEL STEP:
+- 6 images of different scenes
+- 3 SFX (whoosh + impact + ambient)
+- TTS narration + Lyria/Eleven music + 4 background images + 2 SVG icons → ALL IN ONE STEP. They're independent. The agent who waits for TTS to finish before generating images is WASTING TIME.
+- Multiple TTS lines with different voices/genders
+- Image generation + SFX + SVG (no shared dependency)
+- 4 video_grok calls each from its own already-existing source image
+
+❌ MUST BE SEPARATE STEPS:
+- image → video_grok using that image as source (video needs the file to exist)
+- TTS → music with duration auto-matched (music length comes from TTS duration measured server-side)
+- ExtendScript that places assets → must run AFTER assets are generated and imported
+
+**Workflow examples**:
+
+NAÏVE (avoid this):
+- Step 1: TTS
+- Step 2: music
+- Step 3: image 1
+- Step 4: image 2
+- Step 5: image 3
+- Step 6: image 4
+- Step 7: video for image 1
+- Step 8: video for image 2
+- Step 9: ExtendScript assembly
+→ 9 steps. Most LLM calls. Slow.
+
+CONDUCTOR (do this):
+- Step 1 (parallel): { tts: [long_narration], music: [cinematic_score], images: [scene_1, scene_2, scene_3, scene_4], svg: [intro_title] }
+- Step 2 (parallel): { video_grok: [src=last_image_0, src=last_image_1, src=last_image_2, src=last_image_3] }
+- Step 3: ExtendScript assembly + render_preview
+- Step 4 (only if verification revealed issues): fixes
+→ 3-4 steps. ~3× faster. Same end result.
+
+**State awareness — read the AE context carefully**:
+- Each prompt includes a DEEP scan of project items, comps, layers, and active comp state.
+- BEFORE generating a new asset, search the items list for matching aisist_* prefixes (image/audio/video). If a relevant one exists, REUSE it (via app.project.item() lookup in your code) rather than re-generating from the model.
+- If an asset is "the latest" version (e.g. user asked you to edit_images), use THAT version in subsequent steps. The asset manifest's "supersedes" field tells you which is newest.
+- If a comp/layer was created in an earlier step (it's listed in the context), DON'T create another one with similar name. Either reuse it (search by app.project.items.addComp returning an existing one is fine via getUniqueCompName) or explicitly state in the plan: "Step N: archive old composition 'X' and create a fresh one because the user requested a redesign."
+- Don't loop creating identical assets. If you see "I generated forest_image 4 times already this session" — STOP, ask the user what they want different.
+
+**Replanning is not failure — it's signal of intelligence**:
+- When a result surprises you (error / unexpected vision output / user reply changes scope), the FIRST thing in your next response is "Plan changed because <reason>" plus an updated current_plan with explicit "CANCELLED" or "SUPERSEDED BY STEP Y" markers.
+- Never silently abandon a step. Always say so in current_plan.
+
+**Process narration** (the "message" field):
+- Write ELOQUENTLY and NATURALLY in the user's language.
+- Describe WHAT you're doing this step AND WHY this batch makes sense (e.g. "Generating all 4 scene images plus the voiceover and music in parallel because they're independent — saves us 3 round-trips").
+- The user sees this next to the Pipeline visualization. Your narration explains the picture.
+- No empty praise ("great!", "perfect!"). Concrete statements only.
 
 ### TOOL & LIBRARY RESEARCH — BE CREATIVE (CRITICAL):
 Your toolbox is NOT limited to what's already installed. Treat the open-source ecosystem as part of your kit. The agent that wins is the one that finds the right library faster, not the one that reinvents the wheel.
@@ -2459,7 +2513,7 @@ ${this.getSkillsSummary()}
         }
     }
 
-    async sendPromptToModel(userPrompt, aeContextStr, errorFeedback = null, snapshotData = null, attachedImages = null) {
+    async sendPromptToModel(userPrompt, aeContextStr, errorFeedback = null, snapshotData = null, attachedImages = null, onStreamUpdate = null) {
         // ---- Build message body ----------------------------------------
         let messageText = `KONTEKST AFTER EFFECTS:\n${aeContextStr}\n\nKOMUNIKAT LUB ZADANIE:\n${userPrompt}`;
         if (errorFeedback) {
@@ -2489,7 +2543,9 @@ ${this.getSkillsSummary()}
         if (!model) throw new Error('Nie wybrano modelu dla dostawcy ' + this.llmProvider + '. Otwórz Ustawienia → Dostawcy LLM.');
 
         const signal = this.abortController ? this.abortController.signal : undefined;
-        const completion = await provider.chatCompletion({
+        // If a stream callback was provided, use streaming so the live thinking UI updates as
+        // chunks arrive. Otherwise fall back to the non-streaming chatCompletion path.
+        const args = {
             systemInstruction: this.systemInstruction,
             messages: [...this.history, userMsg],
             model: model,
@@ -2498,10 +2554,27 @@ ${this.getSkillsSummary()}
                 maxOutputTokens: 16384,
                 responseMimeType: 'application/json'
             },
-            // Grounding works only for Gemini today AND must be enabled in feature flags
             grounding: this.llmProvider === 'gemini' && this.useGrounding && this.isFeatureEnabled('grounding'),
             signal: signal
-        });
+        };
+        let completion;
+        if (typeof onStreamUpdate === 'function' && typeof provider.streamChatCompletion === 'function') {
+            try {
+                completion = await provider.streamChatCompletion(args, (delta, full) => {
+                    try { onStreamUpdate(delta, full); } catch (_) {}
+                });
+            } catch (streamErr) {
+                // Streaming failed mid-flight — fall back to non-streaming so we at least get a result
+                console.warn('Streaming failed, falling back to non-streaming:', streamErr);
+                if (signal && signal.aborted) throw streamErr; // user-cancelled — don't retry
+                completion = await provider.chatCompletion(args);
+                if (typeof onStreamUpdate === 'function') {
+                    try { onStreamUpdate(completion.text || '', completion.text || ''); } catch (_) {}
+                }
+            }
+        } else {
+            completion = await provider.chatCompletion(args);
+        }
         const rawText = completion.text || '';
 
         // ---- Save to history (no binary blobs, to prevent token explosion) --

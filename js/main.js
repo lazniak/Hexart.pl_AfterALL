@@ -379,6 +379,10 @@ const i18nDict = {
         'drag-to-ae-hint': 'Przeciągnij dokądkolwiek w After Effects (Project / Timeline / Composition)',
         'drag-label': 'PRZECIĄGNIJ',
         'asset-grid-header': 'Wygenerowano {n} zasobów — przeciągnij każdy z nich do dowolnego panelu After Effects.',
+        // Live streaming thinking
+        'thinking-live-label': 'Agent myśli — strumień LLM',
+        'thinking-done-label': '⚙ Proces decyzyjny (streamowany — kliknij, by rozwinąć)',
+        'plan-preview-label': 'Plan (w trakcie)',
         'status-ready': 'Gotowy',
         'status-thinking': 'Myślę...',
         'status-processing': 'Przetwarzam...',
@@ -622,6 +626,10 @@ const i18nDict = {
         'drag-to-ae-hint': 'Drag anywhere in After Effects (Project / Timeline / Composition)',
         'drag-label': 'DRAG',
         'asset-grid-header': 'Generated {n} assets — drag any of them into any After Effects panel.',
+        // Live streaming thinking
+        'thinking-live-label': 'Agent thinking — live LLM stream',
+        'thinking-done-label': '⚙ Decision process (streamed — click to expand)',
+        'plan-preview-label': 'Plan (in progress)',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
         'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
@@ -4044,6 +4052,149 @@ function t(key, fallback) {
 
     let currentWorkingProject = null;
 
+    // ===== Live streaming thinking block ===============================
+    // Shown while the LLM is producing its JSON response. Updates char-by-char
+    // as SSE chunks arrive. Auto-collapses to the standard "decision process"
+    // expandable detail once streaming completes.
+    function createStreamingThinkingBlock() {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message assistant streaming-thinking';
+        msgDiv.innerHTML = `
+            <div class="message-content">
+                <details class="thought-details thinking-live" open>
+                    <summary>
+                        <span class="thinking-pulse"></span>
+                        <span class="thinking-summary-text">${escapeAttr(tr('thinking-live-label'))}</span>
+                        <span class="thinking-char-count">0</span>
+                    </summary>
+                    <div class="thought-content thought-content-stream"></div>
+                </details>
+                <div class="streaming-extracted">
+                    <div class="streaming-plan hidden"></div>
+                    <div class="streaming-message hidden"></div>
+                </div>
+            </div>
+        `;
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        const thoughtEl = msgDiv.querySelector('.thought-content-stream');
+        const charCountEl = msgDiv.querySelector('.thinking-char-count');
+        const planEl = msgDiv.querySelector('.streaming-plan');
+        const messageEl = msgDiv.querySelector('.streaming-message');
+        const detailsEl = msgDiv.querySelector('details.thinking-live');
+        let autoScroll = true;
+        // Track manual collapse / scroll-up — pause auto-scroll once user interacts
+        if (thoughtEl) {
+            thoughtEl.addEventListener('scroll', () => {
+                const atBottom = thoughtEl.scrollHeight - thoughtEl.scrollTop - thoughtEl.clientHeight < 8;
+                autoScroll = atBottom;
+            });
+        }
+
+        // Try to parse partial JSON on each update to extract live "thought" / "current_plan" / "message"
+        // These fields appear early in the JSON in the documented response shape.
+        function extractPartial(rawJson) {
+            // Naive extraction — find `"field": "...` blocks and slice up to closing quote (escape-aware)
+            const grab = (key) => {
+                const re = new RegExp('"' + key + '"\\s*:\\s*"', 'i');
+                const m = re.exec(rawJson);
+                if (!m) return null;
+                const start = m.index + m[0].length;
+                let i = start, out = '';
+                while (i < rawJson.length) {
+                    const ch = rawJson[i];
+                    if (ch === '\\' && i + 1 < rawJson.length) {
+                        // unescape common sequences
+                        const next = rawJson[i + 1];
+                        if (next === 'n') out += '\n';
+                        else if (next === 't') out += '\t';
+                        else if (next === '"') out += '"';
+                        else if (next === '\\') out += '\\';
+                        else out += next;
+                        i += 2; continue;
+                    }
+                    if (ch === '"') break;
+                    out += ch;
+                    i++;
+                }
+                return out;
+            };
+            // Extract current_plan as array of strings
+            const grabPlan = () => {
+                const m = /"current_plan"\s*:\s*\[/i.exec(rawJson);
+                if (!m) return null;
+                let i = m.index + m[0].length;
+                const items = [];
+                while (i < rawJson.length) {
+                    while (i < rawJson.length && /\s/.test(rawJson[i])) i++;
+                    if (rawJson[i] === ']') break;
+                    if (rawJson[i] !== '"') break; // incomplete
+                    i++; // skip opening "
+                    let buf = '';
+                    while (i < rawJson.length) {
+                        const ch = rawJson[i];
+                        if (ch === '\\' && i + 1 < rawJson.length) {
+                            const next = rawJson[i + 1];
+                            buf += (next === 'n' ? '\n' : next === '"' ? '"' : next);
+                            i += 2; continue;
+                        }
+                        if (ch === '"') { i++; break; }
+                        buf += ch; i++;
+                    }
+                    items.push(buf);
+                    while (i < rawJson.length && /[\s,]/.test(rawJson[i])) i++;
+                }
+                return items;
+            };
+            return {
+                thought: grab('thought'),
+                plan: grabPlan(),
+                message: grab('message')
+            };
+        }
+
+        return {
+            update: (delta, fullText) => {
+                if (!thoughtEl) return;
+                thoughtEl.textContent = fullText;
+                if (charCountEl) charCountEl.textContent = fullText.length;
+                if (autoScroll) thoughtEl.scrollTop = thoughtEl.scrollHeight;
+                // Try to extract early fields and show them as a preview above
+                try {
+                    const fields = extractPartial(fullText);
+                    if (fields.plan && fields.plan.length > 0 && planEl) {
+                        planEl.classList.remove('hidden');
+                        planEl.innerHTML = '<strong>' + escapeAttr(tr('plan-preview-label') || 'Plan') + '</strong>'
+                            + '<ul>' + fields.plan.map(p => '<li>' + escapeAttr(p) + '</li>').join('') + '</ul>';
+                    }
+                    if (fields.message && fields.message.length > 6 && messageEl) {
+                        messageEl.classList.remove('hidden');
+                        messageEl.textContent = fields.message;
+                    }
+                } catch (_) {}
+            },
+            finalize: (kept = false) => {
+                msgDiv.classList.add('streaming-complete');
+                const pulse = msgDiv.querySelector('.thinking-pulse');
+                if (pulse) pulse.remove();
+                if (detailsEl) detailsEl.open = false; // collapse the thinking block by default after completion
+                const labelEl = msgDiv.querySelector('.thinking-summary-text');
+                if (labelEl) labelEl.textContent = tr('thinking-done-label');
+                // Hide the partial preview rows — the real parsed message will be appended separately
+                if (planEl) planEl.classList.add('hidden');
+                if (messageEl) messageEl.classList.add('hidden');
+                // Optionally keep or remove the whole block. By default we KEEP it so the user
+                // can re-open and inspect raw reasoning afterwards.
+                if (!kept) {
+                    // Auto-remove if extremely short (likely no useful content)
+                    if (thoughtEl && thoughtEl.textContent.trim().length < 20) msgDiv.remove();
+                }
+            },
+            remove: () => msgDiv.remove(),
+            node: msgDiv
+        };
+    }
+
     // ===== Drag-out: chat asset → anywhere in After Effects ============
     // After Effects accepts native OS file drops on Project panel, Timeline,
     // Composition viewer, and Footage viewer. We hook HTML5 drag events on
@@ -4584,9 +4735,26 @@ while (!isDone) {
                         }
                     });
                 }
-const response = await agent.sendPromptToModel(currentPrompt, JSON.stringify(aeContext), lastError, snapshotData, sentAttachments);
+                // Create live thinking block — updates char-by-char as SSE chunks arrive
+                const liveThink = createStreamingThinkingBlock();
+                hideTyping();
+                let response;
+                try {
+                    response = await agent.sendPromptToModel(
+                        currentPrompt,
+                        JSON.stringify(aeContext),
+                        lastError,
+                        snapshotData,
+                        sentAttachments,
+                        (delta, fullText) => liveThink.update(delta, fullText)
+                    );
+                    liveThink.finalize();
+                } catch (apiErr) {
+                    liveThink.remove();
+                    throw apiErr;
+                }
                 const apiTime = Date.now() - apiStart;
-                addLog(`Gemini API odpowiedziało w ${apiTime}ms.`, 'success');
+                addLog(`LLM responded in ${apiTime}ms (streamed).`, 'success');
                 sfx.apiResponse();
                 
                 let messageOutput = response.message || '';

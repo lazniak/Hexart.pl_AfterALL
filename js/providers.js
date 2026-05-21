@@ -77,8 +77,75 @@
         // Chat completion. Args: { systemInstruction, messages, model, attachments, generationConfig, signal, grounding }
         // Must return text content of the model response.
         async chatCompletion(args) { throw new Error('not implemented'); }
+        // Streaming chat completion. onChunk(deltaText, fullText) called per chunk.
+        // Default fallback: call non-streaming and emit a single final chunk.
+        async streamChatCompletion(args, onChunk) {
+            const result = await this.chatCompletion(args);
+            if (onChunk && result && result.text) {
+                try { onChunk(result.text, result.text); } catch (_) {}
+            }
+            return result;
+        }
         // Image generation — Promise<{ mimeType, data (base64) }>
         async generateImage(args) { throw new Error('not implemented'); }
+    }
+
+    // -----------------------------------------------------------------
+    // Shared SSE consumer — reads a Response.body stream line by line,
+    // extracts text deltas using a provider-specific extractor function.
+    // Cancellation: respect signal.aborted at every iteration.
+    // -----------------------------------------------------------------
+    async function consumeSSE(res, extract, onChunk, signal) {
+        if (!res.body || !res.body.getReader) {
+            // No streaming support — fall back to full body parse
+            const txt = await res.text();
+            const lines = txt.split('\n');
+            let full = '';
+            for (const line of lines) {
+                const data = line.startsWith('data: ') ? line.slice(6).trim() : '';
+                if (!data || data === '[DONE]') continue;
+                try {
+                    const delta = extract(JSON.parse(data));
+                    if (delta) { full += delta; if (onChunk) onChunk(delta, full); }
+                } catch (_) {}
+            }
+            return full;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let full = '';
+        while (true) {
+            if (signal && signal.aborted) {
+                try { reader.cancel(); } catch (_) {}
+                break;
+            }
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            // SSE event boundary is a blank line (\n\n).
+            const events = buffer.split(/\n\n/);
+            buffer = events.pop(); // keep partial last event
+            for (const evt of events) {
+                for (const line of evt.split('\n')) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (!data || data === '[DONE]') continue;
+                    try {
+                        const delta = extract(JSON.parse(data));
+                        if (delta) {
+                            full += delta;
+                            if (onChunk) {
+                                try { onChunk(delta, full); } catch (_) {}
+                            }
+                        }
+                    } catch (_) {
+                        // partial / non-JSON chunk — ignore quietly
+                    }
+                }
+            }
+        }
+        return full;
     }
 
     // =================================================================
@@ -128,10 +195,7 @@
             return all.filter(m => /tts/i.test(m.id));
         }
 
-        async chatCompletion(args) {
-            if (!this.cfg.apiKey) throw new Error('Brak klucza Gemini API.');
-            const model = args.model || 'gemini-2.5-flash';
-            const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(this.cfg.apiKey);
+        _buildGenPayload(args) {
             const payload = {
                 contents: args.messages,
                 generationConfig: Object.assign({
@@ -146,6 +210,14 @@
             if (args.grounding) {
                 payload.tools = [{ google_search: {} }];
             }
+            return payload;
+        }
+
+        async chatCompletion(args) {
+            if (!this.cfg.apiKey) throw new Error('Brak klucza Gemini API.');
+            const model = args.model || 'gemini-2.5-flash';
+            const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(this.cfg.apiKey);
+            const payload = this._buildGenPayload(args);
             const data = await httpJSON(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -160,6 +232,33 @@
             let text = '';
             for (const p of parts) { if (p.text) text += p.text; }
             return { text: text, raw: data };
+        }
+
+        async streamChatCompletion(args, onChunk) {
+            if (!this.cfg.apiKey) throw new Error('Brak klucza Gemini API.');
+            const model = args.model || 'gemini-2.5-flash';
+            // streamGenerateContent + alt=sse → clean Server-Sent Events with `data: {...}\n\n` framing
+            const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(this.cfg.apiKey);
+            const payload = this._buildGenPayload(args);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                body: JSON.stringify(payload),
+                signal: args.signal
+            });
+            if (!res.ok) {
+                const errTxt = await res.text();
+                throw new Error('Gemini stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
+            }
+            const extract = (obj) => {
+                const parts = obj && obj.candidates && obj.candidates[0]
+                    && obj.candidates[0].content && obj.candidates[0].content.parts || [];
+                let s = '';
+                for (const p of parts) if (p && p.text) s += p.text;
+                return s;
+            };
+            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            return { text: full, raw: { streamed: true } };
         }
 
         async generateImage(args) {
@@ -277,32 +376,37 @@
             return out;
         }
 
-        async chatCompletion(args) {
-            if (!this.cfg.apiKey) throw new Error('Brak klucza OpenRouter API.');
-            const model = args.model;
-            if (!model) throw new Error('Wybierz model OpenRouter w ustawieniach.');
-            const url = this.apiBase + '/chat/completions';
-            const messages = OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages);
+        _buildOAIPayload(args, stream) {
             const payload = {
-                model: model,
-                messages: messages,
+                model: args.model,
+                messages: OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages),
                 temperature: (args.generationConfig && args.generationConfig.temperature != null)
                     ? args.generationConfig.temperature : 0.2,
                 max_tokens: (args.generationConfig && args.generationConfig.maxOutputTokens) || 16384
             };
-            // OpenRouter supports response_format for json_object on capable models
             if (args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
                 payload.response_format = { type: 'json_object' };
             }
-            const headers = {
+            if (stream) payload.stream = true;
+            return payload;
+        }
+        _oaiHeaders() {
+            return {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + this.cfg.apiKey,
                 'HTTP-Referer': 'https://hexart.pl',
                 'X-Title': 'HEXART.PL/AfterALL'
             };
+        }
+
+        async chatCompletion(args) {
+            if (!this.cfg.apiKey) throw new Error('Brak klucza OpenRouter API.');
+            if (!args.model) throw new Error('Wybierz model OpenRouter w ustawieniach.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildOAIPayload(args, false);
             const data = await httpJSON(url, {
                 method: 'POST',
-                headers: headers,
+                headers: this._oaiHeaders(),
                 body: JSON.stringify(payload),
                 signal: args.signal
             }, { timeoutMs: 180000, signal: args.signal, retries: 1 });
@@ -314,6 +418,38 @@
                 ? msg.content
                 : (Array.isArray(msg.content) ? msg.content.map(c => c.text || '').join('') : '');
             return { text: text, raw: data };
+        }
+
+        async streamChatCompletion(args, onChunk) {
+            if (!this.cfg.apiKey) throw new Error('Brak klucza OpenRouter API.');
+            if (!args.model) throw new Error('Wybierz model OpenRouter w ustawieniach.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildOAIPayload(args, true);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: Object.assign(this._oaiHeaders(), { 'Accept': 'text/event-stream' }),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            });
+            if (!res.ok) {
+                const errTxt = await res.text();
+                throw new Error('OpenRouter stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
+            }
+            const extract = (obj) => {
+                const choices = obj && obj.choices || [];
+                let s = '';
+                for (const c of choices) {
+                    const delta = c && c.delta;
+                    if (!delta) continue;
+                    if (typeof delta.content === 'string') s += delta.content;
+                    else if (Array.isArray(delta.content)) {
+                        for (const part of delta.content) if (part && part.text) s += part.text;
+                    }
+                }
+                return s;
+            };
+            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            return { text: full, raw: { streamed: true } };
         }
 
         async generateImage(args) {
@@ -392,22 +528,25 @@
             return list;
         }
 
-        async chatCompletion(args) {
-            const model = args.model;
-            if (!model) throw new Error('Wybierz model LM Studio.');
-            const url = this.apiBase + '/chat/completions';
-            const messages = OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages);
+        _buildPayload(args, stream) {
             const payload = {
-                model: model,
-                messages: messages,
+                model: args.model,
+                messages: OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages),
                 temperature: (args.generationConfig && args.generationConfig.temperature != null)
                     ? args.generationConfig.temperature : 0.2,
                 max_tokens: (args.generationConfig && args.generationConfig.maxOutputTokens) || 8192,
-                stream: false
+                stream: !!stream
             };
             if (args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
                 payload.response_format = { type: 'json_object' };
             }
+            return payload;
+        }
+
+        async chatCompletion(args) {
+            if (!args.model) throw new Error('Wybierz model LM Studio.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildPayload(args, false);
             const data = await httpJSON(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -420,6 +559,32 @@
             const msg = data.choices[0].message || {};
             const text = typeof msg.content === 'string' ? msg.content : '';
             return { text: text, raw: data };
+        }
+
+        async streamChatCompletion(args, onChunk) {
+            if (!args.model) throw new Error('Wybierz model LM Studio.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildPayload(args, true);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                body: JSON.stringify(payload),
+                signal: args.signal
+            });
+            if (!res.ok) {
+                const errTxt = await res.text();
+                throw new Error('LM Studio stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
+            }
+            const extract = (obj) => {
+                const choices = obj && obj.choices || [];
+                let s = '';
+                for (const c of choices) {
+                    if (c && c.delta && typeof c.delta.content === 'string') s += c.delta.content;
+                }
+                return s;
+            };
+            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            return { text: full, raw: { streamed: true } };
         }
 
         async generateImage() {
