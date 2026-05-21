@@ -274,20 +274,28 @@ class AisistAgent {
             default:           return this.geminiModel;
         }
     }
-    // When grounding is enabled, swap to whichever model the user picked for
-    // grounding calls on the active provider:
-    //   • OpenRouter  -> Perplexity Sonar / etc. (network search aggregator)
-    //   • OpenAI      -> gpt-4o-search-preview / gpt-5-search-preview
-    //   • LMStudio    -> user's choice (typically tool-calling local model)
-    //   • Gemini      -> stays on the active model; the grounding flag is
-    //                    handled at the payload level via { google_search: {} }
-    // Returns the model name to use for the current LLM request.
-    getModelForCall(needsGrounding) {
-        if (needsGrounding) {
-            if (this.llmProvider === 'openrouter' && this.openrouterGroundingModel) return this.openrouterGroundingModel;
-            if (this.llmProvider === 'openai'     && this.openaiGroundingModel)     return this.openaiGroundingModel;
-            if (this.llmProvider === 'lmstudio'   && this.lmstudioGroundingModel)   return this.lmstudioGroundingModel;
-        }
+    // Orchestration calls ALWAYS use the user's main model — no per-call
+    // swap. Earlier versions swapped to the configured grounding model
+    // whenever useGrounding was on, which silently routed orchestration
+    // (a JSON-emitting task) to narrow search endpoints like
+    // gpt-5-search-api or Perplexity Sonar. Those endpoints return prose,
+    // breaking the JSON contract.
+    //
+    // Web grounding now works only where the provider supports it natively:
+    //   • Gemini  -> payload-level tools: [{ google_search: {} }] (active)
+    //   • OpenAI  -> set MAIN model to one of the search variants
+    //                (gpt-4o-search-preview, gpt-5 with search tier)
+    //   • OpenRouter -> pick a search-capable MAIN model
+    //                   (perplexity/sonar-pro-search, etc.)
+    //   • LMStudio   -> no native grounding
+    //
+    // The {provider}GroundingModel fields are KEPT in storage for a
+    // future "grounding_query" sub-call mechanism (the agent emits a
+    // separate web-search request inside its JSON response, the
+    // orchestrator routes it through the grounding model, and the result
+    // is injected as context for the next iteration). That feature is
+    // not wired yet — `needsGrounding` is ignored here for now.
+    getModelForCall(/* needsGrounding */) {
         return this.getActiveLLMModel();
     }
     // ----- Token budget guard -----------------------------------------
@@ -3074,63 +3082,27 @@ ${this.getSkillsSummary()}
 
         // ----- Context-packing strategy -----------------------------------
         //
-        // Default: full orchestration system prompt + last MAX_HISTORY_TURNS
-        // turns verbatim + the current userMsg.
-        //
-        // Grounding swap-out: when the user enabled grounding and we routed
-        // to a dedicated web-search model (gpt-5-search-api,
-        // perplexity/sonar-pro-search, …), we DO NOT need the orchestration
-        // framework — that model just needs to answer one question backed by
-        // web sources. Strip the system prompt, drop history, and send a
-        // tiny "answer concisely with sources" instruction instead. Saves
-        // ~10–15 k tokens per grounding call and stays inside low-TPM tiers
-        // like the 6 k/min OpenAI search API.
-        //
-        // Token guard: even on the regular path, estimate the request size
-        // and drop the OLDEST history turns until we're under a per-model
-        // budget — with an in-app warning when trimming happens.
-        const isGroundingSwap = wantsGrounding && (
-            (this.llmProvider === 'openrouter' && model === this.openrouterGroundingModel && model) ||
-            (this.llmProvider === 'openai'     && model === this.openaiGroundingModel     && model) ||
-            (this.llmProvider === 'lmstudio'   && model === this.lmstudioGroundingModel   && model)
-        );
-
-        let messagesForCall;
-        let systemForCall;
-        if (isGroundingSwap) {
-            // Distil the user's request to a search-shaped question. The
-            // userPrompt is the raw user text; we keep just that plus a
-            // short instruction. Skip aeContext, history, screenshots —
-            // none of that helps a web search.
-            const question = (userPrompt || '').trim();
-            systemForCall = 'You are a web-search assistant. Answer the user\'s question concisely (2-6 sentences), cite sources inline with [N] markers and list URLs at the bottom. Use up-to-date information from the live web.';
-            messagesForCall = [{ role: 'user', parts: [{ text: question }] }];
-            const logFnEarly = (typeof window !== 'undefined' && typeof window.afterallAddLog === 'function')
-                ? window.afterallAddLog : null;
-            if (logFnEarly) {
-                logFnEarly('Grounding call — using lean payload (skipped system prompt + ' + this.history.length + ' history turns).', 'info');
-            }
-        } else {
-            systemForCall = this.systemInstruction;
-            messagesForCall = this._trimHistoryForBudget(this.history, userMsg, model);
-        }
+        // Full orchestration system prompt + history (trimmed to fit the
+        // model's per-call budget) + current userMsg. Gemini gets the
+        // payload-level google_search tool when grounding is enabled —
+        // that's the only "grounding swap" that survived; it was always
+        // a payload flag, not a model swap.
+        const messagesForCall = this._trimHistoryForBudget(this.history, userMsg, model);
 
         // If a stream callback was provided, use streaming so the live thinking UI updates as
         // chunks arrive. Otherwise fall back to the non-streaming chatCompletion path.
         const args = {
-            systemInstruction: systemForCall,
+            systemInstruction: this.systemInstruction,
             messages: [...messagesForCall, userMsg],
             model: model,
             generationConfig: {
-                temperature: isGroundingSwap ? 0.4 : 0.2,
-                maxOutputTokens: isGroundingSwap ? 2048 : 16384,
-                responseMimeType: isGroundingSwap ? null : 'application/json'
+                temperature: 0.2,
+                maxOutputTokens: 16384,
+                responseMimeType: 'application/json'
             },
             grounding: this.llmProvider === 'gemini' && this.useGrounding && this.isFeatureEnabled('grounding'),
             signal: signal
         };
-        // _buildPayload helpers respect missing responseMimeType — no extra
-        // JSON-mode hint goes on the wire for grounding calls.
         let completion;
         // Streaming diagnostics — surfaced to the in-app log console (not just
         // DevTools) so a silent fallback to non-streaming is visible to the user.
