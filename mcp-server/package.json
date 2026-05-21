@@ -1,0 +1,40 @@
+{
+  "name": "@hexart/afterall-mcp",
+  "version": "2.1.0",
+  "description": "Model Context Protocol server for HEXART.PL/AfterALL — control the After Effects AI agent from Claude Desktop, Claude Code, or Antigravity",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "afterall-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test-bridge": "node src/test-bridge.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-desktop",
+    "antigravity",
+    "after-effects",
+    "adobe",
+    "ai-agent",
+    "motion-design",
+    "afterall",
+    "hexart"
+  ],
+  "author": "Paul Lazniak <https://github.com/lazniak>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lazniak/Hexart.pl_AfterALL.git"
+  },
+  "homepage": "https://hexart.pl",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

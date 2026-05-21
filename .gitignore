@@ -1,0 +1,118 @@
+# =====================================================================
+# HEXART.PL/AfterALL - .gitignore
+# =====================================================================
+
+# -------- Third-party / vendored projects (NOT part of this repo) ---
+ACE-Step-1.5/
+ace-step/
+**/.venv/
+**/venv/
+
+# -------- Local Python sandbox (created at runtime by the plugin) ---
+python_envs/
+**/python_envs/
+
+# -------- Secrets and runtime config --------------------------------
+# Plugin keeps user settings (including API keys!) in user's home dir,
+# but just in case someone copies them here — block any matching file.
+.aisist_ae_data.json
+.hexart_afterall_data.json
+.aisist_skills/
+*.key
+*.pem
+*.p12
+*.env
+.env
+.env.*
+secrets.json
+credentials.json
+
+# -------- Cache / build artifacts -----------------------------------
+node_modules/
+**/node_modules/
+dist/
+build/
+out/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+
+# -------- IDE / editor ----------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.history/
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# -------- OS / system files -----------------------------------------
+$RECYCLE.BIN/
+System Volume Information/
+.Trashes
+.fseventsd
+.Spotlight-V100
+
+# -------- Git internals (in nested dirs) ----------------------------
+.git/
+
+# -------- Adobe / After Effects artifacts ---------------------------
+*.aep
+*.aet
+*.aepx
+*.bak
+*.aaf
+Adobe After Effects Auto-Save/
+RenderQueue/
+
+# -------- Tests / coverage ------------------------------------------
+coverage/
+.nyc_output/
+*.lcov
+
+# -------- Temporary work / scratch ----------------------------------
+tmp/
+temp/
+scratch/
+playground/
+WIP/
+_old/
+*.tmp
+*.tmp.*
+hexart_runscript_*.jsx
+aisist_*.json
+aisist_snapshot_*.png
+aisist_preview_*.png
+
+# -------- Private dev scripts / sandboxes ---------------------------
+notes.md
+TODO.md
+private/
+local-test/
+my-*.bat
+test-keys.txt
+
+# -------- Generated assets (avoid leaking project content) ----------
+aisist_gen_*
+aisist_img_*
+aisist_tts_*
+aisist_vid_*
+aisist_music_*
+aisist_edit_*
+aisist_svg_*
+aisist_sfx_*
+*_transcript.json
+
+# -------- Misc ------------------------------------------------------
+*.zip
+*.tar.gz
+*.7z
+.cache/
