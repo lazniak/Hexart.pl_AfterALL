@@ -6,7 +6,13 @@
     --text-secondary: #94a3b8;
     --accent: #dca353;
     --accent-hover: #f1c37c;
-    --user-msg-bg: linear-gradient(135deg, rgba(220, 163, 83, 0.25), rgba(220, 163, 83, 0.1));
+    --accent-dark: var(--accent-dark);        /* darker accent for save-button gradients */
+    /* Decomposed RGB tuples for rgba(var(...), opacity) — used widely. */
+    --accent-rgb: 220, 163, 83;    /* #dca353 */
+    --success-rgb: 16, 185, 129;   /* #10b981 */
+    --danger-rgb: 239, 68, 68;     /* #ef4444 */
+    --warning-rgb: 251, 191, 36;   /* #fbbf24 */
+    --user-msg-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--accent-rgb), 0.1));
     --assistant-msg-bg: rgba(40, 40, 48, 0.6);
     --input-bg: rgba(18, 18, 22, 0.7);
     --danger: #ef4444;
@@ -137,8 +143,8 @@ header {
     animation: fadeIn 0.2s ease-out;
 }
 .thinking-live {
-    background: linear-gradient(180deg, rgba(220, 163, 83, 0.06) 0%, rgba(220, 163, 83, 0.03) 100%);
-    border: 1px solid rgba(220, 163, 83, 0.18);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.06) 0%, rgba(var(--accent-rgb), 0.03) 100%);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
     border-radius: 8px;
     overflow: hidden;
 }
@@ -165,7 +171,7 @@ header {
     display: inline-block;
 }
 .thinking-live[open] > summary::before { transform: rotate(90deg); }
-.thinking-live > summary:hover { background: rgba(220, 163, 83, 0.08); }
+.thinking-live > summary:hover { background: rgba(var(--accent-rgb), 0.08); }
 .thinking-summary-text { flex: 1; }
 .thinking-char-count {
     font-size: 10px;
@@ -185,7 +191,7 @@ header {
     border-radius: 50%;
     flex-shrink: 0;
     animation: thinking-pulse-anim 1.1s ease-in-out infinite;
-    box-shadow: 0 0 6px rgba(220, 163, 83, 0.5);
+    box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5);
 }
 @keyframes thinking-pulse-anim {
     0%, 100% { opacity: 0.4; transform: scale(0.85); }
@@ -203,9 +209,9 @@ header {
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-word;
-    border-top: 1px solid rgba(220, 163, 83, 0.1);
+    border-top: 1px solid rgba(var(--accent-rgb), 0.1);
     /* Subtle inner glow when streaming */
-    box-shadow: inset 0 1px 0 rgba(220, 163, 83, 0.05);
+    box-shadow: inset 0 1px 0 rgba(var(--accent-rgb), 0.05);
 }
 .streaming-complete .thought-content-stream {
     box-shadow: none;
@@ -223,7 +229,7 @@ header {
     margin-top: 6px;
 }
 .streaming-plan, .streaming-message {
-    background: rgba(220, 163, 83, 0.05);
+    background: rgba(var(--accent-rgb), 0.05);
     border-left: 2px solid var(--accent);
     padding: 6px 10px;
     border-radius: 0 6px 6px 0;
@@ -232,7 +238,7 @@ header {
     margin-top: 4px;
     animation: fadeIn 0.2s ease-out;
 }
-.streaming-plan.hidden, .streaming-message.hidden { display: none; }
+/* .streaming-plan.hidden / .streaming-message.hidden — covered by the global .hidden rule */
 .streaming-plan strong {
     color: var(--accent);
     font-size: 10.5px;
@@ -258,7 +264,7 @@ header {
 /* Scrollbar styling for the live thought stream — matches the rest */
 .thought-content-stream::-webkit-scrollbar { width: 6px; }
 .thought-content-stream::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); border-radius: 3px; }
-.thought-content-stream::-webkit-scrollbar-thumb { background: rgba(220,163,83,0.3); border-radius: 3px; }
+.thought-content-stream::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb),0.3); border-radius: 3px; }
 
 /* =================================================================== */
 /* Draggable asset cards — drop into Project / Timeline / Comp panels  */
@@ -296,9 +302,9 @@ header {
     cursor: grab;
 }
 .asset-card.asset-draggable:hover {
-    border-color: rgba(220, 163, 83, 0.5);
+    border-color: rgba(var(--accent-rgb), 0.5);
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), 0 0 12px rgba(220, 163, 83, 0.15);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), 0 0 12px rgba(var(--accent-rgb), 0.15);
 }
 .asset-card.asset-draggable:active {
     cursor: grabbing;
@@ -381,7 +387,7 @@ header {
     font-size: 26px;
     width: 44px;
     height: 44px;
-    background: rgba(220, 163, 83, 0.12);
+    background: rgba(var(--accent-rgb), 0.12);
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -436,7 +442,7 @@ header {
     padding: 6px 8px;
     background: rgba(0, 0, 0, 0.22);
     border-radius: 6px;
-    border: 1px solid rgba(220, 163, 83, 0.12);
+    border: 1px solid rgba(var(--accent-rgb), 0.12);
 }
 .q-form-countdown-label {
     font-size: 10.5px;
@@ -468,21 +474,21 @@ header {
     color: var(--accent);
     opacity: 0.7;
     transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-    filter: drop-shadow(0 0 0 rgba(220, 163, 83, 0));
+    filter: drop-shadow(0 0 0 rgba(var(--accent-rgb), 0));
     position: relative;
 }
 .coffee-btn:hover {
     color: var(--accent-hover);
     opacity: 1;
     transform: scale(1.15) rotate(-4deg);
-    filter: drop-shadow(0 0 8px rgba(220, 163, 83, 0.6));
+    filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), 0.6));
 }
 .coffee-btn::after {
     content: '';
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(220, 163, 83, 0.18) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.18) 0%, transparent 70%);
     opacity: 0;
     transition: opacity 0.25s;
     z-index: -1;
@@ -523,8 +529,8 @@ header {
     display: inline-block;
     margin-top: 0;
     padding: 5px 12px;
-    background: linear-gradient(135deg, rgba(220, 163, 83, 0.12), rgba(220, 163, 83, 0.05));
-    border: 1px solid rgba(220, 163, 83, 0.3);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-rgb), 0.05));
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
     border-radius: 6px;
     color: var(--accent);
     text-decoration: none;
@@ -532,9 +538,9 @@ header {
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .bmc-credit-link:hover {
-    background: linear-gradient(135deg, rgba(220, 163, 83, 0.25), rgba(220, 163, 83, 0.12));
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--accent-rgb), 0.12));
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(220, 163, 83, 0.2);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
 }
 
 .title-text-wrap {
@@ -634,7 +640,7 @@ button:hover {
 .message.user .message-content {
     background: var(--user-msg-bg);
     border-bottom-right-radius: 4px;
-    border: 1px solid rgba(220, 163, 83, 0.2);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
 }
 
 .message.assistant {
@@ -678,13 +684,13 @@ button:hover {
     white-space: pre;
 }
 .message :not(pre) > code {
-    background: rgba(220, 163, 83, 0.13);
+    background: rgba(var(--accent-rgb), 0.13);
     color: #fde68a;
     padding: 1px 5px;
     border-radius: 4px;
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 0.92em;
-    border: 1px solid rgba(220, 163, 83, 0.18);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
 }
 
 /* Markdown headers — kept compact so they don't overpower the bubble */
@@ -712,7 +718,7 @@ button:hover {
     margin: 0.4rem 0;
     padding: 0.35rem 0.7rem;
     border-left: 3px solid var(--accent);
-    background: rgba(220, 163, 83, 0.06);
+    background: rgba(var(--accent-rgb), 0.06);
     color: var(--text-secondary);
     border-radius: 0 4px 4px 0;
     font-style: italic;
@@ -728,7 +734,7 @@ button:hover {
 .message a {
     color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted rgba(220, 163, 83, 0.5);
+    border-bottom: 1px dotted rgba(var(--accent-rgb), 0.5);
     transition: color 0.15s, border-color 0.15s;
 }
 .message a:hover {
@@ -861,9 +867,7 @@ footer {
     border-radius: 3px;
 }
 
-#log-console.hidden {
-    display: none;
-}
+/* #log-console.hidden — covered by the global .hidden rule */
 
 .log-messages div {
     margin-bottom: 2px;
@@ -894,8 +898,8 @@ footer {
 }
 
 .input-wrapper:focus-within {
-    border-color: rgba(220, 163, 83, 0.5);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 0 15px rgba(220, 163, 83, 0.15);
+    border-color: rgba(var(--accent-rgb), 0.5);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 0 15px rgba(var(--accent-rgb), 0.15);
 }
 
 textarea {
@@ -930,13 +934,13 @@ textarea::placeholder {
     justify-content: center;
     align-items: center;
     margin-bottom: 2px;
-    box-shadow: 0 4px 10px rgba(220, 163, 83, 0.2), inset 0 1px 1px rgba(255,255,255,0.2);
+    box-shadow: 0 4px 10px rgba(var(--accent-rgb), 0.2), inset 0 1px 1px rgba(255,255,255,0.2);
     transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
 }
 
 #send-btn:hover {
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 6px 15px rgba(220, 163, 83, 0.3), inset 0 1px 1px rgba(255,255,255,0.3);
+    box-shadow: 0 6px 15px rgba(var(--accent-rgb), 0.3), inset 0 1px 1px rgba(255,255,255,0.3);
     filter: brightness(1.1);
 }
 
@@ -950,19 +954,17 @@ textarea::placeholder {
     justify-content: center;
     align-items: center;
     margin-bottom: 2px;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2), inset 0 1px 1px rgba(255,255,255,0.2);
+    box-shadow: 0 4px 10px rgba(var(--danger-rgb), 0.2), inset 0 1px 1px rgba(255,255,255,0.2);
     transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
 }
 
 #stop-btn:hover {
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 6px 15px rgba(239, 68, 68, 0.3), inset 0 1px 1px rgba(255,255,255,0.3);
+    box-shadow: 0 6px 15px rgba(var(--danger-rgb), 0.3), inset 0 1px 1px rgba(255,255,255,0.3);
     filter: brightness(1.1);
 }
 
-#stop-btn.hidden {
-    display: none;
-}
+/* #stop-btn.hidden — covered by the global .hidden rule */
 
 #status-indicator {
     font-size: 11px;
@@ -1005,13 +1007,7 @@ textarea::placeholder {
     overflow-y: auto;
 }
 
-/* Hidden state — display:none is safer than opacity (prevents accidental click-through) */
-#settings-overlay.hidden, #sessions-overlay.hidden, #memory-overlay.hidden, #skills-overlay.hidden,
-#tools-overlay.hidden, #voice-picker-overlay.hidden, #openrouter-picker-overlay.hidden,
-#model-picker-overlay.hidden, #restart-ae-overlay.hidden,
-#api-help-overlay.hidden, #permission-overlay.hidden, #save-project-overlay.hidden {
-    display: none;
-}
+/* All overlay .hidden states are covered by the global .hidden rule. */
 /* Save-project sits above other modals but below the permission gate */
 #save-project-overlay { z-index: 1300; }
 
@@ -1075,8 +1071,8 @@ textarea::placeholder {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 .session-item:hover {
-    border-color: rgba(220, 163, 83, 0.4);
-    background: linear-gradient(180deg, rgba(220, 163, 83, 0.15) 0%, rgba(220, 163, 83, 0.05) 100%);
+    border-color: rgba(var(--accent-rgb), 0.4);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--accent-rgb), 0.05) 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
@@ -1095,9 +1091,7 @@ textarea::placeholder {
     flex-shrink: 0;
 }
 
-.settings-footer {
-    flex-shrink: 0;
-}
+/* (.settings-footer's flex-shrink: 0 was merged into the main rule below.) */
 
 .settings-header h2 {
     font-size: 1.1rem;
@@ -1186,6 +1180,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     align-items: center;
     justify-content: flex-end;
     gap: 0.9rem;
+    flex-shrink: 0;
 }
 
 /* Variant when credits sit next to the save button — credits get to occupy
@@ -1202,14 +1197,14 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 
 #save-settings-btn {
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: white;
     padding: 0.7rem 1.6rem;
     border-radius: 10px;
     font-weight: 600;
     font-size: 13.5px;
     letter-spacing: 0.4px;
-    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+    box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.25),
                 inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
                 box-shadow 0.18s,
@@ -1220,24 +1215,24 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 #save-settings-btn:hover {
     background: linear-gradient(135deg, var(--accent-hover), #c9962f);
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35),
+    box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.35),
                 inset 0 1px 0 rgba(255, 255, 255, 0.22);
     filter: brightness(1.05);
 }
 #save-settings-btn:active {
     transform: translateY(0);
-    box-shadow: 0 3px 8px rgba(220, 163, 83, 0.25),
+    box-shadow: 0 3px 8px rgba(var(--accent-rgb), 0.25),
                 inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* Generic prominence class for "primary save" buttons in other modals — opt-in */
 .primary-save {
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: white;
     font-weight: 600;
     border-radius: 10px;
     padding: 0.7rem 1.4rem;
-    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+    box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.25),
                 inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
                 box-shadow 0.18s,
@@ -1245,12 +1240,12 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .primary-save:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35);
+    box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.35);
     filter: brightness(1.05);
 }
 .primary-save:active {
     transform: translateY(0);
-    box-shadow: 0 3px 8px rgba(220, 163, 83, 0.25);
+    box-shadow: 0 3px 8px rgba(var(--accent-rgb), 0.25);
 }
 
 /* Narrow CEP panels — collapse credits row gracefully */
@@ -1319,8 +1314,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .memory-item:hover {
-    border-color: rgba(220, 163, 83, 0.4);
-    background: linear-gradient(180deg, rgba(220, 163, 83, 0.15) 0%, rgba(220, 163, 83, 0.05) 100%);
+    border-color: rgba(var(--accent-rgb), 0.4);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--accent-rgb), 0.05) 100%);
 }
 .memory-item-content { flex: 1; min-width: 0; line-height: 1.4; }
 .memory-item-del {
@@ -1368,7 +1363,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-bottom: none;
     gap: 10px;
 }
-#attachment-preview.hidden { display: none; }
+/* #attachment-preview.hidden — covered by the global .hidden rule */
 #attachment-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2) }
 #remove-attachment-btn {
     background: rgba(255,0,0,0.1); color: var(--danger);
@@ -1383,7 +1378,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 /* HEXART.PL/AfterALL — Audio modality overview chips                  */
 /* =================================================================== */
 .modality-overview {
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(220, 163, 83, 0.05));
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(var(--accent-rgb), 0.05));
     border-color: rgba(96, 165, 250, 0.25);
 }
 .modality-grid {
@@ -1445,12 +1440,12 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .settings-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 .settings-tab.active {
-    background: rgba(220,163,83,0.15);
+    background: rgba(var(--accent-rgb),0.15);
     color: var(--accent);
-    border-color: rgba(220,163,83,0.3);
+    border-color: rgba(var(--accent-rgb),0.3);
 }
 .settings-tab-content { display: block; }
-.settings-tab-content.hidden { display: none; }
+/* .settings-tab-content.hidden — covered by the global .hidden rule */
 
 .provider-card {
     background: rgba(0,0,0,0.18);
@@ -1467,7 +1462,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     letter-spacing: 0.4px;
 }
 .provider-config { margin-top: 0.4rem; }
-.provider-config.hidden { display: none; }
+/* .provider-config.hidden — covered by the global .hidden rule */
 .hint {
     display: block;
     font-size: 10px;
@@ -1489,16 +1484,16 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     min-width: 32px;
 }
 .mini-btn:hover {
-    background: rgba(220,163,83,0.2);
+    background: rgba(var(--accent-rgb),0.2);
     color: var(--accent);
-    border-color: rgba(220,163,83,0.5);
+    border-color: rgba(var(--accent-rgb),0.5);
 }
 
 /* =================================================================== */
 /* Update card (Settings → General)                                    */
 /* =================================================================== */
 .update-card {
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(220, 163, 83, 0.04));
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(var(--accent-rgb), 0.04));
     border-color: rgba(96, 165, 250, 0.25);
 }
 .update-row {
@@ -1539,25 +1534,25 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     color: var(--text-primary);
 }
 .update-status-ok {
-    background: rgba(16, 185, 129, 0.08);
+    background: rgba(var(--success-rgb), 0.08);
     border-left-color: #10b981;
     color: var(--text-primary);
 }
 .update-status-available {
-    background: rgba(220, 163, 83, 0.12);
+    background: rgba(var(--accent-rgb), 0.12);
     border-left-color: var(--accent);
     color: var(--text-primary);
     font-weight: 500;
     animation: updatePulse 2s ease-in-out infinite;
 }
 .update-status-error {
-    background: rgba(239, 68, 68, 0.08);
+    background: rgba(var(--danger-rgb), 0.08);
     border-left-color: #ef4444;
     color: var(--text-primary);
 }
 @keyframes updatePulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 163, 83, 0.12); }
-    50%      { box-shadow: 0 0 0 4px rgba(220, 163, 83, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.12); }
+    50%      { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0); }
 }
 .update-actions {
     display: flex;
@@ -1586,7 +1581,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .update-log-error {
     color: #fca5a5;
-    border-color: rgba(239, 68, 68, 0.18);
+    border-color: rgba(var(--danger-rgb), 0.18);
 }
 
 /* ==================================================================== */
@@ -1594,24 +1589,24 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 /* ==================================================================== */
 /* Eye-catching gold "Restart now" — same prominence as primary-save */
 .restart-ae-now {
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: white;
     font-weight: 600;
     font-size: 13px;
     border-radius: 10px;
-    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.30),
+    box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.30),
                 inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
                 box-shadow 0.18s, filter 0.18s;
 }
 .restart-ae-now:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.40);
+    box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.40);
     filter: brightness(1.05);
 }
 .restart-ae-now:active:not(:disabled) {
     transform: translateY(0);
-    box-shadow: 0 3px 8px rgba(220, 163, 83, 0.25);
+    box-shadow: 0 3px 8px rgba(var(--accent-rgb), 0.25);
 }
 .restart-ae-now:disabled {
     opacity: 0.6;
@@ -1681,7 +1676,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     color: var(--text-secondary);
     font-size: 13px;
     padding: 1rem;
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(220, 163, 83, 0.06));
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(var(--accent-rgb), 0.06));
 }
 .welcome-card .welcome-options-title {
     font-weight: 600;
@@ -1705,11 +1700,11 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .welcome-card .welcome-opt.welcome-opt-recommended {
     border-left-color: var(--accent);
-    background: linear-gradient(90deg, rgba(220, 163, 83, 0.10), rgba(0, 0, 0, 0.22));
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.10), rgba(0, 0, 0, 0.22));
 }
 .welcome-card .welcome-opt.welcome-opt-local {
     border-left-color: #34d399;
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(0, 0, 0, 0.22));
+    background: linear-gradient(90deg, rgba(var(--success-rgb), 0.08), rgba(0, 0, 0, 0.22));
 }
 .welcome-card .welcome-opt-head {
     display: flex;
@@ -1731,7 +1726,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 .welcome-card .welcome-opt-body a {
     color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted rgba(220, 163, 83, 0.4);
+    border-bottom: 1px dotted rgba(var(--accent-rgb), 0.4);
 }
 .welcome-card .welcome-opt-body a:hover { color: var(--accent-hover); }
 .welcome-card .welcome-opt-body strong { color: var(--text-primary); }
@@ -1757,8 +1752,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     margin: 0.4rem 0.6rem 0.8rem;
     padding: 1rem;
     border-radius: 14px;
-    background: linear-gradient(135deg, rgba(220, 163, 83, 0.10), rgba(96, 165, 250, 0.06));
-    border: 1px solid rgba(220, 163, 83, 0.25);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.10), rgba(96, 165, 250, 0.06));
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
     text-align: center;
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
 }
@@ -1789,7 +1784,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 #api-setup-fallback .api-setup-cta {
     display: inline-block;
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: white;
     font-weight: 600;
     font-size: 13.5px;
@@ -1797,14 +1792,14 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-radius: 10px;
     border: 0;
     cursor: pointer;
-    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+    box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.25),
                 inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
                 box-shadow 0.18s, filter 0.18s;
 }
 #api-setup-fallback .api-setup-cta:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35);
+    box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.35);
     filter: brightness(1.05);
 }
 
@@ -1844,7 +1839,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     font-weight: 500;
     letter-spacing: 0.2px;
     color: #fde68a;
-    background: linear-gradient(135deg, rgba(250, 204, 21, 0.10), rgba(220, 163, 83, 0.08));
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.10), rgba(var(--accent-rgb), 0.08));
     border: 1px solid rgba(250, 204, 21, 0.30);
     border-radius: 8px;
     cursor: pointer;
@@ -1854,7 +1849,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
                 background 0.18s;
 }
 .repo-star-cta:hover {
-    background: linear-gradient(135deg, rgba(250, 204, 21, 0.20), rgba(220, 163, 83, 0.16));
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.20), rgba(var(--accent-rgb), 0.16));
     transform: translateY(-1px);
     box-shadow: 0 8px 20px rgba(250, 204, 21, 0.18);
     filter: brightness(1.05);
@@ -1937,7 +1932,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     .picker-filters input { flex-basis: 100%; }
     .picker-filters select { flex-basis: calc(50% - 2px); }
 }
-.picker-features label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+/* (.picker-features label rules merged into the main block above — added cursor: pointer + gap fix.) */
 .picker-features input[type=checkbox] { accent-color: var(--accent); }
 
 .or-model-row {
@@ -1949,13 +1944,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: all 0.15s;
 }
 .or-model-row:hover {
-    background: rgba(220,163,83,0.08);
-    border-color: rgba(220,163,83,0.3);
+    background: rgba(var(--accent-rgb),0.08);
+    border-color: rgba(var(--accent-rgb),0.3);
 }
 .or-model-row.picked {
-    background: rgba(220,163,83,0.18);
+    background: rgba(var(--accent-rgb),0.18);
     border-color: var(--accent);
-    box-shadow: 0 0 8px rgba(220,163,83,0.25);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb),0.25);
 }
 .or-model-head {
     display: flex;
@@ -1963,6 +1958,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     align-items: baseline;
     gap: 8px;
     margin-bottom: 3px;
+    min-width: 0;
 }
 .or-model-name {
     font-weight: 500;
@@ -1984,9 +1980,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     white-space: nowrap;
     max-width: 50%;
 }
-.or-model-head {
-    min-width: 0;
-}
+/* (.or-model-head's min-width: 0 was merged into the main block above.) */
 .or-model-meta {
     font-size: 10px;
     color: var(--text-secondary);
@@ -2013,11 +2007,11 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     letter-spacing: 0.3px;
 }
 .badge.free {
-    background: rgba(16,185,129,0.18);
+    background: rgba(var(--success-rgb),0.18);
     color: #34d399;
 }
 .badge.feat {
-    background: rgba(220,163,83,0.15);
+    background: rgba(var(--accent-rgb),0.15);
     color: var(--accent);
 }
 
@@ -2056,7 +2050,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .voice-display.has-voice {
     color: var(--text-primary);
-    border-color: rgba(220,163,83,0.4);
+    border-color: rgba(var(--accent-rgb),0.4);
 }
 
 /* Voice picker — overlay base from universal block */
@@ -2070,13 +2064,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: all 0.15s;
 }
 .voice-row:hover {
-    background: rgba(220,163,83,0.08);
-    border-color: rgba(220,163,83,0.3);
+    background: rgba(var(--accent-rgb),0.08);
+    border-color: rgba(var(--accent-rgb),0.3);
 }
 .voice-row.picked {
-    background: rgba(220,163,83,0.2);
+    background: rgba(var(--accent-rgb),0.2);
     border-color: var(--accent);
-    box-shadow: 0 0 12px rgba(220,163,83,0.25);
+    box-shadow: 0 0 12px rgba(var(--accent-rgb),0.25);
 }
 .voice-row-head {
     display: flex;
@@ -2133,7 +2127,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.4px;
-    background: rgba(220, 163, 83, 0.05);
+    background: rgba(var(--accent-rgb), 0.05);
     border-radius: 6px;
     margin-top: 4px;
     animation: voicePickerPulse 1.2s ease-in-out infinite;
@@ -2198,7 +2192,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     bottom: 3px;
 }
 .toggle-switch input:checked + .slider {
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
 }
 .toggle-switch input:checked + .slider:before {
     transform: translateX(18px);
@@ -2224,7 +2218,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     text-transform: uppercase;
 }
 .feature-status.on {
-    background: rgba(16,185,129,0.18);
+    background: rgba(var(--success-rgb),0.18);
     color: #34d399;
 }
 .feature-status.off {
@@ -2247,7 +2241,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     color: var(--accent);
     letter-spacing: 0.4px;
     padding: 0.6rem 0.2rem 0.3rem;
-    border-bottom: 1px solid rgba(220,163,83,0.15);
+    border-bottom: 1px solid rgba(var(--accent-rgb),0.15);
     margin-top: 0.4rem;
 }
 
@@ -2264,11 +2258,11 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: all 0.15s;
 }
 .tools-sidebar-row:hover {
-    background: rgba(220,163,83,0.08);
+    background: rgba(var(--accent-rgb),0.08);
 }
 .tools-sidebar-row.selected {
-    background: rgba(220,163,83,0.18);
-    border-color: rgba(220,163,83,0.4);
+    background: rgba(var(--accent-rgb),0.18);
+    border-color: rgba(var(--accent-rgb),0.4);
 }
 .tools-row-icon {
     font-size: 18px;
@@ -2316,6 +2310,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 .tool-detail-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     border-bottom: 1px solid var(--panel-border);
     margin-bottom: 0.7rem;
@@ -2331,15 +2326,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     font-family: inherit;
 }
 .tool-detail-tab.active {
-    background: rgba(220,163,83,0.15);
+    background: rgba(var(--accent-rgb),0.15);
     color: var(--accent);
 }
 .tool-detail-pane {
     display: block;
 }
-.tool-detail-pane.hidden {
-    display: none;
-}
+/* .tool-detail-pane.hidden — covered by the global .hidden rule */
 .kv-row {
     display: flex;
     gap: 0.6rem;
@@ -2391,8 +2384,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     margin: 0;
 }
 .help-icon {
-    background: rgba(220,163,83,0.15);
-    border: 1px solid rgba(220,163,83,0.3);
+    background: rgba(var(--accent-rgb),0.15);
+    border: 1px solid rgba(var(--accent-rgb),0.3);
     color: var(--accent);
     width: 18px;
     height: 18px;
@@ -2460,7 +2453,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     top: 0.45rem;
     width: 22px;
     height: 22px;
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: var(--bg-color);
     border-radius: 50%;
     text-align: center;
@@ -2504,8 +2497,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     left: 0;
 }
 .api-help-warning {
-    background: rgba(239,68,68,0.12);
-    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(var(--danger-rgb),0.12);
+    border: 1px solid rgba(var(--danger-rgb),0.25);
     color: #fca5a5;
     padding: 0.5rem 0.7rem;
     border-radius: 6px;
@@ -2573,8 +2566,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     margin-top: 0.4rem;
 }
 .tool-form-btn {
-    background: rgba(220,163,83,0.15);
-    border: 1px solid rgba(220,163,83,0.3);
+    background: rgba(var(--accent-rgb),0.15);
+    border: 1px solid rgba(var(--accent-rgb),0.3);
     color: var(--accent);
     padding: 6px 12px;
     border-radius: 6px;
@@ -2583,28 +2576,26 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: all 0.15s;
 }
 .tool-form-btn:hover {
-    background: rgba(220,163,83,0.25);
+    background: rgba(var(--accent-rgb),0.25);
 }
 .tool-form-btn.primary {
-    background: linear-gradient(135deg, var(--accent), #b8862d);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: white;
     border-color: transparent;
 }
 .tool-form-btn.danger {
-    background: rgba(239,68,68,0.15);
-    border-color: rgba(239,68,68,0.3);
+    background: rgba(var(--danger-rgb),0.15);
+    border-color: rgba(var(--danger-rgb),0.3);
     color: #f87171;
 }
-.tool-detail-tabs {
-    flex-wrap: wrap;
-}
+/* (.tool-detail-tabs flex-wrap merged into the main block above.) */
 
 /* =================================================================== */
 /* Pipeline UI - rich visualization of multi-step processes            */
 /* =================================================================== */
 .pipeline-card {
     background: linear-gradient(180deg, rgba(30,30,38,0.7) 0%, rgba(20,20,28,0.65) 100%);
-    border: 1px solid rgba(220,163,83,0.25);
+    border: 1px solid rgba(var(--accent-rgb),0.25);
     border-radius: 12px;
     padding: 14px 16px;
     margin: 4px 0;
@@ -2621,28 +2612,28 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
    aggregate state at a glance. Three flavors: all-done (green),
    has-warnings (amber), has-errors (red). */
 .pipeline-card.pipeline-finished {
-    border-color: rgba(16,185,129,0.45);
-    box-shadow: 0 4px 18px rgba(16,185,129,0.18), inset 0 1px 1px rgba(255,255,255,0.04);
+    border-color: rgba(var(--success-rgb),0.45);
+    box-shadow: 0 4px 18px rgba(var(--success-rgb),0.18), inset 0 1px 1px rgba(255,255,255,0.04);
 }
 .pipeline-card.pipeline-all-done {
-    border-color: rgba(16,185,129,0.55);
-    box-shadow: 0 4px 22px rgba(16,185,129,0.22), inset 0 1px 1px rgba(255,255,255,0.04);
+    border-color: rgba(var(--success-rgb),0.55);
+    box-shadow: 0 4px 22px rgba(var(--success-rgb),0.22), inset 0 1px 1px rgba(255,255,255,0.04);
 }
 .pipeline-card.pipeline-all-done .pipeline-summary {
     color: #6ee7b7;
     font-weight: 500;
 }
 .pipeline-card.pipeline-has-warnings {
-    border-color: rgba(251,191,36,0.50);
-    box-shadow: 0 4px 22px rgba(251,191,36,0.20), inset 0 1px 1px rgba(255,255,255,0.04);
+    border-color: rgba(var(--warning-rgb),0.50);
+    box-shadow: 0 4px 22px rgba(var(--warning-rgb),0.20), inset 0 1px 1px rgba(255,255,255,0.04);
 }
 .pipeline-card.pipeline-has-warnings .pipeline-summary {
     color: #fcd34d;
     font-weight: 500;
 }
 .pipeline-card.pipeline-has-errors {
-    border-color: rgba(239,68,68,0.50);
-    box-shadow: 0 4px 22px rgba(239,68,68,0.20), inset 0 1px 1px rgba(255,255,255,0.04);
+    border-color: rgba(var(--danger-rgb),0.50);
+    box-shadow: 0 4px 22px rgba(var(--danger-rgb),0.20), inset 0 1px 1px rgba(255,255,255,0.04);
 }
 .pipeline-card.pipeline-has-errors .pipeline-summary {
     color: #fca5a5;
@@ -2660,7 +2651,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     font-size: 20px;
     width: 36px;
     height: 36px;
-    background: linear-gradient(135deg, rgba(220,163,83,0.18), rgba(220,163,83,0.08));
+    background: linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.08));
     border-radius: 9px;
     display: flex;
     align-items: center;
@@ -2685,7 +2676,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     gap: 6px;
     font-size: 11px;
     color: var(--accent);
-    background: rgba(220,163,83,0.1);
+    background: rgba(var(--accent-rgb),0.1);
     padding: 3px 8px;
     border-radius: 4px;
     font-variant-numeric: tabular-nums;
@@ -2717,10 +2708,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-radius: 6px;
     background: rgba(0,0,0,0.15);
     border: 1px solid transparent;
-    transition: all 0.2s;
-}
-.ps-step {
     border-left: 3px solid transparent;
+    transition: all 0.2s;
 }
 
 /* Expandable step rows — replaces the plain <div> with a <details>
@@ -2841,40 +2830,40 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     text-decoration: none;
     padding: 4px 6px;
     border-radius: 4px;
-    background: rgba(220, 163, 83, 0.08);
-    border: 1px solid rgba(220, 163, 83, 0.18);
+    background: rgba(var(--accent-rgb), 0.08);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
     align-self: flex-start;
     word-break: break-all;
     transition: background 0.15s, border-color 0.15s;
 }
 .ps-asset-link:hover {
-    background: rgba(220, 163, 83, 0.18);
-    border-color: rgba(220, 163, 83, 0.35);
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.35);
 }
 .ps-step-running {
-    background: linear-gradient(90deg, rgba(220,163,83,0.18), rgba(220,163,83,0.06));
-    border-color: rgba(220,163,83,0.35);
+    background: linear-gradient(90deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.06));
+    border-color: rgba(var(--accent-rgb),0.35);
     border-left-color: var(--accent);
 }
 .ps-step-done {
-    background: linear-gradient(90deg, rgba(16,185,129,0.18), rgba(16,185,129,0.04));
-    border-color: rgba(16,185,129,0.30);
+    background: linear-gradient(90deg, rgba(var(--success-rgb),0.18), rgba(var(--success-rgb),0.04));
+    border-color: rgba(var(--success-rgb),0.30);
     border-left-color: #10b981;
 }
 .ps-step-done .ps-label {
     color: #d1fae5;
 }
 .ps-step-warning {
-    background: linear-gradient(90deg, rgba(251,191,36,0.18), rgba(251,191,36,0.05));
-    border-color: rgba(251,191,36,0.35);
+    background: linear-gradient(90deg, rgba(var(--warning-rgb),0.18), rgba(var(--warning-rgb),0.05));
+    border-color: rgba(var(--warning-rgb),0.35);
     border-left-color: #fbbf24;
 }
 .ps-step-warning .ps-label {
     color: #fef3c7;
 }
 .ps-step-failed {
-    background: linear-gradient(90deg, rgba(239,68,68,0.22), rgba(239,68,68,0.06));
-    border-color: rgba(239,68,68,0.40);
+    background: linear-gradient(90deg, rgba(var(--danger-rgb),0.22), rgba(var(--danger-rgb),0.06));
+    border-color: rgba(var(--danger-rgb),0.40);
     border-left-color: #ef4444;
 }
 .ps-step-failed .ps-label {
@@ -2904,19 +2893,19 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     animation: ps-stamp-amber 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.3);
 }
 @keyframes ps-stamp-green {
-    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(16,185,129,0.0); }
-    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(16,185,129,0.30); }
-    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(16,185,129,0.0); }
+    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(var(--success-rgb),0.0); }
+    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(var(--success-rgb),0.30); }
+    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(var(--success-rgb),0.0); }
 }
 @keyframes ps-stamp-red {
-    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(239,68,68,0.0); }
-    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(239,68,68,0.30); }
-    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(239,68,68,0.0); }
+    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(var(--danger-rgb),0.0); }
+    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(var(--danger-rgb),0.30); }
+    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(var(--danger-rgb),0.0); }
 }
 @keyframes ps-stamp-amber {
-    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(251,191,36,0.0); }
-    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(251,191,36,0.35); }
-    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(251,191,36,0.0); }
+    0%   { transform: scale(0.5); box-shadow: 0 0 0 0  rgba(var(--warning-rgb),0.0); }
+    40%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(var(--warning-rgb),0.35); }
+    100% { transform: scale(1);   box-shadow: 0 0 0 0  rgba(var(--warning-rgb),0.0); }
 }
 .ps-icon {
     width: 22px;
@@ -2934,26 +2923,26 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     color: var(--text-secondary);
 }
 .ps-icon.ps-running {
-    background: rgba(220,163,83,0.2);
+    background: rgba(var(--accent-rgb),0.2);
     color: var(--accent);
 }
 .ps-icon.ps-done {
     background: linear-gradient(135deg, #10b981, #059669);
     color: #ffffff;
     font-weight: 700;
-    box-shadow: 0 0 8px rgba(16,185,129,0.35);
+    box-shadow: 0 0 8px rgba(var(--success-rgb),0.35);
 }
 .ps-icon.ps-warning {
     background: linear-gradient(135deg, #fbbf24, #d97706);
     color: #1a1a1a;
     font-weight: 700;
-    box-shadow: 0 0 8px rgba(251,191,36,0.35);
+    box-shadow: 0 0 8px rgba(var(--warning-rgb),0.35);
 }
 .ps-icon.ps-failed {
     background: linear-gradient(135deg, #ef4444, #dc2626);
     color: #ffffff;
     font-weight: 700;
-    box-shadow: 0 0 8px rgba(239,68,68,0.40);
+    box-shadow: 0 0 8px rgba(var(--danger-rgb),0.40);
 }
 .ps-icon.ps-skipped {
     background: rgba(120,120,120,0.2);
@@ -2967,7 +2956,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 .ps-spin {
     width: 12px;
     height: 12px;
-    border: 2px solid rgba(220,163,83,0.3);
+    border: 2px solid rgba(var(--accent-rgb),0.3);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: ps-rotate 0.9s linear infinite;
@@ -3023,7 +3012,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 
 /* Parallel group container */
 .ps-parallel {
-    background: linear-gradient(135deg, rgba(96,165,250,0.06), rgba(220,163,83,0.04));
+    background: linear-gradient(135deg, rgba(96,165,250,0.06), rgba(var(--accent-rgb),0.04));
     border: 1px dashed rgba(96,165,250,0.25);
     border-radius: 8px;
     padding: 6px;
@@ -3120,7 +3109,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 #openrouter-models-list::-webkit-scrollbar-thumb,
 #voice-picker-list::-webkit-scrollbar-thumb,
 #api-help-body::-webkit-scrollbar-thumb {
-    background: rgba(220,163,83,0.25);
+    background: rgba(var(--accent-rgb),0.25);
     border-radius: 4px;
     transition: background 0.2s;
 }
@@ -3130,13 +3119,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 #openrouter-models-list::-webkit-scrollbar-thumb:hover,
 #voice-picker-list::-webkit-scrollbar-thumb:hover,
 #api-help-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(220,163,83,0.5);
+    background: rgba(var(--accent-rgb),0.5);
 }
 
 #permission-overlay .settings-modal {
     animation: pipelineSlideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    border: 1px solid rgba(220,163,83,0.4);
-    box-shadow: 0 10px 50px rgba(0,0,0,0.6), 0 0 30px rgba(220,163,83,0.15);
+    border: 1px solid rgba(var(--accent-rgb),0.4);
+    box-shadow: 0 10px 50px rgba(0,0,0,0.6), 0 0 30px rgba(var(--accent-rgb),0.15);
 }
 
 .perm-rule {
@@ -3158,11 +3147,11 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     flex-shrink: 0;
 }
 .perm-rule-icon.allow {
-    background: rgba(16,185,129,0.15);
+    background: rgba(var(--success-rgb),0.15);
     color: #34d399;
 }
 .perm-rule-icon.deny {
-    background: rgba(239,68,68,0.15);
+    background: rgba(var(--danger-rgb),0.15);
     color: #f87171;
 }
 .perm-rule-meta { flex: 1; min-width: 0; }
