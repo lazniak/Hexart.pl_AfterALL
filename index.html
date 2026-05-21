@@ -199,9 +199,10 @@
                                 <select id="basemodel-select" style="flex:1;">
                                     <option value="">…</option>
                                 </select>
-                                <button type="button" id="refresh-gemini-models" class="mini-btn" title="Pobierz aktualną listę modeli Gemini z API">↻</button>
+                                <button type="button" id="pick-gemini-llm" class="mini-btn" title="Browse model catalog">📋</button>
+                                <button type="button" id="refresh-gemini-models" class="mini-btn" title="Refresh Gemini model list from API">↻</button>
                             </div>
-                            <span class="hint" data-i18n="gemini-hint">Lista pobierana z Google API · wymaga klucza Gemini</span>
+                            <span class="hint" data-i18n="gemini-hint">List fetched from Google API · requires Gemini key</span>
                         </div>
 
                         <!-- OpenRouter LLM -->
@@ -234,6 +235,7 @@
                                 <select id="openai-llm-model" style="flex:1;">
                                     <option value="">Press ↻ to load</option>
                                 </select>
+                                <button type="button" id="pick-openai-llm" class="mini-btn" title="Browse model catalog">📋</button>
                                 <button type="button" id="refresh-openai-models" class="mini-btn" title="Fetch OpenAI models">↻</button>
                             </div>
                             <span class="hint" data-i18n="openai-hint">Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.</span>
@@ -268,12 +270,13 @@
                         </select>
 
                         <div class="provider-config" data-img-provider="gemini">
-                            <label for="imagemodel-select" data-i18n="img-model-label">Model Obrazów (Gemini)</label>
+                            <label for="imagemodel-select" data-i18n="img-model-label">Gemini image model</label>
                             <div style="display:flex; gap:6px;">
                                 <select id="imagemodel-select" style="flex:1;">
                                     <option value="">…</option>
                                 </select>
-                                <button type="button" id="refresh-gemini-img-models" class="mini-btn" title="Pobierz aktualną listę modeli obrazów">↻</button>
+                                <button type="button" id="pick-gemini-img" class="mini-btn" title="Browse image model catalog">📋</button>
+                                <button type="button" id="refresh-gemini-img-models" class="mini-btn" title="Refresh image model list">↻</button>
                             </div>
                         </div>
 
@@ -291,11 +294,15 @@
                                 <label for="openai-image-model" data-i18n="openai-image-model-label">OpenAI image model</label>
                                 <button type="button" class="help-icon" data-api-help="openai" title="How to configure?">?</button>
                             </div>
-                            <select id="openai-image-model">
-                                <option value="gpt-image-1">gpt-image-1 (newest · edits + vision)</option>
-                                <option value="dall-e-3">DALL·E 3 (legacy · up to 1792 px)</option>
-                                <option value="dall-e-2">DALL·E 2 (legacy · edits + variations)</option>
-                            </select>
+                            <div style="display:flex; gap:6px;">
+                                <select id="openai-image-model" style="flex:1;">
+                                    <option value="gpt-image-1">gpt-image-1 (newest · edits + vision)</option>
+                                    <option value="dall-e-3">DALL·E 3 (legacy · up to 1792 px)</option>
+                                    <option value="dall-e-2">DALL·E 2 (legacy · edits + variations)</option>
+                                </select>
+                                <button type="button" id="pick-openai-img" class="mini-btn" title="Browse OpenAI image catalog">📋</button>
+                                <button type="button" id="refresh-openai-img-models" class="mini-btn" title="Refresh OpenAI image catalog">↻</button>
+                            </div>
                             <span class="hint" data-i18n="openai-image-hint">gpt-image-1 supports reference images for edits and inpainting. DALL·E 3 ignores reference images. Pricing varies — see platform.openai.com/docs/guides/images.</span>
                         </div>
 
@@ -722,6 +729,39 @@
             <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
                 <button id="reload-openrouter-list" data-i18n="or-reload" style="flex:1; background:rgba(255,255,255,0.06); padding:8px; border-radius:6px; color:var(--text-primary); font-size:12px;">↻ Pobierz ponownie</button>
                 <button id="apply-openrouter-pick" data-i18n="or-apply" style="flex:2; background: linear-gradient(135deg, var(--accent), #b8862d); padding:8px; border-radius:6px; color:white; font-weight:500;">Zastosuj wybrany model</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Model Picker Modal (Gemini / OpenAI / future providers) -->
+    <div id="model-picker-overlay" class="hidden">
+        <div class="settings-modal glass-panel" style="max-width: 900px; width: 92%;">
+            <div class="settings-header">
+                <h2 id="model-picker-title" data-i18n="mp-title">Select a model</h2>
+                <button id="close-model-picker">&times;</button>
+            </div>
+            <div class="settings-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+                <div class="picker-filters">
+                    <input type="text" id="mp-search" data-i18n-ph="mp-search-ph" placeholder="Search by name / id / description..." style="flex:2;">
+                    <select id="mp-sort">
+                        <option value="recommended" data-i18n="mp-sort-recommended">Recommended first</option>
+                        <option value="name" data-i18n="mp-sort-name">Name A–Z</option>
+                        <option value="context-desc" data-i18n="mp-sort-context-desc">Context ↓</option>
+                        <option value="id" data-i18n="mp-sort-id">Model ID A–Z</option>
+                    </select>
+                </div>
+                <div class="picker-features" id="mp-features">
+                    <label><input type="checkbox" id="mp-feat-vision"> <span data-i18n="mp-feat-vision">Vision</span></label>
+                    <label><input type="checkbox" id="mp-feat-tools"> <span data-i18n="mp-feat-tools">Tool / function calling</span></label>
+                    <label><input type="checkbox" id="mp-feat-json"> <span data-i18n="mp-feat-json">JSON mode</span></label>
+                    <label><input type="checkbox" id="mp-feat-reasoning"> <span data-i18n="mp-feat-reasoning">Reasoning only</span></label>
+                </div>
+                <div id="model-picker-status" data-i18n="mp-status-idle" style="font-size:11px; color:var(--text-secondary); padding: 4px 0;">Loading models...</div>
+                <div id="model-picker-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+            <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
+                <button id="reload-model-picker" data-i18n="mp-reload" class="mini-btn" style="flex:1;">↻ Reload from API</button>
+                <button id="apply-model-pick" class="primary-save" data-i18n="mp-apply" style="flex:2;">Apply selected model</button>
             </div>
         </div>
     </div>

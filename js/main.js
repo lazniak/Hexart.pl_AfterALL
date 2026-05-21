@@ -734,6 +734,31 @@ const i18nDict = {
         'log-voice-library-error': 'Voice library error: {msg}',
         'log-voice-add-error': 'Voice add error: {msg}',
         // OpenRouter picker
+        // Generic Model Picker (Gemini / OpenAI / future providers)
+        'mp-title':              'Wybór modelu',
+        'mp-title-gemini-llm':   'Katalog modeli Gemini (logika / LLM)',
+        'mp-title-gemini-image': 'Katalog modeli Gemini (obrazy)',
+        'mp-title-openai-llm':   'Katalog modeli OpenAI (logika / LLM)',
+        'mp-title-openai-image': 'Katalog modeli OpenAI (obrazy)',
+        'mp-search-ph':          '🔎 Szukaj po nazwie / id / opisie...',
+        'mp-sort-recommended':   'Polecane na początku',
+        'mp-sort-name':          'Nazwa A–Z',
+        'mp-sort-context-desc':  'Kontekst ↓',
+        'mp-sort-id':            'ID modelu A–Z',
+        'mp-feat-vision':        'Vision (obrazy w input)',
+        'mp-feat-tools':         'Tool / function calling',
+        'mp-feat-json':          'Tryb JSON',
+        'mp-feat-reasoning':     'Tylko modele rozumowania',
+        'mp-status-idle':        'Ładuję modele...',
+        'mp-loading':            'Pobieram katalog modeli...',
+        'mp-found-n':            'Znaleziono {n} pasujących modeli.',
+        'mp-shown-n':            'Pokazano {shown} z {total} modeli.',
+        'mp-no-results':         'Brak modeli pasujących do filtrów. Zmień kryteria lub kliknij ↻ aby odświeżyć z API.',
+        'mp-error':              'Błąd ładowania katalogu: {msg}',
+        'mp-reload':             '↻ Pobierz ponownie z API',
+        'mp-apply':              'Zastosuj wybrany model',
+        'mp-applied':            'Wybrano model: {id}',
+        'log-openai-img-models-loaded': 'OpenAI image: pobrano {n} modeli.',
         'or-picker-title': 'Katalog modeli OpenRouter',
         'or-picker-search-ph': '🔎 Szukaj po nazwie / providerze...',
         'or-sort-price-asc': 'Cena ↑ (najtaniej)',
@@ -1122,6 +1147,31 @@ const i18nDict = {
         'voice-add-error': '✕ Error',
         'log-voice-library-error': 'Voice library error: {msg}',
         'log-voice-add-error': 'Voice add error: {msg}',
+        // Generic Model Picker (Gemini / OpenAI / future providers)
+        'mp-title':              'Select a model',
+        'mp-title-gemini-llm':   'Gemini model catalog (logic / LLM)',
+        'mp-title-gemini-image': 'Gemini model catalog (image)',
+        'mp-title-openai-llm':   'OpenAI model catalog (logic / LLM)',
+        'mp-title-openai-image': 'OpenAI model catalog (image)',
+        'mp-search-ph':          '🔎 Search by name / id / description...',
+        'mp-sort-recommended':   'Recommended first',
+        'mp-sort-name':          'Name A–Z',
+        'mp-sort-context-desc':  'Context ↓',
+        'mp-sort-id':            'Model ID A–Z',
+        'mp-feat-vision':        'Vision (image input)',
+        'mp-feat-tools':         'Tool / function calling',
+        'mp-feat-json':          'JSON mode',
+        'mp-feat-reasoning':     'Reasoning models only',
+        'mp-status-idle':        'Loading models...',
+        'mp-loading':            'Fetching model catalog...',
+        'mp-found-n':            'Found {n} matching models.',
+        'mp-shown-n':            'Showing {shown} of {total} models.',
+        'mp-no-results':         'No models match the current filters. Adjust the criteria or click ↻ to refetch from API.',
+        'mp-error':              'Catalog load error: {msg}',
+        'mp-reload':             '↻ Refetch from API',
+        'mp-apply':              'Apply selected model',
+        'mp-applied':            'Selected model: {id}',
+        'log-openai-img-models-loaded': 'OpenAI image: {n} models fetched.',
         'or-picker-title': 'OpenRouter Model Catalog',
         'or-picker-search-ph': '🔎 Search by name / provider...',
         'or-sort-price-asc': 'Price ↑ (cheapest)',
@@ -4235,6 +4285,314 @@ function t(key, fallback) {
     if (pickOrGrounding) pickOrGrounding.addEventListener('click', () => openOpenRouterPicker('grounding'));
     const pickOrImg = document.getElementById('pick-openrouter-img');
     if (pickOrImg) pickOrImg.addEventListener('click', () => openOpenRouterPicker('image'));
+
+    // ---------------------------------------------------------------------
+    // Generic Model Picker — works for any provider (Gemini / OpenAI / …)
+    //   opts = {
+    //     provider: 'gemini' | 'openai',     // which API to query
+    //     kind:     'llm' | 'image' | 'tts', // what we're picking
+    //     target:   HTMLSelectElement,       // where the chosen ID lands
+    //     title:    localized modal title,
+    //     onApplied?: (modelId) => void
+    //   }
+    // The picker calls listLLMModels() / listImageModels() / listTTSModels()
+    // on the provider directly, so the model set is always pre-filtered to
+    // models that can actually do the requested job (no whisper/embedding/
+    // moderation leakage for LLM picks, etc.).
+    // ---------------------------------------------------------------------
+    const mpOverlay  = document.getElementById('model-picker-overlay');
+    const mpTitle    = document.getElementById('model-picker-title');
+    const mpList     = document.getElementById('model-picker-list');
+    const mpStatus   = document.getElementById('model-picker-status');
+    const mpSearch   = document.getElementById('mp-search');
+    const mpSort     = document.getElementById('mp-sort');
+    const mpFeatVision    = document.getElementById('mp-feat-vision');
+    const mpFeatTools     = document.getElementById('mp-feat-tools');
+    const mpFeatJson      = document.getElementById('mp-feat-json');
+    const mpFeatReasoning = document.getElementById('mp-feat-reasoning');
+    const mpFeaturesWrap  = document.getElementById('mp-features');
+    const mpApplyBtn      = document.getElementById('apply-model-pick');
+    const mpReloadBtn     = document.getElementById('reload-model-picker');
+    const mpCloseBtn      = document.getElementById('close-model-picker');
+
+    let mpCache = [];
+    let mpPickedId = null;
+    let mpCtx = null;   // current picker context (provider, kind, target, …)
+
+    // Generous regex defending against odd model IDs that the LLM picker
+    // shouldn't see (embeddings, transcription, moderation, audio, etc.).
+    const NON_LLM_RX  = /(embed|whisper|tts|moderation|davinci|babbage|audio|realtime|transcribe|guardrails|content-filter)/i;
+    const IMAGE_RX    = /(image|imagen|dall-e|gpt-image|sdxl|flux|stable-diffusion)/i;
+    const TTS_RX      = /tts/i;
+    // OpenAI reasoning model family (o1, o3, o-mini, gpt-5*)
+    const REASONING_RX = /^(o[1-9]|o-mini|gpt-5)/i;
+
+    function modelKindMatches(model, kind) {
+        const id = model.id || '';
+        if (kind === 'image') return IMAGE_RX.test(id);
+        if (kind === 'tts')   return TTS_RX.test(id);
+        // LLM: exclude non-LLM families
+        if (NON_LLM_RX.test(id)) return false;
+        // For LLM picker, also exclude image-only and tts-only models
+        if (TTS_RX.test(id)) return false;
+        if (/dall-e|gpt-image/i.test(id)) return false;
+        // Gemini "imagen" and "image" models go to the image picker, not LLM
+        if (/imagen|nano-banana/i.test(id) && !/gemini-[23].*image/i.test(id)) return false;
+        return true;
+    }
+
+    function modelRecommendedScore(model, providerName) {
+        // Higher score = recommended sooner. Hand-tuned per-provider so the
+        // "Recommended first" sort actually surfaces the model the user
+        // most likely wants (flagship chat model for the family).
+        const id = (model.id || '').toLowerCase();
+        let s = 0;
+        if (providerName === 'gemini') {
+            if (/gemini-3.*pro/.test(id))     s += 100;
+            if (/gemini-2\.5.*pro/.test(id))  s += 95;
+            if (/gemini-2\.5.*flash/.test(id))s += 80;
+            if (/gemini-2\.0.*flash/.test(id))s += 60;
+            if (/-preview/.test(id))          s -= 10;
+            if (/-experimental/.test(id))     s -= 25;
+            if (/-thinking/.test(id))         s -= 5;
+            if (/-1b|-2b|-3b|-4b/.test(id))   s -= 30;
+        } else if (providerName === 'openai') {
+            if (/^gpt-5\b/.test(id))          s += 100;
+            if (/^gpt-5-/.test(id))           s += 95;
+            if (/^gpt-4o\b/.test(id))         s += 80;
+            if (/^chatgpt-4o/.test(id))       s += 75;
+            if (/^o3\b/.test(id))             s += 90;
+            if (/^o1\b/.test(id))             s += 70;
+            if (/^o1-mini/.test(id))          s += 50;
+            if (/^o3-mini/.test(id))          s += 55;
+            if (/-mini\b/.test(id))           s -= 5;
+            if (/-realtime|-audio|-search/.test(id)) s -= 30;
+            if (/^gpt-4-/.test(id))           s += 30;
+            if (/^gpt-3\.5/.test(id))         s += 15;
+        }
+        if (model.contextLength) s += Math.min(15, Math.log(model.contextLength) - 8);
+        return s;
+    }
+
+    async function openModelPicker(opts) {
+        mpCtx = opts;
+        mpPickedId = (opts.target && opts.target.value) || opts.currentValue || '';
+        if (mpTitle) mpTitle.textContent = opts.title || tr('mp-title');
+        // Show/hide feature filters that don't apply per-kind
+        if (mpFeaturesWrap) {
+            mpFeaturesWrap.style.display = (opts.kind === 'llm') ? '' : 'none';
+        }
+        // Default-enable reasoning filter? No — leave the user in control.
+        if (mpFeatVision)    mpFeatVision.checked = false;
+        if (mpFeatTools)     mpFeatTools.checked = false;
+        if (mpFeatJson)      mpFeatJson.checked = false;
+        if (mpFeatReasoning) mpFeatReasoning.checked = false;
+        mpOverlay.classList.remove('hidden');
+        // Always refetch on open — providers update fast and users add keys mid-session
+        await loadModelPicker(opts, false);
+    }
+
+    async function loadModelPicker(opts, force) {
+        if (!mpStatus || !mpList) return;
+        try {
+            mpStatus.textContent = tr('mp-loading');
+            mpList.innerHTML = '';
+            mpCache = [];
+            // Surface the latest API key from the input so a freshly typed
+            // key works without hitting Save first.
+            if (opts.provider === 'gemini' && apiKeyInput && apiKeyInput.value.trim()) {
+                agent.apiKey = apiKeyInput.value.trim();
+            }
+            if (opts.provider === 'openai' && openaiApiInput && openaiApiInput.value.trim()) {
+                agent.openaiApiKey = openaiApiInput.value.trim();
+            }
+            // Call provider directly so we get the kind-specific list
+            const P = window.AfterAllProviders;
+            let instance;
+            if (opts.provider === 'gemini') {
+                instance = P.create('gemini', { apiKey: agent.apiKey });
+            } else if (opts.provider === 'openai') {
+                instance = P.create('openai', { apiKey: agent.openaiApiKey, baseUrl: agent.openaiBaseUrl });
+            } else if (opts.provider === 'openrouter') {
+                instance = P.create('openrouter', { apiKey: agent.openrouterApiKey });
+            } else {
+                throw new Error('Picker: unsupported provider ' + opts.provider);
+            }
+            let raw;
+            if (opts.kind === 'image' && typeof instance.listImageModels === 'function') {
+                raw = await instance.listImageModels(!!force);
+            } else if (opts.kind === 'tts' && typeof instance.listTTSModels === 'function') {
+                raw = await instance.listTTSModels(!!force);
+            } else {
+                // LLM picker: route through agent.fetchModels so we benefit
+                // from the 15-minute agent-level cache and avoid hammering
+                // /v1/models every time the user opens the picker.
+                raw = await agent.fetchModels(opts.provider, !!force);
+            }
+            // Defensive secondary filter so non-LLM IDs never sneak into the LLM picker
+            const filtered = (raw || []).filter(m => modelKindMatches(m, opts.kind || 'llm'));
+            mpCache = filtered;
+            mpStatus.textContent = tr('mp-found-n').replace('{n}', String(filtered.length));
+            renderModelPickerList();
+        } catch (e) {
+            mpStatus.textContent = tr('mp-error').replace('{msg}', e.message);
+            addLog('Model picker error: ' + e.message, 'error');
+        }
+    }
+
+    function renderModelPickerList() {
+        if (!mpList || !mpCtx) return;
+        let filtered = mpCache.slice();
+        const q = (mpSearch.value || '').toLowerCase().trim();
+        if (q) {
+            filtered = filtered.filter(m => {
+                const haystack = (m.id + ' ' + (m.name || '') + ' ' + (m.description || '')).toLowerCase();
+                return haystack.indexOf(q) !== -1;
+            });
+        }
+        if (mpCtx.kind === 'llm') {
+            if (mpFeatVision.checked)    filtered = filtered.filter(m => m.features && m.features.vision);
+            if (mpFeatTools.checked)     filtered = filtered.filter(m => m.features && m.features.tools);
+            if (mpFeatJson.checked)      filtered = filtered.filter(m => m.features && m.features.json);
+            if (mpFeatReasoning.checked) filtered = filtered.filter(m => REASONING_RX.test(m.id || ''));
+        }
+        const sortBy = mpSort.value;
+        const provider = mpCtx.provider;
+        filtered.sort((a, b) => {
+            if (sortBy === 'name')         return (a.name || a.id).localeCompare(b.name || b.id);
+            if (sortBy === 'id')           return (a.id || '').localeCompare(b.id || '');
+            if (sortBy === 'context-desc') return (b.contextLength || 0) - (a.contextLength || 0);
+            // 'recommended' (default)
+            return modelRecommendedScore(b, provider) - modelRecommendedScore(a, provider);
+        });
+
+        mpList.innerHTML = '';
+        if (filtered.length === 0) {
+            mpList.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary);">'
+                + escapeHtml(tr('mp-no-results')) + '</div>';
+            mpStatus.textContent = tr('mp-found-n').replace('{n}', '0');
+            return;
+        }
+        mpStatus.textContent = tr('mp-shown-n').replace('{shown}', String(filtered.length)).replace('{total}', String(mpCache.length));
+        filtered.slice(0, 300).forEach(m => {
+            const row = document.createElement('div');
+            row.className = 'or-model-row';
+            if (m.id === mpPickedId) row.classList.add('picked');
+            const ctx = m.contextLength
+                ? (m.contextLength >= 1000000
+                    ? (m.contextLength / 1000000).toFixed(1) + 'M'
+                    : (m.contextLength / 1000).toFixed(0) + 'k')
+                : '?';
+            const out = m.outputLimit
+                ? (m.outputLimit >= 1000 ? (m.outputLimit / 1000).toFixed(0) + 'k' : String(m.outputLimit))
+                : null;
+            const badges = [];
+            if (m.features && m.features.vision) badges.push('<span class="badge feat">Vision</span>');
+            if (m.features && m.features.tools)  badges.push('<span class="badge feat">Tools</span>');
+            if (m.features && m.features.json)   badges.push('<span class="badge feat">JSON</span>');
+            if (REASONING_RX.test(m.id || ''))   badges.push('<span class="badge feat" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:white;">Reasoning</span>');
+            if (/-preview\b|-exp\b|-experimental\b/i.test(m.id || '')) badges.push('<span class="badge" style="background:rgba(251,191,36,0.18);color:#fbbf24;">Preview</span>');
+            if (/legacy|deprecated/i.test(m.id || '') || /legacy/i.test(m.description || '')) badges.push('<span class="badge" style="background:rgba(239,68,68,0.15);color:#fca5a5;">Legacy</span>');
+            const shortName = m.name && m.name.length > 40 ? m.name.substring(0, 38) + '…' : m.name;
+            row.innerHTML = ''
+                + '<div class="or-model-head">'
+                +   '<div class="or-model-name" title="' + escapeHtml(m.name || m.id) + '">' + escapeHtml(shortName || m.id) + '</div>'
+                +   '<div class="or-model-id" title="' + escapeHtml(m.id) + '">' + escapeHtml(m.id) + '</div>'
+                + '</div>'
+                + '<div class="or-model-meta">'
+                +   '<span title="Context window">📐 ' + ctx + (out ? ' · out ' + out : '') + '</span>'
+                +   badges.join(' ')
+                + '</div>'
+                + (m.description
+                    ? '<div class="or-model-desc">' + escapeHtml(m.description.substring(0, 220)) + (m.description.length > 220 ? '…' : '') + '</div>'
+                    : '');
+            row.addEventListener('click', () => {
+                mpPickedId = m.id;
+                Array.from(mpList.children).forEach(c => c.classList && c.classList.remove('picked'));
+                row.classList.add('picked');
+            });
+            mpList.appendChild(row);
+        });
+    }
+
+    [mpSearch, mpSort, mpFeatVision, mpFeatTools, mpFeatJson, mpFeatReasoning].forEach(el => {
+        if (!el) return;
+        ['change', 'input'].forEach(ev => el.addEventListener(ev, renderModelPickerList));
+    });
+    if (mpCloseBtn)  mpCloseBtn.addEventListener('click', () => mpOverlay.classList.add('hidden'));
+    if (mpReloadBtn) mpReloadBtn.addEventListener('click', () => loadModelPicker(mpCtx, true));
+    if (mpApplyBtn)  mpApplyBtn.addEventListener('click', () => {
+        if (!mpPickedId || !mpCtx) return;
+        const t = mpCtx.target;
+        if (t && t.tagName === 'SELECT') {
+            // Ensure the option exists, then select it
+            let opt = Array.from(t.options).find(o => o.value === mpPickedId);
+            if (!opt) {
+                opt = document.createElement('option');
+                opt.value = mpPickedId;
+                opt.textContent = mpPickedId;
+                t.appendChild(opt);
+            }
+            t.value = mpPickedId;
+        } else if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
+            t.value = mpPickedId;
+        }
+        if (typeof mpCtx.onApplied === 'function') {
+            try { mpCtx.onApplied(mpPickedId); } catch (_) {}
+        }
+        addLog(tr('mp-applied').replace('{id}', mpPickedId), 'success');
+        mpOverlay.classList.add('hidden');
+    });
+
+    // Wire the 📋 buttons next to each <select>
+    const pickGeminiLLMBtn = document.getElementById('pick-gemini-llm');
+    if (pickGeminiLLMBtn) pickGeminiLLMBtn.addEventListener('click', () => openModelPicker({
+        provider: 'gemini', kind: 'llm', target: baseModelSelect,
+        title: tr('mp-title-gemini-llm')
+    }));
+    const pickGeminiImgBtn = document.getElementById('pick-gemini-img');
+    if (pickGeminiImgBtn) pickGeminiImgBtn.addEventListener('click', () => openModelPicker({
+        provider: 'gemini', kind: 'image', target: imageModelSelect,
+        title: tr('mp-title-gemini-image')
+    }));
+    const pickOpenAILLMBtn = document.getElementById('pick-openai-llm');
+    if (pickOpenAILLMBtn) pickOpenAILLMBtn.addEventListener('click', () => openModelPicker({
+        provider: 'openai', kind: 'llm', target: openaiLLMModelSelect,
+        title: tr('mp-title-openai-llm')
+    }));
+    const pickOpenAIImgBtn = document.getElementById('pick-openai-img');
+    if (pickOpenAIImgBtn) pickOpenAIImgBtn.addEventListener('click', () => openModelPicker({
+        provider: 'openai', kind: 'image', target: openaiImageModelSelect,
+        title: tr('mp-title-openai-image')
+    }));
+    const refreshOpenAIImgBtn = document.getElementById('refresh-openai-img-models');
+    if (refreshOpenAIImgBtn) refreshOpenAIImgBtn.addEventListener('click', async () => {
+        // Lightweight refresh: open the picker briefly to refetch image catalog
+        // and write the recommended pick straight into the select.
+        try {
+            if (openaiApiInput && openaiApiInput.value.trim()) {
+                agent.openaiApiKey = openaiApiInput.value.trim();
+            }
+            const P = window.AfterAllProviders;
+            const inst = P.create('openai', { apiKey: agent.openaiApiKey, baseUrl: agent.openaiBaseUrl });
+            const list = await inst.listImageModels();
+            if (!openaiImageModelSelect) return;
+            const current = openaiImageModelSelect.value;
+            openaiImageModelSelect.innerHTML = '';
+            list.forEach(m => {
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = m.name || m.id;
+                openaiImageModelSelect.appendChild(o);
+            });
+            if (current && list.find(m => m.id === current)) {
+                openaiImageModelSelect.value = current;
+            }
+            addLog(tr('log-openai-img-models-loaded').replace('{n}', String(list.length)), 'success');
+        } catch (e) {
+            addLog('OpenAI image catalog: ' + e.message, 'error');
+        }
+    });
 
     // Load Gemini models when settings open and key exists
     if (settingsBtn) {
