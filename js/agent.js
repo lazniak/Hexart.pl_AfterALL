@@ -634,8 +634,13 @@ class AisistAgent {
     // available (defensive — shouldn't happen in CEP).
     _csi() {
         if (this._csiInstance) return this._csiInstance;
-        if (typeof CSInterface === 'undefined') return null;
-        try { this._csiInstance = this._csi(); } catch (_) { return null; }
+        // Look up the constructor — some CEP environments attach it only
+        // to `window`, and a bare `typeof` in class scope may not see it.
+        let CS = null;
+        try { if (typeof CSInterface !== 'undefined') CS = CSInterface; } catch (_) {}
+        if (!CS && typeof window !== 'undefined' && window.CSInterface) CS = window.CSInterface;
+        if (!CS) return null;
+        try { this._csiInstance = new CS(); } catch (_) { return null; }
         return this._csiInstance;
     }
 
