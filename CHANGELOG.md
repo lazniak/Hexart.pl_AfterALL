@@ -9,6 +9,52 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.1] — 2026-05-21
+
+First iteration on top of 2.2.0 (see VERSIONING.md for the 4-segment
+scheme). External-link safety + reliable drag-from-chat to AE.
+
+### Added
+- **openExternalUrl(url)** — single helper that routes every external
+  `<a href>` click through `CSInterface.openURLInDefaultBrowser`, with
+  a Node `child_process` shell-out as a fallback. Exposed as
+  `window.openExternalUrl` and additionally wired as a capture-phase
+  click delegate on `document` so any future link rendered inside chat
+  markdown, modals, or dynamically-injected content opens in the
+  user's system browser instead of replacing the plugin panel.
+  Scheme allow-list: http, https, mailto only — `javascript:` /
+  `data:` payloads are blocked at the helper level.
+- **Local drag-proxy server** for chat asset → AE drag-and-drop. Tiny
+  HTTP server on `127.0.0.1` (random free port) that streams an asset
+  file back when given a valid single-use token (30 s TTL). Chromium's
+  `DownloadURL` drag pattern only works with http(s); without this,
+  AE rejected every drag from the chat panel with the crossed-out
+  cursor. The proxy now powers the drag handoff so AE accepts the
+  drop the same way it would from a Finder/Explorer drag.
+- **Click-to-import "+" button** on every chat asset card — a
+  guaranteed-works alternative to the OS drag handoff. The button
+  calls `importAndAddToComp(filePath)` via ExtendScript and lands the
+  asset in the active composition. Gold-accent circular button next
+  to the existing drag hint; works even when the drag proxy can't
+  bind a port.
+
+### Changed
+- Seven internal call sites that used to instantiate `CSInterface`
+  ad-hoc to call `openURLInDefaultBrowser` (hexart logo, BMC button,
+  BMC teaser video, three credit links, API-help modal links, two
+  GitHub-update links) refactored to use the new
+  `openExternalUrl` helper.
+- `dataTransfer.effectAllowed` on chat asset drags switched from
+  `'copy'` to `'copyMove'` so AE's drop indicator shows the correct
+  affordance.
+- **Versioning policy** moved to a 4-segment `MAJOR.MINOR.PATCH.ITERATION`
+  scheme. The 4th segment ("iteration") bumps on every push between
+  proper PATCH releases — so the user always sees the in-plugin
+  Update card pick up the latest fix. `VERSIONING.md` rewritten
+  with the new flow.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0] — 2026-05-21
 
 The "polish, persistence and parallel proofing" release. New first-run
@@ -281,7 +327,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...HEAD
+[2.2.0.1]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...v2.2.0.1
 [2.2.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/lazniak/Hexart.pl_AfterALL/releases/tag/v2.0.0

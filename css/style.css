@@ -373,6 +373,35 @@ header {
     opacity: 0.85;
     user-select: none;
 }
+/* Click-to-import "+" button — guaranteed-works backup for the OS drag
+   handoff. Sits inline with the drag hint, gold accent so the user can
+   spot it without scanning. */
+.asset-card-import-btn {
+    margin-left: 4px;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    padding: 0;
+    border: 1px solid rgba(var(--accent-rgb), 0.45);
+    border-radius: 50%;
+    background: rgba(var(--accent-rgb), 0.15);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+    user-select: none;
+}
+.asset-card-import-btn:hover {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(var(--accent-rgb), 0.30);
+}
+.asset-card-import-btn:active {
+    transform: translateY(0);
+}
 
 /* Audio card — different layout (horizontal, fixed-width, with native audio player) */
 .asset-card-audio {

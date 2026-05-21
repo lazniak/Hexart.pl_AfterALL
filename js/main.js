@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0',
+                version: '2.2.0.1',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -300,18 +300,80 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusIndicator = document.getElementById('status-indicator');
     const hexartLogoBtn = document.getElementById('hexart-logo-btn');
 
+    // ---------------------------------------------------------------
+    // openExternalUrl(url)
+    // ---------------------------------------------------------------
+    // Canonical way to hand an http/https URL off to the user's system
+    // browser. CEP panels run inside CEF — without explicit interception,
+    // a normal `<a href>` click would NAVIGATE THE WHOLE PANEL, replacing
+    // the plugin UI with the target page (and effectively killing the
+    // session). This helper routes through CSInterface.openURLInDefaultBrowser,
+    // which spawns the OS's default browser, then falls back to a Node
+    // child_process shell-out (open / start / xdg-open) if CSInterface
+    // isn't available — and only as a last resort window.open(_blank).
+    //
+    // Every internal call site (hexart logo, BMC, credits, settings,
+    // GitHub star, update card) should go through this single function.
+    function openExternalUrl(url) {
+        if (!url) return;
+        // Reject anything not http(s) / mailto to avoid javascript: / data:
+        // payloads sneaking through from rendered markdown / chat content.
+        const safe = /^(https?:|mailto:)/i.test(url);
+        if (!safe) {
+            addLog && addLog('Blocked external URL with unsupported scheme: ' + url.slice(0, 80), 'warning');
+            return;
+        }
+        try {
+            if (typeof CSInterface !== 'undefined') {
+                new CSInterface().openURLInDefaultBrowser(url);
+                return;
+            }
+        } catch (_) {}
+        try {
+            const { exec } = require('child_process');
+            const escaped = url.replace(/"/g, '\\"');
+            if (process.platform === 'win32') {
+                exec('start "" "' + escaped + '"');
+            } else if (process.platform === 'darwin') {
+                exec('open "' + escaped + '"');
+            } else {
+                exec('xdg-open "' + escaped + '"');
+            }
+            return;
+        } catch (_) {}
+        // Absolute last resort. window.open in CEF often opens in the same
+        // panel anyway, but it's better than the link silently dying.
+        try { window.open(url, '_blank'); } catch (_) {}
+    }
+    // Expose globally so agent.js / utility modules can reuse without
+    // re-implementing the fallback ladder.
+    window.openExternalUrl = openExternalUrl;
+
+    // Global delegated handler — every <a> with an http/https/mailto href
+    // is routed through openExternalUrl. This catches links in chat
+    // markdown, modals, hint text, dynamically injected content. Targets
+    // marked `data-internal="1"` (used by, e.g., the settings tab routing
+    // mechanism) are left alone.
+    document.addEventListener('click', (e) => {
+        const a = e.target && e.target.closest && e.target.closest('a[href]');
+        if (!a) return;
+        if (a.getAttribute('data-internal') === '1') return;
+        const href = a.getAttribute('href') || '';
+        if (!/^(https?:|mailto:)/i.test(href)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openExternalUrl(href);
+    }, true); // capture phase so nothing else can swallow the click first
+
     if (hexartLogoBtn) {
-        hexartLogoBtn.addEventListener('click', () => {
-            const csInterface = new CSInterface();
-            csInterface.openURLInDefaultBrowser("https://hexart.pl");
-        });
+        hexartLogoBtn.addEventListener('click', () => openExternalUrl('https://hexart.pl'));
     }
 
     // Buy Me a Coffee button - support Paul Lazniak
     const bmcBtn = document.getElementById('bmc-btn');
     if (bmcBtn) {
         bmcBtn.addEventListener('click', () => {
-            try { new CSInterface().openURLInDefaultBrowser(BMC_URL); }
+            try { openExternalUrl(BMC_URL); }
             catch (_) { window.open(BMC_URL, '_blank'); }
         });
     }
@@ -322,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bmcVideoEl = document.getElementById('bmc-video');
     if (bmcVideoBubble && bmcVideoEl) {
         const openBmc = () => {
-            try { new CSInterface().openURLInDefaultBrowser(BMC_URL); }
+            try { openExternalUrl(BMC_URL); }
             catch (_) { window.open(BMC_URL, '_blank'); }
         };
         bmcVideoBubble.addEventListener('click', openBmc);
@@ -337,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', (e) => {
             e.preventDefault();
-            try { new CSInterface().openURLInDefaultBrowser(el.getAttribute('href')); }
+            try { openExternalUrl(el.getAttribute('href')); }
             catch (_) { window.open(el.getAttribute('href'), '_blank'); }
         });
     });
@@ -488,6 +550,7 @@ const i18nDict = {
         'save-project-save-cancelled-log': 'Okno zapisu anulowane.',
         // Drag-to-AE assets
         'drag-to-ae-hint': 'Przeciągnij dokądkolwiek w After Effects (Project / Timeline / Composition)',
+        'import-to-ae-hint': 'Zaimportuj do After Effects (do aktywnej kompozycji)',
         'drag-label': 'PRZECIĄGNIJ',
         'asset-grid-header': 'Wygenerowano {n} zasobów — przeciągnij każdy z nich do dowolnego panelu After Effects.',
         // Live streaming thinking
@@ -1030,6 +1093,7 @@ const i18nDict = {
         'save-project-save-cancelled-log': 'Save dialog cancelled.',
         // Drag-to-AE assets
         'drag-to-ae-hint': 'Drag anywhere in After Effects (Project / Timeline / Composition)',
+        'import-to-ae-hint': 'Import into After Effects (active composition)',
         'drag-label': 'DRAG',
         'asset-grid-header': 'Generated {n} assets — drag any of them into any After Effects panel.',
         // Live streaming thinking
@@ -3064,7 +3128,7 @@ function t(key, fallback) {
                 e.preventDefault();
                 try {
                     const csi = new CSInterface();
-                    csi.openURLInDefaultBrowser(a.getAttribute('href'));
+                    openExternalUrl(a.getAttribute('href'));
                 } catch (_) { window.open(a.getAttribute('href'), '_blank'); }
             });
         });
@@ -5183,7 +5247,7 @@ function t(key, fallback) {
             const url = 'https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME;
             try {
                 const csi = new CSInterface();
-                csi.openURLInDefaultBrowser(url);
+                openExternalUrl(url);
             } catch (_) {
                 window.open(url, '_blank');
             }
@@ -5258,7 +5322,7 @@ function t(key, fallback) {
     if (updateOpenRepoBtn) updateOpenRepoBtn.addEventListener('click', () => {
         try {
             const csi = new CSInterface();
-            csi.openURLInDefaultBrowser('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME);
+            openExternalUrl('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME);
         } catch (_) {
             window.open('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME, '_blank');
         }
@@ -5268,7 +5332,7 @@ function t(key, fallback) {
             || ('https://github.com/' + agent.GITHUB_REPO_OWNER + '/' + agent.GITHUB_REPO_NAME + '/releases');
         try {
             const csi = new CSInterface();
-            csi.openURLInDefaultBrowser(url);
+            openExternalUrl(url);
         } catch (_) {
             window.open(url, '_blank');
         }
@@ -6622,14 +6686,104 @@ function t(key, fallback) {
         return map[ext] || 'application/octet-stream';
     }
 
+    // ---------------------------------------------------------------
+    // Local drag proxy server
+    // ---------------------------------------------------------------
+    // Chromium refuses to "download" file:// URLs via its DownloadURL
+    // drag pattern (the OS-level drag handoff is wired only for http/s),
+    // so AE rejected every drag we sent through file://. This tiny HTTP
+    // server listens on 127.0.0.1 only, on a free port, and streams a
+    // file ONLY when given a valid single-use token. Tokens expire
+    // after 30 s, so nothing else on the machine can use this proxy
+    // to read arbitrary files from disk.
+    let _dragServerUrl = null;
+    const _dragTokens = new Map();
+    (function bootDragProxy() {
+        try {
+            const http = require('http');
+            const fs   = require('fs');
+            const url  = require('url');
+            const server = http.createServer((req, res) => {
+                const parsed = url.parse(req.url || '', true);
+                if (parsed.pathname !== '/drag') {
+                    res.writeHead(404); return res.end('not found');
+                }
+                const token = parsed.query && parsed.query.token;
+                const entry = token && _dragTokens.get(token);
+                if (!entry || Date.now() > entry.exp) {
+                    if (entry) _dragTokens.delete(token);
+                    res.writeHead(403); return res.end('invalid or expired token');
+                }
+                try {
+                    const stat = fs.statSync(entry.filePath);
+                    res.writeHead(200, {
+                        'Content-Type': entry.mime || 'application/octet-stream',
+                        'Content-Length': stat.size,
+                        'Content-Disposition': 'attachment; filename="' + entry.fileName.replace(/"/g, '') + '"'
+                    });
+                    fs.createReadStream(entry.filePath)
+                        .on('error', e => { try { res.end(); } catch (_) {} addLog('Drag proxy stream error: ' + e.message, 'warning'); })
+                        .pipe(res);
+                    // Single-use — drop after the OS download starts. Re-drags
+                    // get a fresh token via _registerDragToken().
+                    _dragTokens.delete(token);
+                } catch (e) {
+                    res.writeHead(500); res.end('file read failed: ' + e.message);
+                }
+            });
+            server.on('error', e => addLog('Drag proxy listen error: ' + e.message, 'warning'));
+            server.listen(0, '127.0.0.1', () => {
+                const port = server.address().port;
+                _dragServerUrl = 'http://127.0.0.1:' + port;
+                addLog('Drag proxy listening on ' + _dragServerUrl, 'info');
+            });
+            // Periodic GC for any tokens that didn't get used.
+            setInterval(() => {
+                const now = Date.now();
+                for (const [k, v] of _dragTokens) if (now > v.exp) _dragTokens.delete(k);
+            }, 10000);
+        } catch (e) {
+            addLog && addLog('Drag proxy unavailable (' + e.message + ') — drag may not work; use the + button instead.', 'warning');
+        }
+    })();
+
+    function _registerDragToken(filePath, fileName, mime) {
+        const tok = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+        _dragTokens.set(tok, {
+            filePath: filePath, fileName: fileName, mime: mime,
+            exp: Date.now() + 30000
+        });
+        return tok;
+    }
+
+    // Click-to-import fallback: bypass the OS drag entirely and ask
+    // ExtendScript to import the asset directly into the active comp.
+    // Always works, no protocol gymnastics — surface as a small "+"
+    // button on every asset card.
+    function importAssetIntoAE(filePath) {
+        if (!filePath) return;
+        try {
+            const csi = new CSInterface();
+            const safe = filePath.replace(/\\/g, '\\\\');
+            csi.evalScript('importAndAddToComp("' + safe + '")', (res) => {
+                if (typeof res === 'string' && res.indexOf('ERROR') === 0) {
+                    addLog('AE import failed: ' + res, 'error');
+                } else {
+                    addLog('Imported into AE: ' + filePath, 'success');
+                }
+            });
+        } catch (e) {
+            addLog('AE import failed: ' + e.message, 'error');
+        }
+    }
+    window.afterallImportAssetIntoAE = importAssetIntoAE;
+
     function makeAssetDraggable(element, filePath, opts) {
         if (!element || !filePath) return;
         opts = opts || {};
         const normalizedPath = filePath.replace(/\\/g, '/');
         const fileName = opts.fileName || normalizedPath.split('/').pop();
         const mimeType = opts.mimeType || guessMimeFromExt(filePath);
-        // Use the most-recognized URL form for AE on both Windows and macOS.
-        // Chromium turns this into a true OS file drag.
         const fileUrl = 'file:///' + normalizedPath.replace(/^\/+/, '');
 
         element.setAttribute('draggable', 'true');
@@ -6638,12 +6792,27 @@ function t(key, fallback) {
 
         element.addEventListener('dragstart', (e) => {
             try {
-                e.dataTransfer.effectAllowed = 'copy';
-                // Primary signal — Chromium-specific format AE recognises as a real file drag.
-                e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + fileUrl);
-                // Standard URI list — picked up by some panels and external apps.
-                e.dataTransfer.setData('text/uri-list', fileUrl);
-                // Fallback — raw file path for any handler that reads plain text.
+                // copyMove keeps both copy and move cursor variants alive so
+                // AE's drop indicator shows the correct affordance.
+                e.dataTransfer.effectAllowed = 'copyMove';
+
+                // The reliable path: HTTP DownloadURL via our local proxy.
+                // Chromium will fetch from 127.0.0.1, save to its temp dir,
+                // and hand the resulting file to the OS drag target — AE
+                // accepts the dropped file the same way it would from a
+                // Finder/Explorer drag.
+                if (_dragServerUrl) {
+                    const tok = _registerDragToken(filePath, fileName, mimeType);
+                    const httpUrl = _dragServerUrl + '/drag?token=' + tok;
+                    e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + httpUrl);
+                    e.dataTransfer.setData('text/uri-list', httpUrl);
+                } else {
+                    // Proxy didn't boot — fall back to file:// (works in some
+                    // CEP configurations; not in others). Click-to-import "+"
+                    // button on every card is the guaranteed-works backup.
+                    e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + fileUrl);
+                    e.dataTransfer.setData('text/uri-list', fileUrl);
+                }
                 e.dataTransfer.setData('text/plain', filePath);
                 element.classList.add('asset-dragging');
                 addLog('Drag started: ' + fileName, 'info');
@@ -6671,6 +6840,7 @@ function t(key, fallback) {
                 <div class="asset-card-footer">
                     ${idxBadge}
                     <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                    <button type="button" class="asset-card-import-btn" data-import-path="${escapeAttr(asset.filePath)}" title="${escapeAttr(tr('import-to-ae-hint'))}" aria-label="${escapeAttr(tr('import-to-ae-hint'))}">＋</button>
                 </div>
             `;
         } else if (asset.type === 'audio') {
@@ -6685,6 +6855,7 @@ function t(key, fallback) {
                         ${meta ? '<span>' + meta + '</span>' : ''}
                         ${asset.prompt ? '<span class="asset-card-prompt">' + escapeAttr(asset.prompt.substring(0, 60)) + (asset.prompt.length > 60 ? '…' : '') + '</span>' : ''}
                         <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                    <button type="button" class="asset-card-import-btn" data-import-path="${escapeAttr(asset.filePath)}" title="${escapeAttr(tr('import-to-ae-hint'))}" aria-label="${escapeAttr(tr('import-to-ae-hint'))}">＋</button>
                     </div>
                 </div>
             `;
@@ -6695,6 +6866,7 @@ function t(key, fallback) {
                     ${idxBadge}
                     ${asset.duration ? '<span class="asset-card-meta">' + Math.round(asset.duration) + 's</span>' : ''}
                     <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                    <button type="button" class="asset-card-import-btn" data-import-path="${escapeAttr(asset.filePath)}" title="${escapeAttr(tr('import-to-ae-hint'))}" aria-label="${escapeAttr(tr('import-to-ae-hint'))}">＋</button>
                 </div>
             `;
             // Show preview frame at 0.5s on hover
@@ -6705,6 +6877,17 @@ function t(key, fallback) {
             }
         }
         makeAssetDraggable(card, asset.filePath, { fileName: fileName, mimeType: guessMimeFromExt(asset.filePath) });
+        // Wire the click-to-import + button — guaranteed-works alternative
+        // to the OS drag, no matter how AE behaves with the drag handoff.
+        const importBtn = card.querySelector('.asset-card-import-btn');
+        if (importBtn) {
+            importBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                const p = importBtn.getAttribute('data-import-path');
+                if (p) importAssetIntoAE(p);
+            });
+        }
         return card;
     }
 
