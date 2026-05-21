@@ -41,18 +41,31 @@ function getDeepAEContext() {
         var esc = function(s) { return (s || "").replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n'); };
 
         // --- Project items scan ---
+        // For every comp we now also expose a `lastEnd` value -- the maximum
+        // outPoint across all its layers. This is the single most useful
+        // number for "where does the next clip go?" decisions and the agent
+        // was previously guessing it from incomplete data.
         var comps = [];
         var folders = [];
         var footageItems = [];
         for (var i = 1; i <= proj.numItems; i++) {
             var item = proj.item(i);
             if (item instanceof CompItem) {
-                comps.push('{"name":"' + esc(item.name) + '","w":' + item.width + ',"h":' + item.height + ',"fps":' + item.frameRate + ',"dur":' + item.duration.toFixed(2) + ',"layers":' + item.numLayers + '}');
+                var lastEnd = 0;
+                for (var li = 1; li <= item.numLayers; li++) {
+                    var lyr = item.layer(li);
+                    if (lyr.outPoint > lastEnd) lastEnd = lyr.outPoint;
+                }
+                comps.push('{"name":"' + esc(item.name) + '","w":' + item.width + ',"h":' + item.height
+                    + ',"fps":' + item.frameRate + ',"dur":' + item.duration.toFixed(2)
+                    + ',"layers":' + item.numLayers
+                    + ',"lastEnd":' + lastEnd.toFixed(2) + '}');
             } else if (item instanceof FolderItem) {
                 folders.push('"' + esc(item.name) + '"');
             } else if (item instanceof FootageItem) {
                 var src = (item.file) ? esc(item.file.name) : "solid/placeholder";
-                footageItems.push('{"name":"' + esc(item.name) + '","src":"' + src + '","w":' + (item.width || 0) + ',"h":' + (item.height || 0) + '}');
+                footageItems.push('{"name":"' + esc(item.name) + '","src":"' + src + '","w":' + (item.width || 0) + ',"h":' + (item.height || 0)
+                    + ',"dur":' + (item.duration ? item.duration.toFixed(2) : '0') + '}');
             }
         }
 
@@ -62,15 +75,20 @@ function getDeepAEContext() {
         result += ',"footage":[' + footageItems.join(',') + ']';
 
         // --- Active comp deep scan ---
+        // The user may have clicked elsewhere in the AE UI by the time this
+        // runs, so `proj.activeItem` is best-effort. The agent's code MUST
+        // use findComp(name) helper instead of relying on activeItem.
         var comp = proj.activeItem;
         if (comp && comp instanceof CompItem) {
             result += ',"activeComp":"' + esc(comp.name) + '"';
             var layers = [];
             var maxLayers = Math.min(comp.numLayers, 30); // cap to avoid huge payloads
+            var compLastEnd = 0;
             for (var j = 1; j <= maxLayers; j++) {
                 var layer = comp.layer(j);
-                var lInfo = '{"i":' + j + ',"name":"' + esc(layer.name) + '","type":"';
+                if (layer.outPoint > compLastEnd) compLastEnd = layer.outPoint;
 
+                var lInfo = '{"i":' + j + ',"name":"' + esc(layer.name) + '","type":"';
                 if (layer instanceof TextLayer) lInfo += 'text';
                 else if (layer instanceof ShapeLayer) lInfo += 'shape';
                 else if (layer instanceof CameraLayer) lInfo += 'camera';
@@ -80,7 +98,34 @@ function getDeepAEContext() {
                 else lInfo += 'av';
 
                 lInfo += '","enabled":' + (layer.enabled ? 'true' : 'false');
-                lInfo += ',"in":' + layer.inPoint.toFixed(2) + ',"out":' + layer.outPoint.toFixed(2);
+                // CRITICAL: include startTime (when the layer enters the
+                // timeline) alongside in/out. Previously only in/out were
+                // exposed -- which are SOURCE times, not comp times -- and
+                // the agent couldn't tell where layers sit on the timeline.
+                lInfo += ',"startTime":' + layer.startTime.toFixed(2);
+                lInfo += ',"in":' + layer.inPoint.toFixed(2);
+                lInfo += ',"out":' + layer.outPoint.toFixed(2);
+                lInfo += ',"dur":' + (layer.outPoint - layer.inPoint).toFixed(2);
+
+                // Audio info -- knowing whether a layer carries audio + its
+                // source duration is essential for timeline-by-voiceover
+                // editing.
+                try {
+                    if (layer.hasAudio) {
+                        lInfo += ',"audio":true';
+                        if (layer.audioActive === false) lInfo += ',"audioMuted":true';
+                    }
+                    if (layer.source && layer.source.duration) {
+                        lInfo += ',"srcDur":' + layer.source.duration.toFixed(2);
+                    }
+                } catch(exA) {}
+
+                // Source pointer -- link layer to underlying project item
+                try {
+                    if (layer.source && layer.source.name) {
+                        lInfo += ',"src":"' + esc(layer.source.name) + '"';
+                    }
+                } catch(exS) {}
 
                 // Effects
                 if (layer.property("ADBE Effect Parade") && layer.property("ADBE Effect Parade").numProperties > 0) {
@@ -114,6 +159,10 @@ function getDeepAEContext() {
                 layers.push(lInfo);
             }
             result += ',"layers":[' + layers.join(',') + ']';
+            result += ',"compDuration":' + comp.duration.toFixed(2);
+            result += ',"compTime":' + comp.time.toFixed(2);  // current playhead position
+            result += ',"compLastEnd":' + compLastEnd.toFixed(2);  // last layer's outPoint
+            result += ',"compNextSlot":' + compLastEnd.toFixed(2); // alias -- recommended start for next clip
             if (comp.numLayers > 30) {
                 result += ',"layersCapped":true,"totalLayers":' + comp.numLayers;
             }
@@ -124,6 +173,20 @@ function getDeepAEContext() {
     } catch (e) {
         return '{"error": "DeepScan: ' + e.toString().replace(/"/g, '\\"') + '"}';
     }
+}
+
+// Helper exposed for the agent's ExtendScript: look up a comp by name
+// without relying on activeItem (which user clicks change). The agent
+// MUST use this instead of proj.activeItem when targeting a specific comp.
+function findCompByName(name) {
+    if (!name) return null;
+    var proj = app.project;
+    if (!proj) return null;
+    for (var i = 1; i <= proj.numItems; i++) {
+        var it = proj.item(i);
+        if (it instanceof CompItem && it.name === name) return it;
+    }
+    return null;
 }
 
 function getAESnapshot() {
@@ -467,7 +530,7 @@ function getProjectSaveStatus() {
         if (!proj) return '{"saved":false,"modified":false,"folder":"","file":"","name":""}';
         var esc = function(s) { return (s || "").replace(/\\/g, '\\\\').replace(/"/g, '\\"'); };
         var saved = !!proj.file;
-        // dirty flag — best-effort detection
+        // dirty flag -- best-effort detection
         var modified = false;
         try { modified = !!proj.dirty; } catch (e) {}
         var folder = "", file = "", name = "";

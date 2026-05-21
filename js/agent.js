@@ -1627,6 +1627,61 @@ Rules and Warnings:
 17. UNIQUE COMP NAMES: before \`addComp("name")\`, ALWAYS call \`getUniqueCompName("name")\` to avoid duplicates. Example: var compName = getUniqueCompName("Winter Documentary"); var comp = app.project.items.addComp(compName, 1920, 1080, 1, 30, 30);
 18. IMPORT vs COMPOSITION: \`importAndAddToComp()\` does NOT create a new composition — it imports footage into the project (or adds to the active comp if one exists). Create compositions ONLY in your ExtendScript code when you're ready to edit.
 19. TIMELINE EDIT (CRITICAL): voiceover (TTS) is the timeline axis. Editing algorithm: (1) Split the voiceover text into thematic segments (e.g. sentence about the forest, about birds, about the river). (2) Compute each segment's duration PROPORTIONAL to its character count (e.g. a 120-char segment of a 400-char total ≈ 30% of voiceover time). (3) Each segment may need MORE than 1 video clip! If a segment lasts 15s and a clip is 5s, use 2–3 clips or time-stretching (layer.stretch). (4) Place clips SEQUENTIALLY: clip1.startTime=0, clip2.startTime=clip1.outPoint, etc. (5) If a clip is too short — stretch it (layer.stretch) or repeat with a different frame. (6) GENERATE enough clips! Plan ~1 clip per 5–7s of narration. A 60s film = at least 8–12 video clips. (7) Voiceover on top, clips below, music at the bottom (-15dB). NEVER arrange randomly or leave empty gaps.
+
+19a. INSPECT-BEFORE-ADD (HARD REQUIREMENT — most common failure mode!):
+    Before adding ANY layer to a composition, INSPECT THE COMP FIRST.
+    The deep AE context you receive includes per-comp \`lastEnd\` /
+    \`compNextSlot\` (max outPoint across all layers) and per-layer
+    \`startTime\` / \`out\` / \`dur\`. USE THEM. Hardcoded startTime=0 is
+    the #1 cause of layers piling up at the start of the timeline.
+    Your code MUST iterate the target comp's existing layers (or read
+    compNextSlot from the deep context) and compute where to place the
+    new layer FROM ACTUAL CURRENT STATE — never from assumptions.
+
+    Wrong (silently corrupts the timeline):
+        var newLayer = comp.layers.add(footage);
+        // ...accept default startTime=0, stacks on top of everything
+
+    Right:
+        var nextStart = 0;
+        for (var i = 1; i <= comp.numLayers; i++) {
+            if (comp.layer(i).outPoint > nextStart) nextStart = comp.layer(i).outPoint;
+        }
+        var newLayer = comp.layers.add(footage);
+        newLayer.startTime = nextStart;
+
+    For voiceover-driven edits: compute each clip's exact (startTime,
+    duration) BEFORE adding any layers, based on the existing voiceover
+    layer's inPoint/outPoint, then add clips in order with the correct
+    startTime. Never insert "and adjust later" — the result is timeline
+    spaghetti.
+
+19b. LOOKUP-BY-NAME, NEVER ACTIVE-ITEM (CRITICAL for user-resilience):
+    The user may click around the AE UI mid-task — that changes
+    \`app.project.activeItem\`, \`comp.selectedLayers\`, the playhead, the
+    current timeline. Any code that relies on "the active comp" or
+    "the selected layers" or "the current time" breaks the moment the
+    user touches AE. ALWAYS reference comps and layers BY NAME.
+
+    Top-of-script boilerplate to use whenever you target a comp:
+        var comp = findCompByName("My Composition Name");
+        if (!comp) { throw new Error('Comp not found: My Composition Name'); }
+    (\`findCompByName\` is exposed globally by the AE host bridge.)
+
+    To find your generated assets in the project, search by prefix:
+        function findItemBySubstr(s) {
+            for (var i = 1; i <= app.project.numItems; i++) {
+                if (app.project.item(i).name.indexOf(s) !== -1) return app.project.item(i);
+            }
+            return null;
+        }
+        var voiceover = findItemBySubstr("aisist_tts_");
+
+    NEVER use: app.project.activeItem, comp.selectedLayers,
+    app.project.selection, comp.time (as a "current position"), unless
+    the task explicitly says "operate on whatever the user has selected
+    right now". For everything the agent autonomously orchestrates,
+    look up targets by name.
 20. MUSIC UNDER VOICEOVER: music layer audioLevels at -15dB. Voiceover always on top (lower layer index).
 21. FILM LENGTH: set comp.duration to the total length of voiceover/video at the end of editing.
 22. VOICEOVER (TTS): YOU author the narration (see Rule 0). The string you put in parallel_tasks.tts will be SPOKEN LITERALLY by the voice model — so it must be the final, production-ready script, not the user's brief or a meta description like "voiceover about X". Generate ONE long voiceover instead of many short snippets — concatenate the whole narration into one TTS prompt. Result: one long audio track, easier editing, no gaps. The system measures audio duration and auto-matches the music length.
