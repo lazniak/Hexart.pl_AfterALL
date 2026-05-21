@@ -489,19 +489,23 @@ header {
 }
 .coffee-btn:hover::after { opacity: 1; }
 
-/* Credits block in settings footer */
+/* Credits block in settings footer — sits to the LEFT of the Save button,
+   right-aligned within its column so the whole footer reads as: [...space...]
+   [credits] [SAVE]. Compact, single-column, no separating top border. */
 .credits-block {
-    margin-top: 0.8rem;
-    padding-top: 0.8rem;
-    border-top: 1px solid var(--panel-border);
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
     font-size: 11px;
     color: var(--text-secondary);
+    min-width: 0;
+    text-align: right;
 }
 .credits-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 6px;
     flex-wrap: wrap;
 }
@@ -517,7 +521,7 @@ header {
 .credits-dot { opacity: 0.5; }
 .bmc-credit-link {
     display: inline-block;
-    margin-top: 6px;
+    margin-top: 0;
     padding: 5px 12px;
     background: linear-gradient(135deg, rgba(220, 163, 83, 0.12), rgba(220, 163, 83, 0.05));
     border: 1px solid rgba(220, 163, 83, 0.3);
@@ -1068,22 +1072,96 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 
 .settings-footer {
-    padding: 1rem;
+    padding: 0.85rem 1rem;
     border-top: 1px solid var(--panel-border);
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: 0.9rem;
+}
+
+/* Variant when credits sit next to the save button — credits get to occupy
+   leftover space so they push toward the save button (which stays anchored
+   to the right edge), giving the user the "wizytówki dociągnięte do prawej"
+   look while SAVE is the clear primary action. */
+.settings-footer--with-credits {
+    padding: 0.7rem 1rem;
+    gap: 1.1rem;
+}
+.settings-footer--with-credits .credits-block {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 #save-settings-btn {
-    background: var(--accent);
+    background: linear-gradient(135deg, var(--accent), #b8862d);
     color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-weight: 500;
+    padding: 0.7rem 1.6rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13.5px;
+    letter-spacing: 0.4px;
+    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.18s,
+                filter 0.18s;
+    min-width: 110px;
+    flex-shrink: 0;
+}
+#save-settings-btn:hover {
+    background: linear-gradient(135deg, var(--accent-hover), #c9962f);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    filter: brightness(1.05);
+}
+#save-settings-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(220, 163, 83, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-#save-settings-btn:hover {
-    background: var(--accent-hover);
+/* Generic prominence class for "primary save" buttons in other modals — opt-in */
+.primary-save {
+    background: linear-gradient(135deg, var(--accent), #b8862d);
+    color: white;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0.7rem 1.4rem;
+    box-shadow: 0 6px 16px rgba(220, 163, 83, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.18s,
+                filter 0.18s;
+}
+.primary-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(220, 163, 83, 0.35);
+    filter: brightness(1.05);
+}
+.primary-save:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(220, 163, 83, 0.25);
+}
+
+/* Narrow CEP panels — collapse credits row gracefully */
+@media (max-width: 360px) {
+    .settings-footer--with-credits {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+    }
+    .settings-footer--with-credits .credits-block {
+        align-items: center;
+        text-align: center;
+    }
+    .credits-row {
+        justify-content: center;
+    }
+    #save-settings-btn {
+        width: 100%;
+    }
 }
 
 .loader {
@@ -1192,6 +1270,48 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transition: background 0.2s;
 }
 #remove-attachment-btn:hover { background: var(--danger); color: white; }
+
+/* =================================================================== */
+/* HEXART.PL/AfterALL — Audio modality overview chips                  */
+/* =================================================================== */
+.modality-overview {
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(220, 163, 83, 0.05));
+    border-color: rgba(96, 165, 250, 0.25);
+}
+.modality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 6px;
+    margin-top: 0.6rem;
+}
+.modality-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.modality-chip .modality-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+.modality-chip .modality-value {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.modality-chip .modality-value[data-provider="elevenlabs"] { color: #c4b5fd; }
+.modality-chip .modality-value[data-provider="gemini"]     { color: #60a5fa; }
+.modality-chip .modality-value[data-provider="whisperx"]   { color: #34d399; }
 
 /* =================================================================== */
 /* HEXART.PL/AfterALL — Settings tabs + Providers + Model Picker       */

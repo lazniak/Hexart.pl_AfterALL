@@ -268,18 +268,39 @@
                         </div>
                     </div>
 
-                    <div class="provider-card">
-                        <h3 data-i18n="tts-section-title">🎙 Lektor (TTS) i Muzyka</h3>
-                        <label for="ttsmodel-select" data-i18n="tts-model-label">Model TTS (Gemini)</label>
-                        <select id="ttsmodel-select">
-                            <option value="">…</option>
-                        </select>
-                        <span class="hint" data-i18n="tts-music-hint">TTS i Music pozostają w Gemini API (Lyria + Gemini TTS) - inni dostawcy nie obsługują tych modalności.</span>
+                    <div class="provider-card" style="background: rgba(96, 165, 250, 0.06); border-color: rgba(96, 165, 250, 0.25);">
+                        <h3 data-i18n="tts-providers-hint-title">🎙 TTS · Music · SFX · STT</h3>
+                        <span class="hint" data-i18n-html="tts-providers-hint-body">Audio generators (TTS / Music / SFX) and Speech-to-Text are configured in the dedicated <strong>TTS / STT</strong> tab — each modality has its own explicit provider picker (Gemini vs ElevenLabs).</span>
                     </div>
                 </div>
 
                 <!-- Tab: TTS / STT -->
                 <div class="settings-tab-content hidden" data-tab-content="tts-stt">
+
+                    <!-- Modality overview: live summary of which provider handles each modality -->
+                    <div class="provider-card modality-overview" id="modality-overview-card">
+                        <h3 data-i18n="modality-overview-title">🎚 Audio providers — at a glance</h3>
+                        <span class="hint" data-i18n="modality-overview-hint">Each audio modality has its own provider. Change them in the cards below.</span>
+                        <div class="modality-grid">
+                            <div class="modality-chip" data-modality="tts">
+                                <span class="modality-label" data-i18n="modality-tts">TTS</span>
+                                <span class="modality-value" id="modality-value-tts">—</span>
+                            </div>
+                            <div class="modality-chip" data-modality="music">
+                                <span class="modality-label" data-i18n="modality-music">Music</span>
+                                <span class="modality-value" id="modality-value-music">—</span>
+                            </div>
+                            <div class="modality-chip" data-modality="sfx">
+                                <span class="modality-label" data-i18n="modality-sfx">SFX</span>
+                                <span class="modality-value" id="modality-value-sfx">—</span>
+                            </div>
+                            <div class="modality-chip" data-modality="stt">
+                                <span class="modality-label" data-i18n="modality-stt">STT</span>
+                                <span class="modality-value" id="modality-value-stt">—</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="provider-card">
                         <h3 data-i18n="tts-card-title">🎙 Generator Lektora (TTS)</h3>
                         <label for="tts-provider-select" data-i18n="tts-provider-label">Dostawca TTS</label>
@@ -377,39 +398,49 @@
                         <input type="hidden" id="el-female-voice">
                     </div>
 
-                    <!-- ElevenLabs SFX + Music card -->
-                    <div class="provider-card" id="elevenlabs-extras-card">
-                        <h3 data-i18n="el-extras-title">🔊 Efekty Dźwiękowe (SFX) i Muzyka</h3>
-                        <span class="hint" data-i18n="el-extras-hint">ElevenLabs umożliwia generowanie krótkich efektów (SFX) oraz pełnych utworów muzycznych (Eleven Music — z opcjonalnymi wokalami).</span>
-
-                        <label for="music-provider-select" data-i18n="music-provider-label" style="margin-top:0.6rem;">Dostawca Muzyki</label>
+                    <!-- Music card (separate provider selector) -->
+                    <div class="provider-card" id="music-provider-card">
+                        <h3 data-i18n="music-card-title">🎵 Generator Muzyki (Music)</h3>
+                        <label for="music-provider-select" data-i18n="music-provider-label">Dostawca Muzyki</label>
                         <select id="music-provider-select">
-                            <option value="gemini">Gemini Lyria 3 Pro (instrumental, 4.5 BPM)</option>
-                            <option value="elevenlabs">ElevenLabs Eleven Music (wokale + instrumentalne)</option>
+                            <option value="gemini">Google Gemini Lyria (instrumental)</option>
+                            <option value="elevenlabs">ElevenLabs Eleven Music (vocals + instrumental)</option>
                         </select>
+                        <span class="hint" data-i18n="music-card-hint">Lyria delivers cinematic instrumentals at ~4.5 BPM bands. Eleven Music supports vocals plus instrumentals up to ~3 minutes.</span>
+
+                        <!-- ElevenLabs-specific music sub-config -->
+                        <div class="provider-config hidden" data-music-provider="elevenlabs" style="margin-top: 0.7rem; border-top: 1px solid var(--panel-border); padding-top: 0.7rem;">
+                            <label data-i18n="el-music-instr-label">
+                                <input type="checkbox" id="el-music-instr" checked>
+                                Eleven Music: instrumental by default (no vocals)
+                            </label>
+                            <span class="hint" data-i18n="el-music-instr-hint">Disable to let the model add vocals when the prompt suggests it (e.g. "with female vocals about freedom").</span>
+                        </div>
+                    </div>
+
+                    <!-- SFX card (separate provider selector) -->
+                    <div class="provider-card" id="sfx-provider-card">
+                        <h3 data-i18n="sfx-card-title">🔊 Efekty Dźwiękowe (SFX)</h3>
+                        <label for="sfx-provider-select" data-i18n="sfx-provider-label">Dostawca SFX</label>
+                        <select id="sfx-provider-select">
+                            <option value="elevenlabs">ElevenLabs Sound Generation</option>
+                        </select>
+                        <span class="hint" data-i18n="sfx-card-hint">SFX generation is currently provided only by ElevenLabs (up to 22s per clip).</span>
 
                         <div style="margin-top: 0.7rem; border-top: 1px solid var(--panel-border); padding-top: 0.7rem;">
                             <div class="api-key-row">
-                                <label data-i18n="sfx-settings-label">⚙ Domyślne ustawienia SFX</label>
-                                <button type="button" class="help-icon" data-api-help="elevenlabs" title="Jak to działa?">?</button>
+                                <label data-i18n="sfx-settings-label">⚙ Default SFX settings</label>
+                                <button type="button" class="help-icon" data-api-help="elevenlabs" title="How does it work?">?</button>
                             </div>
                             <label style="font-size: 11px; color: var(--text-secondary);">
                                 <span data-i18n="sfx-influence-label">Prompt Influence</span>
                                 <span id="sfx-influence-val">0.30</span>
                             </label>
                             <input type="range" id="sfx-influence" min="0" max="1" step="0.05" value="0.3">
-                            <span class="hint" data-i18n="sfx-influence-hint">0 = wolność modelu (kreatywne SFX). 1 = literalna interpretacja prompta. Default 0.3.</span>
+                            <span class="hint" data-i18n="sfx-influence-hint">0 = creative freedom for the model. 1 = literal prompt interpretation. Default 0.3.</span>
 
-                            <label for="sfx-default-duration" style="margin-top: 0.4rem; font-size: 11px; color: var(--text-secondary);" data-i18n="sfx-default-duration-label">Domyślna długość SFX (0 = auto, max 22s)</label>
+                            <label for="sfx-default-duration" style="margin-top: 0.4rem; font-size: 11px; color: var(--text-secondary);" data-i18n="sfx-default-duration-label">Default SFX length (0 = auto, max 22s)</label>
                             <input type="number" id="sfx-default-duration" min="0" max="22" step="0.5" value="0" style="font-size: 12px;">
-                        </div>
-
-                        <div style="margin-top: 0.7rem; border-top: 1px solid var(--panel-border); padding-top: 0.7rem;">
-                            <label data-i18n="el-music-instr-label">
-                                <input type="checkbox" id="el-music-instr" checked>
-                                Eleven Music: domyślnie instrumentalne (bez wokali)
-                            </label>
-                            <span class="hint" data-i18n="el-music-instr-hint">Wyłącz aby pozwolić modelowi dodawać wokale gdy prompt to sugeruje (np. „with female vocals about freedom").</span>
                         </div>
                     </div>
 
@@ -575,8 +606,7 @@
                     </div>
                 </div>
             </div>
-            <div class="settings-footer">
-                <button id="save-settings-btn" data-i18n="save-btn">Zapisz</button>
+            <div class="settings-footer settings-footer--with-credits">
                 <div class="credits-block">
                     <div class="credits-row">
                         <span data-i18n="credits-made-by">Made by</span>
@@ -593,6 +623,7 @@
                         ☕ Buy me a coffee — support development
                     </a>
                 </div>
+                <button id="save-settings-btn" class="primary-save" data-i18n="save-btn">Zapisz</button>
             </div>
         </div>
     </div>

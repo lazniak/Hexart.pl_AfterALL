@@ -310,7 +310,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const elevenlabsApiInput = document.getElementById('elevenlabs-api');
     const baseModelSelect = document.getElementById('basemodel-select');
     const imageModelSelect = document.getElementById('imagemodel-select');
-    const ttsModelSelect = document.getElementById('ttsmodel-select');
+    // Legacy: the dedicated "TTS Model (Gemini)" picker used to live in the
+    // Providers tab. It now lives in the TTS/STT tab as `ttsmodel-select-2`
+    // (referenced below as `ttsModelSelect2`). Keep the constant `null` so the
+    // null-safe code paths below stay intact without further refactors.
+    const ttsModelSelect = null;
     const ttsVoiceSelect = document.getElementById('ttsvoice-select');
     const uiLangSelect = document.getElementById('ui-lang-select');
     const projLangSelect = document.getElementById('proj-lang-select');
@@ -511,6 +515,26 @@ const i18nDict = {
         'tts-section-title': '🎙 Lektor (TTS) i Muzyka',
         'tts-model-label': 'Model TTS (Gemini)',
         'tts-music-hint': 'Modele TTS pobierane dynamicznie z Gemini API. Muzyka pozostaje w Gemini Lyria.',
+        // Info card on Providers tab pointing to the TTS/STT tab
+        'tts-providers-hint-title': '🎙 TTS · Muzyka · SFX · STT',
+        'tts-providers-hint-body': 'Generatory audio (TTS / Muzyka / SFX) oraz Speech-to-Text konfigurujesz w dedykowanej zakładce <strong>TTS / STT</strong> — każda modalność ma swój własny, jawny przełącznik dostawcy (Gemini ↔ ElevenLabs).',
+        // Modality overview (TTS/STT tab)
+        'modality-overview-title': '🎚 Dostawcy audio — w skrócie',
+        'modality-overview-hint': 'Każda modalność audio ma własnego dostawcę. Zmień go w kartach poniżej.',
+        'modality-tts':   'Lektor (TTS)',
+        'modality-music': 'Muzyka',
+        'modality-sfx':   'Efekty SFX',
+        'modality-stt':   'Transkrypcja (STT)',
+        // Music + SFX cards (split from old el-extras card)
+        'music-card-title': '🎵 Generator Muzyki (Music)',
+        'music-card-hint': 'Lyria daje filmowe instrumentale w pasmach ~4.5 BPM. Eleven Music obsługuje wokale i instrumentale do ~3 minut.',
+        'sfx-card-title': '🔊 Efekty Dźwiękowe (SFX)',
+        'sfx-card-hint': 'Generację SFX obsługuje aktualnie wyłącznie ElevenLabs (do 22 s na klip).',
+        'sfx-provider-label': 'Dostawca SFX',
+        // misc helpers
+        'no-gemini-key-warn': '⚠ Brak klucza Gemini API',
+        'log-gemini-models-loaded': 'Pobrano {n} modeli Gemini ({llm} LLM, {img} obrazy, {tts} TTS).',
+        'error-prefix': 'Błąd',
         // Settings - TTS / STT
         'tts-card-title': '🎙 Generator Lektora (TTS)',
         'tts-provider-label': 'Dostawca TTS',
@@ -837,6 +861,22 @@ const i18nDict = {
         'tts-section-title': '🎙 TTS and Music',
         'tts-model-label': 'TTS Model (Gemini)',
         'tts-music-hint': 'TTS models loaded dynamically from Gemini API. Music stays on Gemini Lyria.',
+        'tts-providers-hint-title': '🎙 TTS · Music · SFX · STT',
+        'tts-providers-hint-body': 'Audio generators (TTS / Music / SFX) and Speech-to-Text are configured in the dedicated <strong>TTS / STT</strong> tab — each modality has its own explicit provider picker (Gemini ↔ ElevenLabs).',
+        'modality-overview-title': '🎚 Audio providers — at a glance',
+        'modality-overview-hint': 'Each audio modality has its own provider. Change them in the cards below.',
+        'modality-tts':   'TTS',
+        'modality-music': 'Music',
+        'modality-sfx':   'SFX',
+        'modality-stt':   'STT',
+        'music-card-title': '🎵 Music Generator',
+        'music-card-hint': 'Lyria delivers cinematic instrumentals at ~4.5 BPM bands. Eleven Music supports vocals + instrumentals up to ~3 minutes.',
+        'sfx-card-title': '🔊 Sound Effects (SFX)',
+        'sfx-card-hint': 'SFX generation is currently provided only by ElevenLabs (up to 22s per clip).',
+        'sfx-provider-label': 'SFX Provider',
+        'no-gemini-key-warn': '⚠ Missing Gemini API key',
+        'log-gemini-models-loaded': 'Fetched {n} Gemini models ({llm} LLM, {img} image, {tts} TTS).',
+        'error-prefix': 'Error',
         'tts-card-title': '🎙 Voice Generator (TTS)',
         'tts-provider-label': 'TTS Provider',
         'el-model-label': 'ElevenLabs Model',
@@ -1110,7 +1150,20 @@ const i18nDict = {
         'tool-musicGen-label': 'Musikgenerator',
         'tool-sfxGen-label': 'Soundeffekte (SFX)',
         'tool-svgGen-label': 'SVG-Generator',
-        'tool-pythonTools-label': 'Python-Umgebungen'
+        'tool-pythonTools-label': 'Python-Umgebungen',
+        // Audio modality cards & overview
+        'tts-providers-hint-title': '🎙 TTS · Musik · SFX · STT',
+        'tts-providers-hint-body': 'Audio-Generatoren (TTS / Musik / SFX) und Speech-to-Text werden im Tab <strong>TTS / STT</strong> konfiguriert — jede Modalität hat einen eigenen Provider-Picker (Gemini ↔ ElevenLabs).',
+        'modality-overview-title': '🎚 Audio-Anbieter — Übersicht',
+        'modality-overview-hint': 'Jede Audio-Modalität hat ihren eigenen Anbieter. Ändere sie in den Karten unten.',
+        'modality-tts': 'TTS', 'modality-music': 'Musik', 'modality-sfx': 'SFX', 'modality-stt': 'STT',
+        'music-card-title': '🎵 Musik-Generator',
+        'music-card-hint': 'Lyria liefert filmische Instrumentals (~4,5-BPM-Bänder). Eleven Music unterstützt Vocals + Instrumentals bis ~3 Minuten.',
+        'sfx-card-title': '🔊 Soundeffekte (SFX)',
+        'sfx-card-hint': 'SFX-Generierung erfolgt aktuell ausschließlich über ElevenLabs (bis zu 22 s pro Clip).',
+        'sfx-provider-label': 'SFX-Anbieter',
+        'no-gemini-key-warn': '⚠ Kein Gemini-API-Schlüssel',
+        'error-prefix': 'Fehler'
     },
     'es': {
         'greeting': 'HEXART.PL/AfterALL — ¡agente listo! ✨',
@@ -1232,7 +1285,20 @@ const i18nDict = {
         'tool-musicGen-label': 'Generador de Música',
         'tool-sfxGen-label': 'Efectos de sonido (SFX)',
         'tool-svgGen-label': 'Generador SVG',
-        'tool-pythonTools-label': 'Entornos Python'
+        'tool-pythonTools-label': 'Entornos Python',
+        // Audio modality cards & overview
+        'tts-providers-hint-title': '🎙 TTS · Música · SFX · STT',
+        'tts-providers-hint-body': 'Los generadores de audio (TTS / Música / SFX) y Speech-to-Text se configuran en la pestaña <strong>TTS / STT</strong> — cada modalidad tiene su propio selector de proveedor (Gemini ↔ ElevenLabs).',
+        'modality-overview-title': '🎚 Proveedores de audio — vista rápida',
+        'modality-overview-hint': 'Cada modalidad de audio tiene su propio proveedor. Cámbialos en las tarjetas de abajo.',
+        'modality-tts': 'TTS', 'modality-music': 'Música', 'modality-sfx': 'SFX', 'modality-stt': 'STT',
+        'music-card-title': '🎵 Generador de Música',
+        'music-card-hint': 'Lyria entrega instrumentales cinematográficos (~4.5 BPM). Eleven Music admite voces e instrumentales hasta ~3 minutos.',
+        'sfx-card-title': '🔊 Efectos de Sonido (SFX)',
+        'sfx-card-hint': 'La generación de SFX la proporciona actualmente solo ElevenLabs (hasta 22 s por clip).',
+        'sfx-provider-label': 'Proveedor de SFX',
+        'no-gemini-key-warn': '⚠ Falta la clave API de Gemini',
+        'error-prefix': 'Error'
     },
     'fr': {
         'greeting': 'HEXART.PL/AfterALL — agent prêt ! ✨',
@@ -1354,7 +1420,20 @@ const i18nDict = {
         'tool-musicGen-label': 'Générateur de Musique',
         'tool-sfxGen-label': 'Effets Sonores (SFX)',
         'tool-svgGen-label': 'Générateur SVG',
-        'tool-pythonTools-label': 'Environnements Python'
+        'tool-pythonTools-label': 'Environnements Python',
+        // Audio modality cards & overview
+        'tts-providers-hint-title': '🎙 TTS · Musique · SFX · STT',
+        'tts-providers-hint-body': 'Les générateurs audio (TTS / Musique / SFX) et le Speech-to-Text se configurent dans l\'onglet <strong>TTS / STT</strong> — chaque modalité dispose de son propre sélecteur de fournisseur (Gemini ↔ ElevenLabs).',
+        'modality-overview-title': '🎚 Fournisseurs audio — en un coup d\'œil',
+        'modality-overview-hint': 'Chaque modalité audio a son propre fournisseur. Modifiez-les dans les cartes ci-dessous.',
+        'modality-tts': 'TTS', 'modality-music': 'Musique', 'modality-sfx': 'SFX', 'modality-stt': 'STT',
+        'music-card-title': '🎵 Générateur de Musique',
+        'music-card-hint': 'Lyria fournit des instrumentaux cinématographiques (~4,5 BPM). Eleven Music prend en charge voix + instrumentaux jusqu\'à ~3 minutes.',
+        'sfx-card-title': '🔊 Effets Sonores (SFX)',
+        'sfx-card-hint': 'La génération de SFX n\'est actuellement fournie que par ElevenLabs (jusqu\'à 22 s par clip).',
+        'sfx-provider-label': 'Fournisseur SFX',
+        'no-gemini-key-warn': '⚠ Clé API Gemini manquante',
+        'error-prefix': 'Erreur'
     },
     'ja': {
         'greeting': 'HEXART.PL/AfterALL — エージェント準備完了！✨',
@@ -1476,7 +1555,20 @@ const i18nDict = {
         'tool-musicGen-label': '音楽ジェネレーター',
         'tool-sfxGen-label': '効果音 (SFX)',
         'tool-svgGen-label': 'SVG ジェネレーター',
-        'tool-pythonTools-label': 'Python 環境'
+        'tool-pythonTools-label': 'Python 環境',
+        // Audio modality cards & overview
+        'tts-providers-hint-title': '🎙 TTS · 音楽 · SFX · STT',
+        'tts-providers-hint-body': '音声ジェネレーター（TTS / 音楽 / SFX）と Speech-to-Text は <strong>TTS / STT</strong> タブで設定します — 各モダリティに独立したプロバイダー選択（Gemini ↔ ElevenLabs）があります。',
+        'modality-overview-title': '🎚 音声プロバイダー — 概要',
+        'modality-overview-hint': '各音声モダリティには独自のプロバイダーがあります。下のカードで変更できます。',
+        'modality-tts': 'TTS', 'modality-music': '音楽', 'modality-sfx': 'SFX', 'modality-stt': 'STT',
+        'music-card-title': '🎵 音楽ジェネレーター',
+        'music-card-hint': 'Lyria は ~4.5 BPM の映画的なインストゥルメンタルを生成します。Eleven Music はボーカル + インストゥルメンタル（最大約 3 分）に対応します。',
+        'sfx-card-title': '🔊 効果音 (SFX)',
+        'sfx-card-hint': 'SFX 生成は現在 ElevenLabs のみが提供しています（1 クリップ最大 22 秒）。',
+        'sfx-provider-label': 'SFX プロバイダー',
+        'no-gemini-key-warn': '⚠ Gemini API キーがありません',
+        'error-prefix': 'エラー'
     }
 };
 // Helper: lookup translated string with EN/PL fallback
@@ -1540,6 +1632,14 @@ function t(key, fallback) {
                 return;
             }
             el.textContent = val;
+        });
+
+        // HTML opt-in (lets translation strings contain inline tags like <strong>)
+        document.querySelectorAll('[data-i18n-html]').forEach(el => {
+            const key = el.getAttribute('data-i18n-html');
+            const val = tr(key, targetLang);
+            if (val == null || val === key) return;
+            el.innerHTML = val;
         });
 
         // placeholder
@@ -2249,6 +2349,7 @@ function t(key, fallback) {
     const ttsProviderSelect = document.getElementById('tts-provider-select');
     const sttProviderSelect = document.getElementById('stt-provider-select');
     const musicProviderSelect = document.getElementById('music-provider-select');
+    const sfxProviderSelect = document.getElementById('sfx-provider-select');
     const sfxInfluence = document.getElementById('sfx-influence');
     const sfxInfluenceVal = document.getElementById('sfx-influence-val');
     const sfxDefaultDuration = document.getElementById('sfx-default-duration');
@@ -2324,8 +2425,16 @@ function t(key, fallback) {
         setVoiceDisplay('female', agent.elevenlabsFemaleVoice ? { voice_id: agent.elevenlabsFemaleVoice, name: 'voice:' + agent.elevenlabsFemaleVoice.substring(0, 8) } : null);
         // Update display labels with proper names if possible
         if (agent.elevenlabsApiKey) hydrateVoiceDisplays();
-        // TTS provider toggle visibility
+        // SFX provider only has one option for now (ElevenLabs), but if a stored
+        // value exists, honor it.
+        if (sfxProviderSelect && agent.sfxProvider) {
+            const has = Array.from(sfxProviderSelect.options).some(o => o.value === agent.sfxProvider);
+            if (has) sfxProviderSelect.value = agent.sfxProvider;
+        }
+        // Provider sub-config visibility + modality overview
         updateTtsProviderVisibility();
+        updateMusicProviderVisibility();
+        updateModalityOverview();
     }
     async function hydrateVoiceDisplays() {
         try {
@@ -2351,6 +2460,32 @@ function t(key, fallback) {
             }
         }
     }
+    function providerDisplayLabel(provider) {
+        switch (provider) {
+            case 'gemini':     return 'Gemini';
+            case 'elevenlabs': return 'ElevenLabs';
+            case 'whisperx':   return 'WhisperX (local)';
+            case 'openrouter': return 'OpenRouter';
+            case 'lmstudio':   return 'LM Studio';
+            default:           return provider || '—';
+        }
+    }
+    function setModalityChip(modality, provider) {
+        const el = document.getElementById('modality-value-' + modality);
+        if (!el) return;
+        el.textContent = providerDisplayLabel(provider);
+        el.setAttribute('data-provider', provider || '');
+    }
+    function updateModalityOverview() {
+        const ttsP   = (ttsProviderSelect   && ttsProviderSelect.value)   || agent.ttsProvider   || 'gemini';
+        const musicP = (musicProviderSelect && musicProviderSelect.value) || agent.musicProvider || 'gemini';
+        const sfxP   = (sfxProviderSelect   && sfxProviderSelect.value)   || agent.sfxProvider   || 'elevenlabs';
+        const sttP   = (sttProviderSelect   && sttProviderSelect.value)   || agent.sttProvider   || 'elevenlabs';
+        setModalityChip('tts',   ttsP);
+        setModalityChip('music', musicP);
+        setModalityChip('sfx',   sfxP);
+        setModalityChip('stt',   sttP);
+    }
     function updateTtsProviderVisibility() {
         const v = (ttsProviderSelect && ttsProviderSelect.value) || agent.ttsProvider || 'gemini';
         document.querySelectorAll('.provider-config[data-tts-provider]').forEach(div => {
@@ -2358,8 +2493,19 @@ function t(key, fallback) {
         });
         const voiceCard = document.getElementById('elevenlabs-voice-card');
         if (voiceCard) voiceCard.style.display = (v === 'elevenlabs') ? '' : 'none';
+        updateModalityOverview();
     }
-    if (ttsProviderSelect) ttsProviderSelect.addEventListener('change', updateTtsProviderVisibility);
+    function updateMusicProviderVisibility() {
+        const v = (musicProviderSelect && musicProviderSelect.value) || agent.musicProvider || 'gemini';
+        document.querySelectorAll('.provider-config[data-music-provider]').forEach(div => {
+            div.classList.toggle('hidden', div.getAttribute('data-music-provider') !== v);
+        });
+        updateModalityOverview();
+    }
+    if (ttsProviderSelect)   ttsProviderSelect.addEventListener('change',   updateTtsProviderVisibility);
+    if (musicProviderSelect) musicProviderSelect.addEventListener('change', updateMusicProviderVisibility);
+    if (sfxProviderSelect)   sfxProviderSelect.addEventListener('change',   updateModalityOverview);
+    if (sttProviderSelect)   sttProviderSelect.addEventListener('change',   updateModalityOverview);
     // Sync slider values to label
     [
         [elStability, elStabilityVal],
@@ -3396,9 +3542,11 @@ function t(key, fallback) {
 
     async function loadGeminiModels(force) {
         if (!agent.apiKey) {
-            baseModelSelect.innerHTML = '<option value="">⚠ Brak klucza Gemini API</option>';
-            imageModelSelect.innerHTML = '<option value="">⚠ Brak klucza Gemini API</option>';
-            ttsModelSelect.innerHTML = '<option value="">⚠ Brak klucza Gemini API</option>';
+            const warn = '<option value="">' + tr('no-gemini-key-warn') + '</option>';
+            baseModelSelect.innerHTML = warn;
+            imageModelSelect.innerHTML = warn;
+            const ttsSel2 = document.getElementById('ttsmodel-select-2');
+            if (ttsSel2) ttsSel2.innerHTML = warn;
             return;
         }
         try {
@@ -3422,13 +3570,12 @@ function t(key, fallback) {
             };
             fill(baseModelSelect, llmList, agent.geminiModel);
             fill(imageModelSelect, imgList, agent.geminiImageModel);
-            fill(ttsModelSelect, ttsList, agent.ttsModel);
-            // Mirror the TTS list into the secondary select used in the TTS/STT tab
+            // TTS list now lives only in the TTS/STT tab (ttsModelSelect2)
             if (ttsModelSelect2) fill(ttsModelSelect2, ttsList, agent.ttsModel);
-            addLog('Pobrano ' + list.length + ' modeli Gemini (' + llmList.length + ' LLM, ' + imgList.length + ' image, ' + ttsList.length + ' TTS).', 'success');
+            addLog(tr('log-gemini-models-loaded').replace('{n}', list.length).replace('{llm}', llmList.length).replace('{img}', imgList.length).replace('{tts}', ttsList.length), 'success');
         } catch (e) {
             addLog('Gemini models error: ' + e.message, 'error');
-            baseModelSelect.innerHTML = '<option value="">Błąd: ' + e.message.substring(0, 50) + '</option>';
+            baseModelSelect.innerHTML = '<option value="">' + tr('error-prefix') + ': ' + e.message.substring(0, 50) + '</option>';
         }
     }
 
@@ -4222,8 +4369,8 @@ function t(key, fallback) {
         document.querySelectorAll('input[data-feature]').forEach(cb => {
             newFlags[cb.getAttribute('data-feature')] = cb.checked;
         });
-        // Get TTS model from secondary select if available (TTS tab)
-        const effTtsModel = (ttsModelSelect2 && ttsModelSelect2.value) || ttsModelSelect.value;
+        // TTS model picker lives in the TTS/STT tab now (ttsmodel-select-2)
+        const effTtsModel = (ttsModelSelect2 && ttsModelSelect2.value) || '';
         agent.setCredentials({
             apiKey: apiKeyInput.value.trim(),
             openrouterApiKey: openrouterApiInput ? openrouterApiInput.value.trim() : '',
@@ -4249,6 +4396,7 @@ function t(key, fallback) {
             ttsProvider: ttsProviderSelect ? ttsProviderSelect.value : 'gemini',
             sttProvider: sttProviderSelect ? sttProviderSelect.value : 'elevenlabs',
             musicProvider: musicProviderSelect ? musicProviderSelect.value : 'gemini',
+            sfxProvider: sfxProviderSelect ? sfxProviderSelect.value : 'elevenlabs',
             elevenlabsSfxPromptInfluence: sfxInfluence ? +sfxInfluence.value : 0.3,
             elevenlabsSfxDefaultDuration: sfxDefaultDuration ? +sfxDefaultDuration.value : 0,
             elevenlabsMusicForceInstrumental: elMusicInstr ? elMusicInstr.checked : true,

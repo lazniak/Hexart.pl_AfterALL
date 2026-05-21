@@ -135,6 +135,10 @@ class AisistAgent {
         this.elevenlabsMusicForceInstrumental = diskStorage.getItem('hexart_elevenlabs_music_force_instr') !== 'false';
         // Music provider: 'gemini' (Lyria 3 Pro) | 'elevenlabs' (Eleven Music)
         this.musicProvider = getStr('hexart_music_provider', 'gemini');
+        // SFX provider: currently only 'elevenlabs' is wired, but we keep the
+        // field so future providers (Stable Audio, AudioCraft, etc.) plug in
+        // without a schema migration.
+        this.sfxProvider = getStr('hexart_sfx_provider', 'elevenlabs');
         let elSettings = getJSON('hexart_elevenlabs_voice_settings', null);
         if (!elSettings || typeof elSettings !== 'object') {
             elSettings = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true, speed: 1.0 };
@@ -1351,6 +1355,7 @@ ${this.getSkillsSummary()}
         assign('elevenlabsFemaleVoice', 'elevenlabsFemaleVoice', 'hexart_elevenlabs_female_voice');
         assign('elevenlabsOutputFormat', 'elevenlabsOutputFormat', 'hexart_elevenlabs_output_format');
         assign('musicProvider', 'musicProvider', 'hexart_music_provider');
+        assign('sfxProvider', 'sfxProvider', 'hexart_sfx_provider');
         if (cfg.elevenlabsSfxPromptInfluence !== undefined) {
             this.elevenlabsSfxPromptInfluence = parseFloat(cfg.elevenlabsSfxPromptInfluence);
             diskStorage.setItem('hexart_elevenlabs_sfx_influence', String(this.elevenlabsSfxPromptInfluence));
