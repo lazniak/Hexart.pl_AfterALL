@@ -282,22 +282,23 @@
         async streamChatCompletion(args, onChunk) {
             if (!this.cfg.apiKey) throw new Error('Brak klucza Gemini API.');
             const model = args.model || 'gemini-2.5-flash';
-            // Some Gemini 3.x checkpoints stream zero bytes when
-            // thinkingConfig.includeThoughts is on. Once we observe that
-            // for a given model, skip the field on subsequent calls for
-            // the same model.
-            if (!this._thinkingConfigBroken) this._thinkingConfigBroken = {};
-            const skipThinking = !!this._thinkingConfigBroken[model];
 
-            // Some checkpoints (e.g. gemini-3.5-flash at certain moments)
-            // return empty SSE bodies even WITHOUT thinkingConfig. After
-            // observing that for a model we go straight to non-streaming
-            // (chatCompletion) — that endpoint works for these models.
-            // We signal this by throwing a sentinel error that the agent's
-            // streamChatCompletion catch block converts into a chatCompletion
-            // call.
-            if (!this._streamingBroken) this._streamingBroken = {};
-            if (this._streamingBroken[model]) {
+            // IMPORTANT: caches must live on the CLASS, not the instance.
+            // agent.getProvider() returns a NEW GeminiProvider each call, so
+            // instance-level caches would reset every single LLM round-trip
+            // and the slow empty-stream probe would repeat 60-180s every
+            // time. Class-level caches survive the instance churn for the
+            // rest of the plugin session.
+            const CLS = GeminiProvider;
+            if (!CLS._thinkingConfigBroken) CLS._thinkingConfigBroken = {};
+            if (!CLS._streamingBroken)      CLS._streamingBroken = {};
+
+            const skipThinking = !!CLS._thinkingConfigBroken[model];
+
+            // If we've already observed this model returning empty streams
+            // even without thinkingConfig, skip the slow probe entirely
+            // and signal the agent to fall back to non-streaming.
+            if (CLS._streamingBroken[model]) {
                 throw new Error('GEMINI_STREAM_DISABLED: model "' + model + '" returned empty streams previously — using non-streaming path.');
             }
 
@@ -355,9 +356,9 @@
             // thinkingConfig.includeThoughts isn't accepted by the specific
             // model checkpoint. Auto-retry without thinkingConfig once and
             // remember the model so future calls skip the bad payload up
-            // front.
+            // front (class-level cache → survives instance churn).
             if (!skipThinking && payload.generationConfig && payload.generationConfig.thinkingConfig) {
-                this._thinkingConfigBroken[model] = true;
+                CLS._thinkingConfigBroken[model] = true;
                 const retryPayload = JSON.parse(JSON.stringify(payload));
                 delete retryPayload.generationConfig.thinkingConfig;
                 const res2 = await fetch(url, {
@@ -375,10 +376,10 @@
             }
 
             // Still empty after retry — the streaming endpoint is broken
-            // for this checkpoint. Mark it so future calls skip streaming
-            // immediately and signal the agent to fall back to
-            // chatCompletion.
-            this._streamingBroken[model] = true;
+            // for this checkpoint. Mark it on the CLASS so every subsequent
+            // call (across new GeminiProvider instances) skips the probe
+            // immediately and goes straight to chatCompletion.
+            CLS._streamingBroken[model] = true;
             throw new Error('GEMINI_STREAM_EMPTY: model "' + model + '" returned empty streams (with and without thinkingConfig). Falling back to non-streaming for this model from now on.');
         }
 
