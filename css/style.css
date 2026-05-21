@@ -1762,6 +1762,14 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     text-align: center;
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
 }
+/* The .hidden utility class wasn't scoped to either of these two elements,
+   so toggling it in JS silently did nothing and the no-API-key banner kept
+   showing even when the user had multiple keys configured. The .hidden
+   rule below is intentionally global with !important — every existing
+   scoped .hidden rule already uses `display: none`, so this reinforces
+   without breaking anything and guarantees any future `.classList.add('hidden')`
+   call actually hides the element. */
+.hidden { display: none !important; }
 #api-setup-fallback .api-setup-icon {
     font-size: 28px;
     line-height: 1;
