@@ -225,17 +225,14 @@
                         <!-- Gemini LLM -->
                         <div class="provider-config" data-provider="gemini">
                             <div class="api-key-row">
-                                <label for="basemodel-select" data-i18n="base-model-label">Model Gemini (Logika)</label>
-                                <button type="button" class="help-icon" data-api-help="gemini" title="Jak skonfigurować?">?</button>
+                                <label for="basemodel-select" data-i18n="base-model-label">Gemini Model (Logic)</label>
+                                <button type="button" class="help-icon" data-api-help="gemini" title="How to configure?">?</button>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <select id="basemodel-select" style="flex:1;">
-                                    <option value="">…</option>
-                                </select>
+                                <input type="text" id="basemodel-select" placeholder="e.g. gemini-2.5-pro" style="flex:1;">
                                 <button type="button" id="pick-gemini-llm" class="mini-btn" title="Browse model catalog">📋</button>
-                                <button type="button" id="refresh-gemini-models" class="mini-btn" title="Refresh Gemini model list from API">↻</button>
                             </div>
-                            <span class="hint" data-i18n="gemini-hint">List fetched from Google API · requires Gemini key</span>
+                            <span class="hint" data-i18n="gemini-hint">Click 📋 to browse the live model list from Google API · requires Gemini key</span>
                         </div>
 
                         <!-- OpenRouter LLM -->
@@ -265,13 +262,10 @@
                                 <button type="button" class="help-icon" data-api-help="openai" title="How to configure?">?</button>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <select id="openai-llm-model" style="flex:1;">
-                                    <option value="">Press ↻ to load</option>
-                                </select>
+                                <input type="text" id="openai-llm-model" placeholder="e.g. gpt-4o" style="flex:1;">
                                 <button type="button" id="pick-openai-llm" class="mini-btn" title="Browse model catalog">📋</button>
-                                <button type="button" id="refresh-openai-models" class="mini-btn" title="Fetch OpenAI models">↻</button>
                             </div>
-                            <span class="hint" data-i18n="openai-hint">Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.</span>
+                            <span class="hint" data-i18n="openai-hint">Click 📋 to browse the catalog · requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.</span>
 
                             <label for="openai-grounding-model" data-i18n="openai-grounding-label" style="margin-top:0.7rem;">Web-search model (Grounding)</label>
                             <div style="display:flex; gap:6px;">
@@ -288,21 +282,17 @@
                                 <button type="button" class="help-icon" data-api-help="lmstudio" title="How to configure?">?</button>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <select id="lmstudio-llm-model" style="flex:1;">
-                                    <option value="" data-i18n="press-reload-to-list">Press ↻ to load list</option>
-                                </select>
-                                <button type="button" id="refresh-lmstudio-models" class="mini-btn" title="Fetch models from local LM Studio server">↻</button>
+                                <input type="text" id="lmstudio-llm-model" placeholder="(loaded model name from your local LM Studio)" style="flex:1;">
+                                <button type="button" id="pick-lmstudio-llm" class="mini-btn" title="Browse models from local LM Studio server">📋</button>
                             </div>
                             <label for="lmstudio-base-url" data-i18n="lmstudio-url-label">LM Studio server URL</label>
                             <input type="text" id="lmstudio-base-url" placeholder="http://localhost:1234" value="http://localhost:1234">
-                            <span class="hint" data-i18n="lmstudio-hint">Local models · requires a running LM Studio server (Server Mode)</span>
+                            <span class="hint" data-i18n="lmstudio-hint">Local models · requires a running LM Studio server (Server Mode) · click 📋 to browse loaded models</span>
 
                             <label for="lmstudio-grounding-model" data-i18n="lmstudio-grounding-label" style="margin-top:0.7rem;">Web-search model (Grounding)</label>
                             <div style="display:flex; gap:6px;">
-                                <select id="lmstudio-grounding-model" style="flex:1;">
-                                    <option value="" data-i18n="lmstudio-grounding-none">(none — Grounding disabled for LM Studio)</option>
-                                </select>
-                                <button type="button" id="refresh-lmstudio-grounding" class="mini-btn" title="Refresh model list">↻</button>
+                                <input type="text" id="lmstudio-grounding-model" placeholder="(none — Grounding disabled)" style="flex:1;">
+                                <button type="button" id="pick-lmstudio-grounding" class="mini-btn" title="Pick a tool-capable local model">📋</button>
                             </div>
                             <span class="hint" data-i18n-html="lmstudio-grounding-hint">Optional: pick a local model with tool/function calling for grounding calls. Local LMs have no built-in web search — typically you'd run a search-augmented model (e.g. Llama 3.1 + tool calling + an external search MCP).</span>
                         </div>
@@ -321,11 +311,8 @@
                         <div class="provider-config" data-img-provider="gemini">
                             <label for="imagemodel-select" data-i18n="img-model-label">Gemini image model</label>
                             <div style="display:flex; gap:6px;">
-                                <select id="imagemodel-select" style="flex:1;">
-                                    <option value="">…</option>
-                                </select>
+                                <input type="text" id="imagemodel-select" placeholder="e.g. gemini-2.5-flash-image-preview" style="flex:1;">
                                 <button type="button" id="pick-gemini-img" class="mini-btn" title="Browse image model catalog">📋</button>
-                                <button type="button" id="refresh-gemini-img-models" class="mini-btn" title="Refresh image model list">↻</button>
                             </div>
                         </div>
 
@@ -344,13 +331,8 @@
                                 <button type="button" class="help-icon" data-api-help="openai" title="How to configure?">?</button>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <select id="openai-image-model" style="flex:1;">
-                                    <option value="gpt-image-1">gpt-image-1 (newest · edits + vision)</option>
-                                    <option value="dall-e-3">DALL·E 3 (legacy · up to 1792 px)</option>
-                                    <option value="dall-e-2">DALL·E 2 (legacy · edits + variations)</option>
-                                </select>
+                                <input type="text" id="openai-image-model" placeholder="e.g. gpt-image-1" style="flex:1;">
                                 <button type="button" id="pick-openai-img" class="mini-btn" title="Browse OpenAI image catalog">📋</button>
-                                <button type="button" id="refresh-openai-img-models" class="mini-btn" title="Refresh OpenAI image catalog">↻</button>
                             </div>
                             <span class="hint" data-i18n="openai-image-hint">gpt-image-1 supports reference images for edits and inpainting. DALL·E 3 ignores reference images. Pricing varies — see platform.openai.com/docs/guides/images.</span>
                         </div>
@@ -420,11 +402,12 @@
 
                         <!-- Gemini TTS sub-section -->
                         <div class="provider-config" data-tts-provider="gemini">
-                            <label for="ttsmodel-select-2" data-i18n="tts-model-label">Model TTS (Gemini)</label>
-                            <select id="ttsmodel-select-2">
-                                <option value="">Ładowanie modeli...</option>
-                            </select>
-                            <span class="hint">Modele pobierane dynamicznie z Gemini API.</span>
+                            <label for="ttsmodel-select-2" data-i18n="tts-model-label">Gemini TTS model</label>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="ttsmodel-select-2" placeholder="e.g. gemini-2.5-flash-preview-tts" style="flex:1;">
+                                <button type="button" id="pick-gemini-tts" class="mini-btn" title="Browse Gemini TTS model catalog">📋</button>
+                            </div>
+                            <span class="hint" data-i18n="tts-model-hint">Click 📋 to browse TTS-capable Gemini models.</span>
                         </div>
 
                         <!-- ElevenLabs sub-section -->

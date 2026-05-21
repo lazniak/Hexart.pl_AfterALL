@@ -814,6 +814,10 @@ const i18nDict = {
         'mp-title-openai-llm':   'Katalog modeli OpenAI (logika / LLM)',
         'mp-title-openai-image': 'Katalog modeli OpenAI (obrazy)',
         'mp-title-openai-grounding': 'Katalog modeli OpenAI (Grounding / web search)',
+        'mp-title-lmstudio-llm':    'Katalog modeli LM Studio (lokalne)',
+        'mp-title-lmstudio-grounding': 'Katalog modeli LM Studio (Grounding)',
+        'mp-title-gemini-tts':      'Katalog modeli Gemini (TTS)',
+        'tts-model-hint': 'Kliknij 📋 aby przeglądać modele TTS Gemini.',
         // OpenAI / LMStudio grounding fields
         'openai-grounding-label': 'Model do wyszukiwania w sieci (Grounding)',
         'openai-grounding-hint': 'Używany tylko gdy „Google Search Grounding" jest włączony. <code>gpt-4o-search-preview</code> i <code>gpt-5-search-preview</code> mają wbudowane wyszukiwanie web w Chat Completions API.',
@@ -1282,6 +1286,10 @@ const i18nDict = {
         'mp-title-openai-llm':   'OpenAI model catalog (logic / LLM)',
         'mp-title-openai-image': 'OpenAI model catalog (image)',
         'mp-title-openai-grounding': 'OpenAI model catalog (Grounding / web search)',
+        'mp-title-lmstudio-llm':    'LM Studio model catalog (local)',
+        'mp-title-lmstudio-grounding': 'LM Studio model catalog (Grounding)',
+        'mp-title-gemini-tts':      'Gemini model catalog (TTS)',
+        'tts-model-hint': 'Click 📋 to browse TTS-capable Gemini models.',
         // OpenAI / LMStudio grounding fields
         'openai-grounding-label': 'Web-search model (Grounding)',
         'openai-grounding-hint': 'Used only when "Google Search Grounding" is enabled. <code>gpt-4o-search-preview</code> and <code>gpt-5-search-preview</code> have native web search via the Chat Completions API.',
@@ -2088,9 +2096,16 @@ function t(key, fallback) {
     if (openrouterGroundingModelInput) openrouterGroundingModelInput.value = agent.openrouterGroundingModel || '';
     if (openrouterImgModelInput) openrouterImgModelInput.value = agent.openrouterImageModel || '';
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
-    // OpenAI fields
-    if (openaiImageModelSelect) openaiImageModelSelect.value = agent.openaiImageModel || 'gpt-image-1';
-    if (openaiGroundingInput)   openaiGroundingInput.value   = agent.openaiGroundingModel || '';
+    // Model fields are now plain text inputs (OpenRouter pattern). Load the
+    // stored value straight in — the picker (📋) writes back into them too.
+    if (baseModelSelect)           baseModelSelect.value           = agent.geminiModel       || '';
+    if (imageModelSelect)          imageModelSelect.value          = agent.geminiImageModel  || '';
+    if (ttsModelSelect2)           ttsModelSelect2.value           = agent.ttsModel          || '';
+    if (lmstudioLLMModelSelect)    lmstudioLLMModelSelect.value    = agent.lmstudioLLMModel  || '';
+    if (lmstudioGroundingSelect)   lmstudioGroundingSelect.value   = agent.lmstudioGroundingModel || '';
+    if (openaiLLMModelSelect)      openaiLLMModelSelect.value      = agent.openaiLLMModel    || '';
+    if (openaiImageModelSelect)    openaiImageModelSelect.value    = agent.openaiImageModel  || 'gpt-image-1';
+    if (openaiGroundingInput)      openaiGroundingInput.value      = agent.openaiGroundingModel || '';
     // ComfyUI fields
     if (comfyuiBaseUrlInput) comfyuiBaseUrlInput.value = agent.comfyuiBaseUrl || 'http://127.0.0.1:8188';
     if (comfyuiWorkflowInput) comfyuiWorkflowInput.value = agent.comfyuiWorkflow || '';
@@ -4130,18 +4145,7 @@ function t(key, fallback) {
             div.classList.toggle('hidden', div.getAttribute('data-img-provider') !== imgActive);
         });
     }
-    if (llmProviderSelect) llmProviderSelect.addEventListener('change', () => {
-        updateProviderConfigVisibility();
-        // Lazy-load the model list when the user switches to a provider that
-        // needs one. Avoids hammering APIs when the user just opens settings.
-        const v = llmProviderSelect.value;
-        if (v === 'openai' && agent.openaiApiKey && openaiLLMModelSelect && openaiLLMModelSelect.options.length <= 1) {
-            loadOpenAIModels(false);
-        }
-        if (v === 'lmstudio' && lmstudioLLMModelSelect && lmstudioLLMModelSelect.options.length <= 1) {
-            loadLMStudioModels(false);
-        }
-    });
+    if (llmProviderSelect) llmProviderSelect.addEventListener('change', updateProviderConfigVisibility);
     if (imgProviderSelect) imgProviderSelect.addEventListener('change', updateProviderConfigVisibility);
     updateProviderConfigVisibility();
 
@@ -4179,118 +4183,17 @@ function t(key, fallback) {
         return parts.join(' · ');
     }
 
-    async function loadGeminiModels(force) {
-        if (!agent.apiKey) {
-            const warn = '<option value="">' + tr('no-gemini-key-warn') + '</option>';
-            baseModelSelect.innerHTML = warn;
-            imageModelSelect.innerHTML = warn;
-            const ttsSel2 = document.getElementById('ttsmodel-select-2');
-            if (ttsSel2) ttsSel2.innerHTML = warn;
-            return;
-        }
-        try {
-            addLog(tr('log-fetching-gemini-models'), 'info');
-            const list = await agent.fetchModels('gemini', !!force);
-            const llmList = list.filter(m => !/image|tts|embedding|aqa/i.test(m.id));
-            const imgList = list.filter(m => /image/i.test(m.id));
-            const ttsList = list.filter(m => /tts/i.test(m.id));
-            const fill = (sel, items, current) => {
-                if (!sel) return;
-                sel.innerHTML = '';
-                if (items.length === 0) { sel.innerHTML = '<option value="">(brak dostępnych modeli)</option>'; return; }
-                items.forEach(m => {
-                    const o = document.createElement('option');
-                    o.value = m.id;
-                    o.textContent = formatModelLabel(m);
-                    o.title = fullModelTitle(m);
-                    sel.appendChild(o);
-                });
-                if (current && items.find(m => m.id === current)) sel.value = current;
-            };
-            fill(baseModelSelect, llmList, agent.geminiModel);
-            fill(imageModelSelect, imgList, agent.geminiImageModel);
-            // TTS list now lives only in the TTS/STT tab (ttsModelSelect2)
-            if (ttsModelSelect2) fill(ttsModelSelect2, ttsList, agent.ttsModel);
-            addLog(tr('log-gemini-models-loaded').replace('{n}', list.length).replace('{llm}', llmList.length).replace('{img}', imgList.length).replace('{tts}', ttsList.length), 'success');
-        } catch (e) {
-            addLog('Gemini models error: ' + e.message, 'error');
-            baseModelSelect.innerHTML = '<option value="">' + tr('error-prefix') + ': ' + e.message.substring(0, 50) + '</option>';
-        }
-    }
-
-    async function loadLMStudioModels(force) {
-        if (!lmstudioLLMModelSelect) return;
-        agent.lmstudioBaseUrl = lmstudioBaseUrlInput ? (lmstudioBaseUrlInput.value || 'http://localhost:1234') : 'http://localhost:1234';
-        try {
-            addLog(tr('log-fetching-lmstudio-models'), 'info');
-            const list = await agent.fetchModels('lmstudio', !!force);
-            lmstudioLLMModelSelect.innerHTML = '';
-            if (list.length === 0) {
-                lmstudioLLMModelSelect.innerHTML = '<option value="">(brak załadowanych modeli)</option>';
-                return;
-            }
-            list.forEach(m => {
-                const o = document.createElement('option');
-                o.value = m.id;
-                o.textContent = m.id.length > 36 ? (m.id.substring(0, 34) + '…') : m.id;
-                o.title = m.id;
-                lmstudioLLMModelSelect.appendChild(o);
-            });
-            if (agent.lmstudioLLMModel && list.find(m => m.id === agent.lmstudioLLMModel)) {
-                lmstudioLLMModelSelect.value = agent.lmstudioLLMModel;
-            }
-            addLog('LM Studio: ' + list.length + ' modeli.', 'success');
-        } catch (e) {
-            addLog('LM Studio error: ' + e.message, 'error');
-            lmstudioLLMModelSelect.innerHTML = '<option value="">Błąd: ' + e.message.substring(0, 60) + '</option>';
-        }
-    }
-
-    const refreshGeminiBtn = document.getElementById('refresh-gemini-models');
-    if (refreshGeminiBtn) refreshGeminiBtn.addEventListener('click', () => loadGeminiModels(true));
-    const refreshGeminiImgBtn = document.getElementById('refresh-gemini-img-models');
-    if (refreshGeminiImgBtn) refreshGeminiImgBtn.addEventListener('click', () => loadGeminiModels(true));
-    const refreshLMStudioBtn = document.getElementById('refresh-lmstudio-models');
-    if (refreshLMStudioBtn) refreshLMStudioBtn.addEventListener('click', () => loadLMStudioModels(true));
-
-    // ---- OpenAI dynamic model list ------------------------------------
-    async function loadOpenAIModels(force) {
-        if (!openaiLLMModelSelect) return;
-        // Push the (possibly-edited) API key into agent before fetching so
-        // it shows up in the next call even before the user clicks Save.
-        if (openaiApiInput && openaiApiInput.value.trim()) {
-            agent.openaiApiKey = openaiApiInput.value.trim();
-        }
-        if (!agent.openaiApiKey) {
-            openaiLLMModelSelect.innerHTML = '<option value="">' + tr('no-openai-key-warn') + '</option>';
-            return;
-        }
-        try {
-            addLog(tr('log-fetching-openai-models'), 'info');
-            const list = await agent.fetchModels('openai', !!force);
-            openaiLLMModelSelect.innerHTML = '';
-            if (list.length === 0) {
-                openaiLLMModelSelect.innerHTML = '<option value="">' + tr('no-openai-models') + '</option>';
-                return;
-            }
-            list.forEach(m => {
-                const o = document.createElement('option');
-                o.value = m.id;
-                o.textContent = m.id.length > 40 ? (m.id.substring(0, 38) + '…') : m.id;
-                o.title = m.id + (m.description ? ' — ' + m.description : '');
-                openaiLLMModelSelect.appendChild(o);
-            });
-            if (agent.openaiLLMModel && list.find(m => m.id === agent.openaiLLMModel)) {
-                openaiLLMModelSelect.value = agent.openaiLLMModel;
-            }
-            addLog(tr('log-openai-models-loaded').replace('{n}', String(list.length)), 'success');
-        } catch (e) {
-            addLog('OpenAI models error: ' + e.message, 'error');
-            openaiLLMModelSelect.innerHTML = '<option value="">' + tr('error-prefix') + ': ' + e.message.substring(0, 60) + '</option>';
-        }
-    }
-    const refreshOpenAIBtn = document.getElementById('refresh-openai-models');
-    if (refreshOpenAIBtn) refreshOpenAIBtn.addEventListener('click', () => loadOpenAIModels(true));
+    // The bare-<select> + ↻ refresh-button flow has been retired in favour
+    // of the OpenRouter pattern: every model field is a free-text input
+    // with a 📋 picker button that opens the live catalog. This eliminates
+    // the "saved value doesn't show up because it's not in the dropdown"
+    // class of bugs entirely — the input simply IS the stored value.
+    //
+    // No-op stubs are kept so the rest of the codebase (e.g. provider-change
+    // auto-loads, settings-open handlers) can call these without breaking.
+    function loadGeminiModels() { /* retired — picker is the loader */ }
+    function loadLMStudioModels() { /* retired — picker is the loader */ }
+    function loadOpenAIModels() { /* retired — picker is the loader */ }
 
     // ---- ComfyUI test connection + workflow helpers -------------------
     const comfyuiTestBtn       = document.getElementById('comfyui-test-connection');
@@ -4894,78 +4797,33 @@ function t(key, fallback) {
         title: tr('mp-title-openai-grounding')
     }));
 
-    // LMStudio grounding select — populated from the same fetch that drives
-    // the main LMStudio model dropdown. We mirror options whenever the main
-    // list refreshes.
-    function mirrorLmStudioGroundingOptions() {
-        if (!lmstudioGroundingSelect || !lmstudioLLMModelSelect) return;
-        const current = lmstudioGroundingSelect.value || agent.lmstudioGroundingModel || '';
-        lmstudioGroundingSelect.innerHTML = '';
-        const noneOpt = document.createElement('option');
-        noneOpt.value = '';
-        noneOpt.textContent = tr('lmstudio-grounding-none');
-        lmstudioGroundingSelect.appendChild(noneOpt);
-        Array.from(lmstudioLLMModelSelect.options).forEach(o => {
-            if (!o.value) return;
-            const clone = document.createElement('option');
-            clone.value = o.value;
-            clone.textContent = o.textContent;
-            clone.title = o.title;
-            lmstudioGroundingSelect.appendChild(clone);
+    // New: LMStudio LLM + grounding pickers (text input + 📋 button).
+    // The picker walks LMStudio's /v1/models endpoint and writes the chosen
+    // id straight into the input — same UX as OpenRouter.
+    const pickLmStudioLLMBtn = document.getElementById('pick-lmstudio-llm');
+    if (pickLmStudioLLMBtn) pickLmStudioLLMBtn.addEventListener('click', () => {
+        // Refresh agent's base URL from the input so a freshly-typed URL works.
+        if (lmstudioBaseUrlInput) agent.lmstudioBaseUrl = lmstudioBaseUrlInput.value.trim() || 'http://localhost:1234';
+        openModelPicker({
+            provider: 'lmstudio', kind: 'llm', target: lmstudioLLMModelSelect,
+            title: tr('mp-title-lmstudio-llm')
         });
-        if (current) {
-            const has = Array.from(lmstudioGroundingSelect.options).some(o => o.value === current);
-            if (has) lmstudioGroundingSelect.value = current;
-            else {
-                // Stored value not in current list — keep it as a manual entry
-                const stored = document.createElement('option');
-                stored.value = current;
-                stored.textContent = current + ' (stored)';
-                lmstudioGroundingSelect.appendChild(stored);
-                lmstudioGroundingSelect.value = current;
-            }
-        }
-    }
-    const refreshLmStudioGroundingBtn = document.getElementById('refresh-lmstudio-grounding');
-    if (refreshLmStudioGroundingBtn) refreshLmStudioGroundingBtn.addEventListener('click', async () => {
-        await loadLMStudioModels(true);
-        mirrorLmStudioGroundingOptions();
     });
-    // Re-mirror whenever the main LMStudio list is rebuilt
-    if (lmstudioLLMModelSelect) {
-        const observer = new MutationObserver(() => mirrorLmStudioGroundingOptions());
-        observer.observe(lmstudioLLMModelSelect, { childList: true });
-    }
-    const refreshOpenAIImgBtn = document.getElementById('refresh-openai-img-models');
-    if (refreshOpenAIImgBtn) refreshOpenAIImgBtn.addEventListener('click', async () => {
-        // Lightweight refresh: open the picker briefly to refetch image catalog
-        // and write the recommended pick straight into the select.
-        try {
-            if (openaiApiInput && openaiApiInput.value.trim()) {
-                agent.openaiApiKey = openaiApiInput.value.trim();
-            }
-            const P = window.AfterAllProviders;
-            const inst = P.create('openai', { apiKey: agent.openaiApiKey, baseUrl: agent.openaiBaseUrl });
-            const list = await inst.listImageModels();
-            if (!openaiImageModelSelect) return;
-            const current = openaiImageModelSelect.value;
-            openaiImageModelSelect.innerHTML = '';
-            list.forEach(m => {
-                const o = document.createElement('option');
-                o.value = m.id;
-                o.textContent = m.name || m.id;
-                openaiImageModelSelect.appendChild(o);
-            });
-            if (current && list.find(m => m.id === current)) {
-                openaiImageModelSelect.value = current;
-            }
-            addLog(tr('log-openai-img-models-loaded').replace('{n}', String(list.length)), 'success');
-        } catch (e) {
-            addLog('OpenAI image catalog: ' + e.message, 'error');
-        }
+    const pickLmStudioGroundingBtn = document.getElementById('pick-lmstudio-grounding');
+    if (pickLmStudioGroundingBtn) pickLmStudioGroundingBtn.addEventListener('click', () => {
+        if (lmstudioBaseUrlInput) agent.lmstudioBaseUrl = lmstudioBaseUrlInput.value.trim() || 'http://localhost:1234';
+        openModelPicker({
+            provider: 'lmstudio', kind: 'llm', target: lmstudioGroundingSelect,
+            title: tr('mp-title-lmstudio-grounding')
+        });
     });
+    // New: Gemini TTS picker
+    const pickGeminiTtsBtn = document.getElementById('pick-gemini-tts');
+    if (pickGeminiTtsBtn) pickGeminiTtsBtn.addEventListener('click', () => openModelPicker({
+        provider: 'gemini', kind: 'tts', target: ttsModelSelect2,
+        title: tr('mp-title-gemini-tts')
+    }));
 
-    // Load Gemini models when settings open and key exists
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
             refreshSandboxInfo();
@@ -4974,28 +4832,18 @@ function t(key, fallback) {
             renderToolsQuickList();
             renderPermissionRules();
             updateMcpUI();
-            // Re-load Gemini models on every settings open. The 15-min agent
-            // cache makes this essentially free and keeps the dropdown
-            // grounded in the live API list (no leftover phantom entries).
-            if (agent.apiKey) {
-                loadGeminiModels(false);
-            }
-            // LM Studio: only auto-fetch when it's the active provider — the
-            // local server may not be running and we don't want a long
-            // timeout every settings-open if it isn't.
-            if (agent.llmProvider === 'lmstudio') {
-                loadLMStudioModels(false);
-            }
-            // OpenAI: auto-fetch if it's the active LLM provider and the key
-            // is configured. Cache prevents hammering the API.
-            if (agent.llmProvider === 'openai' && agent.openaiApiKey) {
-                loadOpenAIModels(false);
-            }
-            // For ElevenLabs: load models if provider active
+            // Pre-warm the agent's 15-min model cache in the background so
+            // the first 📋 picker click feels instant. Failures are silent —
+            // the picker handles missing-key / unreachable-server cases on
+            // its own. Model UIs are now text inputs (OpenRouter pattern),
+            // so there's nothing to populate here.
+            if (agent.apiKey)                                       agent.fetchModels('gemini', false).catch(() => {});
+            if (agent.llmProvider === 'openai' && agent.openaiApiKey) agent.fetchModels('openai', false).catch(() => {});
+            if (agent.llmProvider === 'lmstudio')                   agent.fetchModels('lmstudio', false).catch(() => {});
+            // ElevenLabs models still drive a real <select>
             if (agent.ttsProvider === 'elevenlabs' && agent.elevenlabsApiKey && elModelSelect && elModelSelect.options.length <= 1) {
                 loadElevenLabsModels(false);
             }
-            // Render the update card with the current local version + last-known result.
             renderUpdateCardInitial();
         });
     }
