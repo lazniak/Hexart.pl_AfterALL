@@ -629,6 +629,51 @@
         </div>
     </div>
 
+    <!-- Save-Project Recommendation Modal -->
+    <div id="save-project-overlay" class="hidden">
+        <div class="settings-modal glass-panel" style="max-width: 540px;">
+            <div class="settings-header">
+                <h2><span style="margin-right: 6px;">💾</span><span data-i18n="save-project-title">Save your project first</span></h2>
+                <button id="save-project-close-btn">&times;</button>
+            </div>
+            <div class="settings-body">
+                <div class="api-help-intro" style="border-left-color: var(--accent);" data-i18n="save-project-intro">
+                    Your After Effects project hasn't been saved yet. Saving now lets the agent place all generated assets (images, audio, video, transcripts) in a clean, organized folder next to your project file — keeping everything portable and easy to back up.
+                </div>
+                <div style="background: rgba(0,0,0,0.22); border-radius: 6px; padding: 0.7rem; font-size: 12.5px; line-height: 1.55; margin-top: 0.6rem;">
+                    <div data-i18n="save-project-structure-label" style="color: var(--accent); font-weight: 500; margin-bottom: 6px;">If you save, assets will be organized like this:</div>
+                    <pre style="margin: 0; font-family: monospace; font-size: 11px; color: var(--text-secondary); white-space: pre-wrap;">YourProject.aep
+└── aisist_assets/
+    ├── images/
+    ├── audio/    (TTS · music · SFX)
+    ├── video/
+    ├── svg/
+    ├── transcripts/
+    └── scripts/</pre>
+                </div>
+                <div id="save-project-step2" class="hidden" style="margin-top: 0.7rem; padding: 0.7rem; background: rgba(239,68,68,0.06); border-left: 3px solid rgba(239,68,68,0.4); border-radius: 6px;">
+                    <div style="color: #fca5a5; font-weight: 500; margin-bottom: 5px; font-size: 12.5px;" data-i18n="save-project-consequences-title">⚠ Continuing without saving means:</div>
+                    <ul style="margin: 0 0 0 1rem; padding: 0; font-size: 11.5px; color: var(--text-secondary); line-height: 1.55;">
+                        <li data-i18n="save-project-cons-1">Generated assets land in your OS temp folder — they may be wiped on reboot or by system cleanup.</li>
+                        <li data-i18n="save-project-cons-2">Asset paths in your project will be absolute system paths, not relative — moving or sharing the project later will break links.</li>
+                        <li data-i18n="save-project-cons-3">You'll lose track of which assets belong to this composition once the temp folder is cleaned.</li>
+                        <li data-i18n="save-project-cons-4">No automatic backups of your work.</li>
+                    </ul>
+                    <div style="margin-top: 8px; font-size: 11.5px; color: var(--text-primary);" data-i18n="save-project-cons-final">Still want to continue with temporary folders?</div>
+                </div>
+            </div>
+            <div class="settings-footer" id="save-project-footer-step1" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
+                <button id="save-project-skip-btn" class="tool-form-btn" style="flex:1; padding: 10px;" data-i18n="save-project-skip-btn">⊘ Continue without saving</button>
+                <button id="save-project-save-btn" class="tool-form-btn primary" style="flex:2; padding: 10px;" data-i18n="save-project-save-btn">💾 Save project now</button>
+            </div>
+            <div class="settings-footer hidden" id="save-project-footer-step2" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
+                <button id="save-project-back-btn" class="tool-form-btn" style="flex:1; padding: 10px;" data-i18n="save-project-back-btn">← Back</button>
+                <button id="save-project-confirm-skip-btn" class="tool-form-btn danger" style="flex:1; padding: 10px;" data-i18n="save-project-confirm-skip-btn">Yes, use temp folders</button>
+                <button id="save-project-save-anyway-btn" class="tool-form-btn primary" style="flex:1.5; padding: 10px;" data-i18n="save-project-save-anyway-btn">💾 Actually save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Permission Request Modal (asks user to approve sensitive operations) -->
     <div id="permission-overlay" class="hidden">
         <div class="settings-modal glass-panel" style="max-width: 540px;">

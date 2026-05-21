@@ -457,6 +457,60 @@ function getProjectFolder() {
     return "NO_PROJECT_SAVED";
 }
 
+// ===== Project save state =====
+// Returns JSON: { saved: bool, modified: bool, folder: string, file: string, name: string }
+// "saved"  = project has been saved at least once (app.project.file is non-null)
+// "modified" = project has unsaved changes since last save
+function getProjectSaveStatus() {
+    try {
+        var proj = app.project;
+        if (!proj) return '{"saved":false,"modified":false,"folder":"","file":"","name":""}';
+        var esc = function(s) { return (s || "").replace(/\\/g, '\\\\').replace(/"/g, '\\"'); };
+        var saved = !!proj.file;
+        // dirty flag — best-effort detection
+        var modified = false;
+        try { modified = !!proj.dirty; } catch (e) {}
+        var folder = "", file = "", name = "";
+        if (saved) {
+            try { file = proj.file.fsName; } catch (e) {}
+            try { folder = proj.file.parent.fsName; } catch (e) {}
+            try { name = proj.file.name; } catch (e) {}
+        }
+        return '{"saved":' + (saved ? 'true' : 'false')
+             + ',"modified":' + (modified ? 'true' : 'false')
+             + ',"folder":"' + esc(folder) + '"'
+             + ',"file":"' + esc(file) + '"'
+             + ',"name":"' + esc(name) + '"}';
+    } catch (e) {
+        return '{"saved":false,"modified":false,"folder":"","file":"","name":"","error":"' + e.toString().replace(/"/g, '\\"') + '"}';
+    }
+}
+
+// Triggers AE's native Save / Save-As dialog. If forceDialog=true, always opens Save As.
+// Returns JSON: { saved: bool, file: string, cancelled: bool }
+function saveProjectInteractive(forceDialog) {
+    try {
+        var proj = app.project;
+        if (!proj) return '{"saved":false,"cancelled":true,"error":"No project"}';
+        var hadFile = !!proj.file;
+        if (forceDialog || !hadFile) {
+            // Show OS Save-As dialog
+            var newFile = proj.file ? proj.file : new File("~/Desktop/Untitled.aep");
+            var picked = newFile.saveDlg("Save HEXART.PL/AfterALL project", "After Effects Project:*.aep");
+            if (!picked) return '{"saved":false,"cancelled":true}';
+            proj.save(picked);
+        } else {
+            // Just save in place
+            proj.save();
+        }
+        var esc = function(s) { return (s || "").replace(/\\/g, '\\\\').replace(/"/g, '\\"'); };
+        var f = proj.file ? proj.file.fsName : "";
+        return '{"saved":true,"cancelled":false,"file":"' + esc(f) + '"}';
+    } catch (e) {
+        return '{"saved":false,"cancelled":false,"error":"' + e.toString().replace(/"/g, '\\"') + '"}';
+    }
+}
+
 // ===== Asset Snapshot (for protection / undo tracking) =====
 // Returns names of all project items and per-comp layer names that exist
 // at the moment of the call. Compared later to classify deletions.

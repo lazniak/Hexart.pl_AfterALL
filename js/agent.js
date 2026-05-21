@@ -937,6 +937,11 @@ Your toolbox is NOT limited to what's already installed. Treat the open-source e
 
 **Local services**: if you need GPU-heavy generation (ComfyUI, SD, Whisper), discover whether the user has them locally before reaching for cloud APIs. Use background processes (parallel_tasks.python with "background": true) to run servers; save the connection config in LTM (replace_category: "local_tools").
 
+### ASSET FOLDER STRUCTURE (where your files land):
+${this.useTempFolders ? `- ⚠ PROJECT IS UNSAVED — assets land in OS temp at \`<tmpdir>/hexart_afterall/<session>/{images,audio,video,svg,transcripts,scripts}/\`. Warn the user when an asset would be lost on cleanup; suggest saving the project to persist them.`
+                       : `- All generated assets are organized in \`<projectFolder>/aisist_assets/<kind>/\`:\n  • images/ — generated and edited images (aisist_img_*, aisist_edit_*)\n  • audio/  — TTS, music, SFX (aisist_tts_*, aisist_music_*, aisist_sfx_*)\n  • video/  — Grok-generated clips (aisist_vid_*)\n  • svg/    — vector graphics (aisist_svg_*)\n  • transcripts/ — Scribe/WhisperX JSON outputs\n  • scripts/ — saved auxiliary script files`}
+- When you write Python scripts that produce files, save them under the appropriate subfolder (you can read the asset root via context). Use the structured layout — don't dump everything in one folder.
+
 ### SELF-VERIFICATION — INSPECT YOUR OWN WORK (CRITICAL):
 You are NOT done when the script runs without throwing — you are done when you've VISUALLY CONFIRMED the result matches intent. Default to over-verifying.
 
@@ -1391,31 +1396,69 @@ ${this.getSkillsSummary()}
         });
     }
 
-    async getProjectFootageDir() {
+    // Project save state cache — checked by main.js pre-flight, also influences asset folder choice
+    async getProjectSaveStatus() {
         return new Promise((resolve) => {
             const csInterface = new CSInterface();
-            csInterface.evalScript(`(function(){ 
-                try { 
-                    if (app.project.file) { 
-                        return app.project.file.parent.fsName; 
-                    } 
-                } catch(e) {} 
-                return ""; 
-            })()`, (res) => {
-                if (res && res !== "undefined" && res !== "") {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const footagePath = path.join(res, "footage");
-                    if (!fs.existsSync(footagePath)) {
-                        try { fs.mkdirSync(footagePath, { recursive: true }); } catch(e) {}
-                    }
-                    resolve(footagePath);
-                } else {
-                    const os = require('os');
-                    resolve(os.tmpdir());
-                }
+            csInterface.evalScript('getProjectSaveStatus()', (res) => {
+                try { resolve(JSON.parse(res)); }
+                catch (e) { resolve({ saved: false, modified: false, folder: '', file: '', name: '', error: 'parse' }); }
             });
         });
+    }
+
+    // Trigger AE Save / Save-As. forceDialog = true → always Save-As.
+    async triggerProjectSave(forceDialog) {
+        return new Promise((resolve) => {
+            const csInterface = new CSInterface();
+            const arg = forceDialog ? 'true' : 'false';
+            csInterface.evalScript('saveProjectInteractive(' + arg + ')', (res) => {
+                try { resolve(JSON.parse(res)); }
+                catch (e) { resolve({ saved: false, cancelled: true, error: 'parse' }); }
+            });
+        });
+    }
+
+    // Returns a structured asset directory under <projectFolder>/aisist_assets/<kind>/
+    // or — when the user explicitly opted to use temp folders — <os.tmpdir()>/hexart_afterall/<sessionId>/<kind>/.
+    // kind: 'images' | 'audio' | 'video' | 'svg' | 'transcripts' | 'scripts' | 'temp'
+    async getAssetDir(kind) {
+        const fsNode = require('fs');
+        const pathNode = require('path');
+        const osNode = require('os');
+        const validKind = ['images', 'audio', 'video', 'svg', 'transcripts', 'scripts', 'temp'].indexOf(kind) !== -1 ? kind : 'temp';
+
+        // Path A: temp fallback (user explicitly opted in via useTempFolders)
+        if (this.useTempFolders) {
+            const sessionId = this._sessionId || 'session_' + Date.now();
+            this._sessionId = sessionId;
+            const base = pathNode.join(osNode.tmpdir(), 'hexart_afterall', sessionId, validKind);
+            try { if (!fsNode.existsSync(base)) fsNode.mkdirSync(base, { recursive: true }); } catch (_) {}
+            return base;
+        }
+
+        // Path B: project folder (preferred — when project is saved)
+        try {
+            const status = await this.getProjectSaveStatus();
+            if (status && status.saved && status.folder) {
+                const root = pathNode.join(status.folder, 'aisist_assets');
+                const sub = pathNode.join(root, validKind);
+                if (!fsNode.existsSync(sub)) fsNode.mkdirSync(sub, { recursive: true });
+                return sub;
+            }
+        } catch (e) { /* fall through */ }
+
+        // Path C: silent fallback (no project saved, no explicit opt-in yet — shouldn't normally happen
+        // because pre-flight blocks this state, but keeps things robust if main.js is bypassed).
+        const fallback = pathNode.join(osNode.tmpdir(), 'hexart_afterall_fallback', validKind);
+        try { if (!fsNode.existsSync(fallback)) fsNode.mkdirSync(fallback, { recursive: true }); } catch (_) {}
+        return fallback;
+    }
+
+    // Legacy alias — keeps backward compatibility with any code paths still calling the old name.
+    // 'footage' was the historical flat directory; map it to 'temp' for new structured layout.
+    async getProjectFootageDir() {
+        return this.getAssetDir('temp');
     }
     
     async getAESnapshot() {
@@ -1664,9 +1707,9 @@ ${this.getSkillsSummary()}
             if (typeof require !== 'undefined') {
                 const fs = require('fs');
                 const path = require('path');
-                
-                const tempDir = await this.getProjectFootageDir();
-                
+
+                const tempDir = await this.getAssetDir('images');
+
                 let ext = 'png';
                 if (inlineData.mimeType === 'image/jpeg') ext = 'jpg';
                 else if (inlineData.mimeType === 'image/webp') ext = 'webp';
@@ -1731,7 +1774,7 @@ ${this.getSkillsSummary()}
             if (typeof require !== 'undefined') {
                 const fs = require('fs');
                 const path = require('path');
-                const tempDir = await this.getProjectFootageDir();
+                const tempDir = await this.getAssetDir('svg');
                 const slug = this.promptToSlug(prompt);
                 const fileName = `aisist_svg_${slug}_${Date.now()}.svg`;
                 const filePath = path.join(tempDir, fileName);
@@ -1802,7 +1845,7 @@ ${this.getSkillsSummary()}
             if (resultData.mimeType === 'image/jpeg') outExt = 'jpg';
             else if (resultData.mimeType === 'image/webp') outExt = 'webp';
 
-            const tempDir = await this.getProjectFootageDir();
+            const tempDir = await this.getAssetDir('images');
             const slug = this.promptToSlug(editPrompt);
             const fileName = `aisist_edit_${slug}_${Date.now()}.${outExt}`;
             const filePath = path.join(tempDir, fileName);
@@ -1920,8 +1963,8 @@ ${this.getSkillsSummary()}
                 
                 const fetchMp4 = await fetch(videoUrl, { signal: this.abortController ? this.abortController.signal : undefined });
                 const buffer = await fetchMp4.arrayBuffer();
-                
-                const tempDir = await this.getProjectFootageDir();
+
+                const tempDir = await this.getAssetDir('video');
                 const slug = this.promptToSlug(prompt);
                 const fileName = `aisist_vid_${slug}_${Date.now()}.mp4`;
                 const filePath = path.join(tempDir, fileName);
@@ -2040,7 +2083,7 @@ ${this.getSkillsSummary()}
         try {
             const fs = require('fs');
             const path = require('path');
-            const tempDir = await this.getProjectFootageDir();
+            const tempDir = await this.getAssetDir('audio');
             const slug = this.promptToSlug(prompt);
             let filePath, audioDurationSec, audioBuffer;
 
@@ -2194,7 +2237,7 @@ ${this.getSkillsSummary()}
                 const path = require('path');
                 
                 const mp3Buffer = Buffer.from(audioBase64, 'base64');
-                const tempDir = await this.getProjectFootageDir();
+                const tempDir = await this.getAssetDir('audio');
                 // Lyria 3 clip / pro always returns an mp3 by default for standard prompts
                 const slug = this.promptToSlug(prompt);
                 const fileName = `aisist_music_${slug}_${Date.now()}.mp3`;
@@ -2265,7 +2308,7 @@ ${this.getSkillsSummary()}
                 ext = 'wav';
             } else if (fmt.startsWith('opus')) { ext = 'opus'; }
 
-            const tempDir = await this.getProjectFootageDir();
+            const tempDir = await this.getAssetDir('audio');
             const slug = this.promptToSlug(prompt);
             const fileName = `aisist_sfx_${slug}_${Date.now()}.${ext}`;
             const filePath = path.join(tempDir, fileName);
@@ -2336,7 +2379,7 @@ ${this.getSkillsSummary()}
                 ext = 'wav';
             } else if (fmt.startsWith('opus')) { ext = 'opus'; }
 
-            const tempDir = await this.getProjectFootageDir();
+            const tempDir = await this.getAssetDir('audio');
             const slug = this.promptToSlug(prompt);
             const fileName = `aisist_music_${slug}_${Date.now()}.${ext}`;
             const filePath = path.join(tempDir, fileName);
@@ -2399,9 +2442,11 @@ ${this.getSkillsSummary()}
                 diarize: false,
                 signal: signal
             });
-            // Persist transcription file next to audio for re-use
+            // Persist transcription file in organized 'transcripts/' folder for re-use
             try {
-                const outPath = audioPath.replace(/\.[^.]+$/, '_transcript.json');
+                const transcriptDir = await this.getAssetDir('transcripts');
+                const baseName = path.basename(audioPath).replace(/\.[^.]+$/, '_transcript.json');
+                const outPath = path.join(transcriptDir, baseName);
                 fs.writeFileSync(outPath, JSON.stringify(data, null, 2), 'utf8');
             } catch (_) {}
             return { success: true, message: JSON.stringify(data.words || data) };

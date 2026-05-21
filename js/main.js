@@ -356,6 +356,25 @@ const i18nDict = {
         'q-form-countdown': 'Auto-zatwierdzenie za {n}s · kliknij dowolne pole, aby anulować',
         'q-form-countdown-cancelled': 'Auto-timer wyłączony',
         'q-form-no-answer-fallback': 'Zgadzam się z Twoją propozycją / brak uwag.',
+        // Save-project pre-flight modal
+        'save-project-title': 'Najpierw zapisz projekt',
+        'save-project-intro': 'Twój projekt After Effects nie został jeszcze zapisany. Zapis teraz pozwoli agentowi umieścić wszystkie generowane zasoby (obrazy, audio, wideo, transkrypcje) w czytelnej, uporządkowanej strukturze obok pliku projektu — wszystko pozostaje przenośne i łatwe do backupu.',
+        'save-project-structure-label': 'Po zapisie zasoby będą zorganizowane tak:',
+        'save-project-skip-btn': '⊘ Kontynuuj bez zapisu',
+        'save-project-save-btn': '💾 Zapisz projekt teraz',
+        'save-project-consequences-title': '⚠ Kontynuując bez zapisu:',
+        'save-project-cons-1': 'Wygenerowane zasoby trafią do folderu tymczasowego systemu — mogą zostać usunięte przy restarcie lub czyszczeniu dysku.',
+        'save-project-cons-2': 'Ścieżki w projekcie będą absolutne, nie relatywne — przeniesienie/udostępnienie projektu zerwie linki.',
+        'save-project-cons-3': 'Stracisz orientację które zasoby należą do tej kompozycji po wyczyszczeniu folderu tymczasowego.',
+        'save-project-cons-4': 'Brak automatycznych backupów Twojej pracy.',
+        'save-project-cons-final': 'Nadal chcesz kontynuować z folderami tymczasowymi?',
+        'save-project-back-btn': '← Wróć',
+        'save-project-confirm-skip-btn': 'Tak, użyj folderów tymczasowych',
+        'save-project-save-anyway-btn': '💾 Jednak zapisuję',
+        'save-project-saved-log': 'Projekt zapisany. Zasoby będą tworzone w aisist_assets/.',
+        'save-project-using-temp-log': 'Pracuję w folderach tymczasowych — pamiętaj, mogą zostać usunięte.',
+        'save-project-cancelled-log': 'Zadanie anulowane (projekt niezapisany).',
+        'save-project-save-cancelled-log': 'Okno zapisu anulowane.',
         'status-ready': 'Gotowy',
         'status-thinking': 'Myślę...',
         'status-processing': 'Przetwarzam...',
@@ -576,6 +595,25 @@ const i18nDict = {
         'q-form-countdown': 'Auto-applying in {n}s · click any field to cancel',
         'q-form-countdown-cancelled': 'Auto-timer disabled',
         'q-form-no-answer-fallback': 'I agree with your suggestion / no further notes.',
+        // Save-project pre-flight modal
+        'save-project-title': 'Save your project first',
+        'save-project-intro': 'Your After Effects project hasn\'t been saved yet. Saving now lets the agent place all generated assets (images, audio, video, transcripts) in a clean, organized folder next to your project file — keeping everything portable and easy to back up.',
+        'save-project-structure-label': 'If you save, assets will be organized like this:',
+        'save-project-skip-btn': '⊘ Continue without saving',
+        'save-project-save-btn': '💾 Save project now',
+        'save-project-consequences-title': '⚠ Continuing without saving means:',
+        'save-project-cons-1': 'Generated assets land in your OS temp folder — they may be wiped on reboot or by system cleanup.',
+        'save-project-cons-2': 'Asset paths in your project will be absolute system paths, not relative — moving or sharing the project later will break links.',
+        'save-project-cons-3': 'You\'ll lose track of which assets belong to this composition once the temp folder is cleaned.',
+        'save-project-cons-4': 'No automatic backups of your work.',
+        'save-project-cons-final': 'Still want to continue with temporary folders?',
+        'save-project-back-btn': '← Back',
+        'save-project-confirm-skip-btn': 'Yes, use temp folders',
+        'save-project-save-anyway-btn': '💾 Actually save',
+        'save-project-saved-log': 'Project saved. Assets will land in aisist_assets/.',
+        'save-project-using-temp-log': 'Working with temporary folders — remember they may be wiped.',
+        'save-project-cancelled-log': 'Task cancelled (project unsaved).',
+        'save-project-save-cancelled-log': 'Save dialog cancelled.',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
         'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
@@ -1339,6 +1377,95 @@ function t(key, fallback) {
 
     // Expose for agent.js to call (in case agent code needs gating)
     window.requestPermission = requestPermission;
+
+    // ===== Save-Project Pre-flight =====================================
+    // Returns Promise<'saved' | 'temp' | 'cancelled'>.
+    // - 'saved'     → project is now saved on disk, assets go to <projectFolder>/aisist_assets/
+    // - 'temp'      → user explicitly opted for temp folders despite warning
+    // - 'cancelled' → user backed out entirely; task should not start
+    const saveProjectOverlay = document.getElementById('save-project-overlay');
+    const saveProjectStep2 = document.getElementById('save-project-step2');
+    const saveProjectFooter1 = document.getElementById('save-project-footer-step1');
+    const saveProjectFooter2 = document.getElementById('save-project-footer-step2');
+    const saveProjectCloseBtn = document.getElementById('save-project-close-btn');
+    const saveProjectSaveBtn = document.getElementById('save-project-save-btn');
+    const saveProjectSkipBtn = document.getElementById('save-project-skip-btn');
+    const saveProjectBackBtn = document.getElementById('save-project-back-btn');
+    const saveProjectConfirmSkipBtn = document.getElementById('save-project-confirm-skip-btn');
+    const saveProjectSaveAnywayBtn = document.getElementById('save-project-save-anyway-btn');
+
+    function showSaveProjectRecommendation() {
+        return new Promise((resolve) => {
+            // Reset to step 1
+            saveProjectStep2.classList.add('hidden');
+            saveProjectFooter1.classList.remove('hidden');
+            saveProjectFooter1.style.display = 'flex';
+            saveProjectFooter2.classList.add('hidden');
+            saveProjectFooter2.style.display = '';
+            saveProjectOverlay.classList.remove('hidden');
+
+            const cleanup = (result) => {
+                saveProjectOverlay.classList.add('hidden');
+                saveProjectSaveBtn.removeEventListener('click', onSave);
+                saveProjectSkipBtn.removeEventListener('click', onSkip);
+                saveProjectBackBtn.removeEventListener('click', onBack);
+                saveProjectConfirmSkipBtn.removeEventListener('click', onConfirmSkip);
+                saveProjectSaveAnywayBtn.removeEventListener('click', onSave);
+                saveProjectCloseBtn.removeEventListener('click', onClose);
+                resolve(result);
+            };
+            const onSave = async () => {
+                saveProjectSaveBtn.disabled = true;
+                saveProjectSaveAnywayBtn.disabled = true;
+                try {
+                    const res = await agent.triggerProjectSave(true);
+                    saveProjectSaveBtn.disabled = false;
+                    saveProjectSaveAnywayBtn.disabled = false;
+                    if (res && res.saved) {
+                        addLog(tr('save-project-saved-log') + ' ' + (res.file || ''), 'success');
+                        cleanup('saved');
+                    } else {
+                        addLog(tr('save-project-save-cancelled-log'), 'info');
+                        // Stay on the modal so the user can try again or skip
+                    }
+                } catch (e) {
+                    saveProjectSaveBtn.disabled = false;
+                    saveProjectSaveAnywayBtn.disabled = false;
+                    addLog('Save error: ' + e.message, 'error');
+                }
+            };
+            const onSkip = () => {
+                // Go to step 2 — consequences explanation
+                saveProjectStep2.classList.remove('hidden');
+                saveProjectFooter1.classList.add('hidden');
+                saveProjectFooter1.style.display = 'none';
+                saveProjectFooter2.classList.remove('hidden');
+                saveProjectFooter2.style.display = 'flex';
+            };
+            const onBack = () => {
+                saveProjectStep2.classList.add('hidden');
+                saveProjectFooter1.classList.remove('hidden');
+                saveProjectFooter1.style.display = 'flex';
+                saveProjectFooter2.classList.add('hidden');
+                saveProjectFooter2.style.display = 'none';
+            };
+            const onConfirmSkip = () => {
+                addLog(tr('save-project-using-temp-log'), 'warning');
+                cleanup('temp');
+            };
+            const onClose = () => {
+                addLog(tr('save-project-cancelled-log'), 'info');
+                cleanup('cancelled');
+            };
+            saveProjectSaveBtn.addEventListener('click', onSave);
+            saveProjectSkipBtn.addEventListener('click', onSkip);
+            saveProjectBackBtn.addEventListener('click', onBack);
+            saveProjectConfirmSkipBtn.addEventListener('click', onConfirmSkip);
+            saveProjectSaveAnywayBtn.addEventListener('click', onSave);
+            saveProjectCloseBtn.addEventListener('click', onClose);
+        });
+    }
+    window.showSaveProjectRecommendation = showSaveProjectRecommendation;
 
     // ===== MCP Bridge UI =================================================
     const mcpEnabledCheck = document.getElementById('mcp-enabled');
@@ -4163,6 +4290,34 @@ function t(key, fallback) {
         
         updateStatus('Skanuję projekt AE...', true);
         addLog('Wysyłam zapytanie do środowiska ExtendScript o kontekst projektu...', 'warning');
+
+        // ---- Save-project pre-flight ---------------------------------
+        // If the project is not saved yet, pause and recommend saving so all generated
+        // assets land in <projectFolder>/aisist_assets/. The user can still opt for
+        // temp folders, but only after a clear consequences warning.
+        try {
+            const saveStatus = await agent.getProjectSaveStatus();
+            if (saveStatus && !saveStatus.saved && !agent.useTempFolders) {
+                hideTyping();
+                const decision = await showSaveProjectRecommendation();
+                if (decision === 'cancelled') {
+                    isAgentProcessing = false;
+                    sendBtn.classList.remove('hidden');
+                    stopBtn.classList.add('hidden');
+                    updateStatus(tr('status-ready'));
+                    appendMessage('system', tr('save-project-cancelled-log'));
+                    return;
+                }
+                if (decision === 'temp') {
+                    agent.useTempFolders = true; // flag respected by agent.getAssetDir()
+                } else if (decision === 'saved') {
+                    agent.useTempFolders = false;
+                }
+                showTyping();
+            }
+        } catch (saveErr) {
+            addLog('Save-status pre-flight failed (non-fatal): ' + saveErr.message, 'warning');
+        }
 
         // Take asset snapshot to protect pre-existing user content from accidental deletion
         if (assetTracker) {
