@@ -664,6 +664,13 @@
     // (which mimics OpenAI). We reuse OpenRouterProvider.geminiToOpenAI for
     // history conversion to avoid duplication.
     class OpenAIProvider extends BaseProvider {
+        // Reasoning models (o1, o3, o4, o-mini, gpt-5 family) don't accept
+        // `temperature` and use `max_completion_tokens` instead of `max_tokens`.
+        // Centralised so the same regex isn't drifting across the file.
+        static _isReasoningModel(id) {
+            return /^o[1-9]|^o-mini|^gpt-5/i.test(id || '');
+        }
+
         get apiBase() {
             const base = (this.cfg.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
             return base;
@@ -743,7 +750,7 @@
             const model = args.model || 'gpt-4o';
             // o-series reasoning models reject `temperature` and use
             // `max_completion_tokens` instead of `max_tokens`. Detect by id.
-            const isReasoning = /^o[1-9]|^o-mini|^gpt-5/i.test(model);
+            const isReasoning = OpenAIProvider._isReasoningModel(model);
             const cfg = args.generationConfig || {};
             const payload = {
                 model: model,

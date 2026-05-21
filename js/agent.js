@@ -59,6 +59,66 @@ const diskStorage = {
 };
 window.diskStorage = diskStorage;
 
+// =====================================================================
+// Storage key reference — single source of truth for every diskStorage
+// key we read or write. Currently used as documentation only (existing
+// code still reads literal strings); future call sites should use this
+// object so typos surface at write time, not silently.
+//
+// The `aisist_*` prefix is legacy from before the rename to AfterALL;
+// `hexart_*` is the modern prefix. Both coexist for backward compat.
+// =====================================================================
+const STORAGE_KEYS = Object.freeze({
+    // --- LLM / image / TTS provider ---
+    llmProvider:           'hexart_llm_provider',
+    imgProvider:           'hexart_img_provider',
+    geminiApiKey:          'aisist_api_key',
+    geminiModel:           'hexart_gemini_model',
+    geminiModelLegacy:     'aisist_base_model',     // migration source only
+    geminiImageModel:      'hexart_gemini_img_model',
+    openrouterApiKey:      'hexart_openrouter_key',
+    openrouterLLMModel:    'hexart_openrouter_llm_model',
+    openrouterImageModel:  'hexart_openrouter_img_model',
+    openrouterGroundingModel: 'hexart_openrouter_grounding_model',
+    openaiApiKey:          'hexart_openai_key',
+    openaiLLMModel:        'hexart_openai_llm_model',
+    openaiImageModel:      'hexart_openai_image_model',
+    openaiBaseUrl:         'hexart_openai_base_url',
+    openaiGroundingModel:  'hexart_openai_grounding_model',
+    lmstudioBaseUrl:       'hexart_lmstudio_url',
+    lmstudioApiKey:        'hexart_lmstudio_api_key',
+    lmstudioLLMModel:      'hexart_lmstudio_llm_model',
+    lmstudioGroundingModel:'hexart_lmstudio_grounding_model',
+    comfyuiBaseUrl:        'hexart_comfyui_url',
+    comfyuiWorkflow:       'hexart_comfyui_workflow',
+    comfyuiClientId:       'hexart_comfyui_client_id',
+    // --- TTS / STT / audio modalities ---
+    ttsModel:              'aisist_tts_model',
+    ttsVoice:              'aisist_tts_voice',
+    ttsProvider:           'hexart_tts_provider',
+    sttProvider:           'hexart_stt_provider',
+    musicProvider:         'hexart_music_provider',
+    sfxProvider:           'hexart_sfx_provider',
+    elevenlabsApiKey:      'aisist_elevenlabs_key',
+    elevenlabsModel:       'hexart_elevenlabs_model',
+    elevenlabsSttModel:    'hexart_elevenlabs_stt_model',
+    elevenlabsDefaultVoice:'hexart_elevenlabs_default_voice',
+    elevenlabsMaleVoice:   'hexart_elevenlabs_male_voice',
+    elevenlabsFemaleVoice: 'hexart_elevenlabs_female_voice',
+    elevenlabsOutputFormat:'hexart_elevenlabs_output_format',
+    elevenlabsSfxInfluence:'hexart_elevenlabs_sfx_influence',
+    elevenlabsSfxDuration: 'hexart_elevenlabs_sfx_default_duration',
+    // --- Misc ---
+    replicateApiKey:       'aisist_replicate_key',
+    uiLang:                'aisist_ui_lang',
+    projLang:              'aisist_proj_lang',
+    useGrounding:          'aisist_grounding',
+    pythonSandboxPath:     'hexart_sandbox_path',
+    toolsCachePath:        'hexart_tools_cache_path',
+    memoryArr:             'aisist_memory_arr',
+    customSecrets:         'aisist_custom_secrets'
+});
+
 class AisistAgent {
     constructor() {
         // ---- Validated storage helpers ----------------------------------
@@ -3050,14 +3110,23 @@ ${this.getSkillsSummary()}
                 throw new Error("Błąd: API Lyria zwróciło poprawny kod, ale brak `inlineData` zawierającego muzykę. Upewnij się, że opcja responseModalities została zaakceptowana.");
             }
 
-            // Jeśli wygenerowało słowa piosenki, zapiszmy je do logów LTM lub wklejmy info.
+            // Jeśli wygenerowało słowa piosenki, zapiszmy je do LTM.
+            // Previously this push was in-memory only — the entry vanished
+            // on restart and showed up unfiltered in groupBy because it
+            // lacked a `category`. Now persisted and tagged.
             if (lyricsText.trim().length > 0) {
                 this.longTermMemory.push({
                     id: Date.now() + Math.random(),
                     type: 'system',
+                    category: 'lyria_lyrics',
                     content: `Wygenerowano strukture utworu: \n${lyricsText.trim()}`
                 });
-                console.log("Lyrics / Structure generated:\n" + lyricsText);
+                try {
+                    diskStorage.setItem('aisist_memory_arr', JSON.stringify(this.longTermMemory));
+                    // Invalidate the systemInstruction cache so the new LTM
+                    // entry appears in the next prompt build.
+                    this._sysInstrCache = null;
+                } catch (_) {}
             }
 
             updateStatusCallback("Pobieranie zakończone. Zapisuję plik MP3 do importu...");

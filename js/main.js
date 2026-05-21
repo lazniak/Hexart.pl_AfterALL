@@ -368,6 +368,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const useGroundingCheck = document.getElementById('use-grounding');
 
 // =====================================================================
+// Timing constants — named so the cluster of magic numbers in setTimeout()
+// callbacks stays readable. These tuned values let DOM/agent state settle
+// across the CEP host boundary without measurable user-visible lag.
+// =====================================================================
+const DOM_SETTLE_MS = 60;              // give the DOM one paint tick to mount
+const SETTINGS_PERSIST_MS = 40;        // wait for synchronous setCredentials to land
+const POST_UPDATE_MODAL_MS = 400;      // delay before showing the restart-AE prompt
+const POST_GREETING_MS = 500;          // delay before first appendMessage on init
+const SILENT_UPDATE_CHECK_MS = 6500;   // background GitHub poll — UI-non-blocking
+const ABORT_SETTLE_MS = 300;           // give the abort signal one tick after agent stops
+
+// =====================================================================
 // HEXART.PL/AfterALL — Full i18n dictionary
 // =====================================================================
 // Languages: pl (full) · en (full) · de · es · fr · ja
@@ -410,10 +422,6 @@ const i18nDict = {
         'save-project-cons-2': 'Ścieżki w projekcie będą absolutne, nie relatywne — przeniesienie/udostępnienie projektu zerwie linki.',
         'save-project-cons-3': 'Stracisz orientację które zasoby należą do tej kompozycji po wyczyszczeniu folderu tymczasowego.',
         'save-project-cons-4': 'Brak automatycznych backupów Twojej pracy.',
-        'save-project-cons-final': 'Nadal chcesz kontynuować z folderami tymczasowymi?',
-        'save-project-back-btn': '← Wróć',
-        'save-project-confirm-skip-btn': 'Tak, użyj folderów tymczasowych',
-        'save-project-save-anyway-btn': '💾 Jednak zapisuję',
         'save-project-saved-log': 'Projekt zapisany. Zasoby będą tworzone w aisist_assets/.',
         'save-project-using-temp-log': 'Pracuję w folderach tymczasowych — pamiętaj, mogą zostać usunięte.',
         'save-project-cancelled-log': 'Zadanie anulowane (projekt niezapisany).',
@@ -490,8 +498,6 @@ const i18nDict = {
         'log-changed-project': 'Zmiana projektu: {from} → {to}',
         'log-loaded-project-session': 'Wczytano ostatnią sesję projektu: {title}',
         'log-injected-queue': 'Wstrzyknięto {n} znaków z kolejki sugestii gracza!',
-        'log-fetching-gemini-models': 'Pobieram listę modeli Gemini z API...',
-        'log-fetching-lmstudio-models': 'Pobieram listę modeli z LM Studio...',
         'log-llm-call': 'Wywołanie LLM ({model})...',
         'log-llm-responded': 'LLM odpowiedział w {ms}ms (streamowane).',
         'log-task-completed-flag': 'Zadanie zakończone (is_task_complete: true).',
@@ -632,11 +638,8 @@ const i18nDict = {
         'sfx-card-hint': 'Generację SFX obsługuje aktualnie wyłącznie ElevenLabs (do 22 s na klip).',
         'sfx-provider-label': 'Dostawca SFX',
         // misc helpers
-        'no-gemini-key-warn': '⚠ Brak klucza Gemini API',
-        'no-openai-key-warn': '⚠ Brak klucza OpenAI',
         'no-openai-models': '(brak modeli zwróconych przez API)',
         'log-gemini-models-loaded': 'Pobrano {n} modeli Gemini ({llm} LLM, {img} obrazy, {tts} TTS).',
-        'log-fetching-openai-models': 'Pobieram listę modeli OpenAI...',
         'log-openai-models-loaded': 'OpenAI: pobrano {n} modeli.',
         'log-comfyui-connected': 'ComfyUI połączony — GPU: {dev}',
         'log-comfyui-error': 'ComfyUI błąd: {msg}',
@@ -955,10 +958,6 @@ const i18nDict = {
         'save-project-cons-2': 'Asset paths in your project will be absolute system paths, not relative — moving or sharing the project later will break links.',
         'save-project-cons-3': 'You\'ll lose track of which assets belong to this composition once the temp folder is cleaned.',
         'save-project-cons-4': 'No automatic backups of your work.',
-        'save-project-cons-final': 'Still want to continue with temporary folders?',
-        'save-project-back-btn': '← Back',
-        'save-project-confirm-skip-btn': 'Yes, use temp folders',
-        'save-project-save-anyway-btn': '💾 Actually save',
         'save-project-saved-log': 'Project saved. Assets will land in aisist_assets/.',
         'save-project-using-temp-log': 'Working with temporary folders — remember they may be wiped.',
         'save-project-cancelled-log': 'Task cancelled (project unsaved).',
@@ -1032,8 +1031,6 @@ const i18nDict = {
         'log-changed-project': 'Project changed: {from} → {to}',
         'log-loaded-project-session': 'Loaded last session for this project: {title}',
         'log-injected-queue': 'Injected {n} characters from user suggestion queue!',
-        'log-fetching-gemini-models': 'Fetching Gemini model list from API...',
-        'log-fetching-lmstudio-models': 'Fetching LM Studio model list...',
         'log-llm-call': 'Calling LLM ({model})...',
         'log-llm-responded': 'LLM responded in {ms}ms (streamed).',
         'log-task-completed-flag': 'Task complete (is_task_complete: true).',
@@ -1152,11 +1149,8 @@ const i18nDict = {
         'sfx-card-title': '🔊 Sound Effects (SFX)',
         'sfx-card-hint': 'SFX generation is currently provided only by ElevenLabs (up to 22s per clip).',
         'sfx-provider-label': 'SFX Provider',
-        'no-gemini-key-warn': '⚠ Missing Gemini API key',
-        'no-openai-key-warn': '⚠ Missing OpenAI API key',
         'no-openai-models': '(no models returned by API)',
         'log-gemini-models-loaded': 'Fetched {n} Gemini models ({llm} LLM, {img} image, {tts} TTS).',
-        'log-fetching-openai-models': 'Fetching OpenAI model list...',
         'log-openai-models-loaded': 'OpenAI: {n} models fetched.',
         'log-comfyui-connected': 'ComfyUI connected — GPU: {dev}',
         'log-comfyui-error': 'ComfyUI error: {msg}',
@@ -1611,7 +1605,6 @@ const i18nDict = {
         'sfx-card-title': '🔊 Soundeffekte (SFX)',
         'sfx-card-hint': 'SFX-Generierung erfolgt aktuell ausschließlich über ElevenLabs (bis zu 22 s pro Clip).',
         'sfx-provider-label': 'SFX-Anbieter',
-        'no-gemini-key-warn': '⚠ Kein Gemini-API-Schlüssel',
         // Restart-AE prompt (post-update)
         'restart-ae-title':      'After Effects muss neu gestartet werden',
         'restart-ae-body':       'Das Plugin wurde aktualisiert. Adobe After Effects muss neu gestartet werden, um die neue Version zu laden. Jetzt neu starten?',
@@ -1800,7 +1793,6 @@ const i18nDict = {
         'sfx-card-title': '🔊 Efectos de Sonido (SFX)',
         'sfx-card-hint': 'La generación de SFX la proporciona actualmente solo ElevenLabs (hasta 22 s por clip).',
         'sfx-provider-label': 'Proveedor de SFX',
-        'no-gemini-key-warn': '⚠ Falta la clave API de Gemini',
         // Restart-AE prompt (post-update)
         'restart-ae-title':      'After Effects necesita reiniciarse',
         'restart-ae-body':       'El plugin se ha actualizado. Adobe After Effects debe reiniciarse para cargar la nueva versión. ¿Reiniciar ahora?',
@@ -1989,7 +1981,6 @@ const i18nDict = {
         'sfx-card-title': '🔊 Effets Sonores (SFX)',
         'sfx-card-hint': 'La génération de SFX n\'est actuellement fournie que par ElevenLabs (jusqu\'à 22 s par clip).',
         'sfx-provider-label': 'Fournisseur SFX',
-        'no-gemini-key-warn': '⚠ Clé API Gemini manquante',
         // Restart-AE prompt (post-update)
         'restart-ae-title':      'After Effects doit redémarrer',
         'restart-ae-body':       'Le plugin a été mis à jour. Adobe After Effects doit redémarrer pour charger la nouvelle version. Redémarrer maintenant ?',
@@ -2178,7 +2169,6 @@ const i18nDict = {
         'sfx-card-title': '🔊 効果音 (SFX)',
         'sfx-card-hint': 'SFX 生成は現在 ElevenLabs のみが提供しています（1 クリップ最大 22 秒）。',
         'sfx-provider-label': 'SFX プロバイダー',
-        'no-gemini-key-warn': '⚠ Gemini API キーがありません',
         // Restart-AE prompt (post-update)
         'restart-ae-title':      'After Effects の再起動が必要です',
         'restart-ae-body':       'プラグインが更新されました。新しいバージョンを読み込むには Adobe After Effects を再起動する必要があります。今すぐ再起動しますか？',
@@ -5199,7 +5189,7 @@ function t(key, fallback) {
                 setUpdateLog((r.stdout || '') + (r.stderr ? '\n--- stderr ---\n' + r.stderr : ''), false);
                 appendMessage('system', tr('amsg-update-pull-ok'));
                 // Successful update — prompt to restart AE so the new code loads.
-                setTimeout(showRestartAEPrompt, 400);
+                setTimeout(showRestartAEPrompt, POST_UPDATE_MODAL_MS);
             } else {
                 setUpdateStatus(tr('update-pull-fail'), 'error');
                 setUpdateLog((r.error || '') + (r.stdout ? '\n' + r.stdout : '') + (r.stderr ? '\n' + r.stderr : ''), true);
@@ -5307,7 +5297,7 @@ function t(key, fallback) {
                 ? document.getElementById('openrouter-api')
                 : null;
             if (focusTarget) focusTarget.focus();
-        }, 60);
+        }, DOM_SETTLE_MS);
     });
 
     function buildWelcomeCardHTML() {
@@ -5339,7 +5329,7 @@ function t(key, fallback) {
     if (saveSettingsBtn) {
         saveSettingsBtn.addEventListener('click', () => {
             // Give setCredentials a tick to land, then re-evaluate.
-            setTimeout(updateApiSetupVisibility, 40);
+            setTimeout(updateApiSetupVisibility, SETTINGS_PERSIST_MS);
         });
     }
 
@@ -5354,7 +5344,7 @@ function t(key, fallback) {
             // HTML (iframe, formatted blocks) renders as-is.
             appendMessage('system', buildWelcomeCardHTML());
         }
-    }, 500);
+    }, POST_GREETING_MS);
 
     // Auto resize textarea
     promptInput.addEventListener('input', function() {
@@ -6945,11 +6935,13 @@ while (!isDone) {
                         appendMessage('system', tr('sysmsg-prev-aborted-new-task'));
                         isAgentProcessing = false;
                         agent.isAborted = false;
-                        // Trigger new task after a short delay
+                        // Give the abort signal one tick to settle before
+                        // kicking off the next task so the previous task's
+                        // teardown doesn't race with the new send.
                         setTimeout(() => {
                             promptInput.value = redirectText;
                             handleSend();
-                        }, 300);
+                        }, ABORT_SETTLE_MS);
                         return;
                     }
                     break;
