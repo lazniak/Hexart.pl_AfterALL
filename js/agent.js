@@ -251,6 +251,18 @@ class AisistAgent {
         this.skills = this.loadSkills();
         this.backgroundProcesses = {};
 
+        // Generator result arrays — initialised here so the six
+        // `if (!this.lastGenerated…Paths) this.lastGenerated…Paths = []`
+        // lazy-init lines scattered across the per-asset generators are
+        // no-ops. (Kept the lazy guards too, for safety — they're cheap.)
+        this.lastGeneratedImagePaths = [];
+        this.lastGeneratedAudioPaths = [];
+
+        // Lazy CSInterface accessor — 16 callers in this file each did
+        // `this._csi()` independently. CSInterface is effectively
+        // a singleton bridge to the host; we cache one instance.
+        this._csiInstance = null;
+
         // ---- Session attachments — bounded to prevent memory leak ------
         this.sessionAttachments = [];
         this.MAX_SESSION_ATTACHMENTS = 6;     // hard cap
@@ -555,6 +567,16 @@ class AisistAgent {
             .slice(0, 5)                // max 5 words
             .join('_')
             .substring(0, maxLen) || 'unnamed';
+    }
+
+    // Lazy CSInterface accessor — see constructor comment.
+    // Returns the cached instance, or null if CSInterface isn't
+    // available (defensive — shouldn't happen in CEP).
+    _csi() {
+        if (this._csiInstance) return this._csiInstance;
+        if (typeof CSInterface === 'undefined') return null;
+        try { this._csiInstance = this._csi(); } catch (_) { return null; }
+        return this._csiInstance;
     }
 
     // --- Python Environment Tool ---
@@ -985,8 +1007,8 @@ except Exception as e:
         const candidates = [];
         // 1. CEP's documented "extension root" API
         try {
-            if (typeof CSInterface !== 'undefined') {
-                const csi = new CSInterface();
+            const csi = this._csi();
+            if (csi) {
                 const extPath = csi.getSystemPath && csi.getSystemPath('extension');
                 if (extPath) candidates.push(extPath);
             }
@@ -2118,7 +2140,7 @@ ${this.getSkillsSummary()}
 
     async getAEContext() {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             csInterface.evalScript('getAEContext()', (res) => {
                 try {
                     resolve(JSON.parse(res));
@@ -2132,7 +2154,7 @@ ${this.getSkillsSummary()}
 
     async getDeepAEContext() {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             csInterface.evalScript('getDeepAEContext()', (res) => {
                 try {
                     resolve(JSON.parse(res));
@@ -2147,7 +2169,7 @@ ${this.getSkillsSummary()}
     // --- Render Preview (Multi-frame capture for vision) ---
     async captureRenderPreview(numFrames) {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             const n = numFrames || 4;
             csInterface.evalScript('getMultiFramePreview(' + n + ')', (res) => {
                 try {
@@ -2180,7 +2202,7 @@ ${this.getSkillsSummary()}
     // Project save state cache — checked by main.js pre-flight, also influences asset folder choice
     async getProjectSaveStatus() {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             csInterface.evalScript('getProjectSaveStatus()', (res) => {
                 try { resolve(JSON.parse(res)); }
                 catch (e) { resolve({ saved: false, modified: false, folder: '', file: '', name: '', error: 'parse' }); }
@@ -2191,7 +2213,7 @@ ${this.getSkillsSummary()}
     // Trigger AE Save / Save-As. forceDialog = true → always Save-As.
     async triggerProjectSave(forceDialog) {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             const arg = forceDialog ? 'true' : 'false';
             csInterface.evalScript('saveProjectInteractive(' + arg + ')', (res) => {
                 try { resolve(JSON.parse(res)); }
@@ -2244,7 +2266,7 @@ ${this.getSkillsSummary()}
     
     async getAESnapshot() {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             csInterface.evalScript('getAESnapshot()', (res) => {
                 if (!res || res.startsWith("ERROR") || res === "NO_COMP") {
                     resolve(null);
@@ -2283,7 +2305,7 @@ ${this.getSkillsSummary()}
 
     async runExtendScript(code) {
         return new Promise((resolve) => {
-            const csInterface = new CSInterface();
+            const csInterface = this._csi();
             // Primary transport: write code to a temp file and tell ExtendScript to read it.
             // This avoids CEP evalScript size limits (~16-64KB) and base64 polyfill bugs.
             const fsNode = require('fs');
@@ -2514,7 +2536,7 @@ ${this.getSkillsSummary()}
                 updateStatusCallback("Importuję do After Effects...");
                 
                 return new Promise((resolve) => {
-                    const csInterface = new CSInterface();
+                    const csInterface = this._csi();
                     const safePath = filePath.replace(/\\/g, '\\\\');
                     csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res, filePath: filePath });
@@ -2567,7 +2589,7 @@ ${this.getSkillsSummary()}
 
                 updateStatusCallback("Importuje SVG do After Effects...");
                 return new Promise((resolve) => {
-                    const csInterface = new CSInterface();
+                    const csInterface = this._csi();
                     const safePath = filePath.replace(/\\/g, '\\\\');
                     csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res, filePath: filePath });
@@ -2641,7 +2663,7 @@ ${this.getSkillsSummary()}
 
             updateStatusCallback("Importuje edytowany obraz do After Effects...");
             return new Promise((resolve) => {
-                const csInterface = new CSInterface();
+                const csInterface = this._csi();
                 const safePath = filePath.replace(/\\/g, '\\\\');
                 csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                     resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res, filePath: filePath });
@@ -2759,7 +2781,7 @@ ${this.getSkillsSummary()}
                 updateStatusCallback("Importuję wideo do After Effects...");
                 
                 return new Promise((resolve) => {
-                    const csInterface = new CSInterface();
+                    const csInterface = this._csi();
                     const safePath = filePath.replace(/\\/g, '\\\\');
                     csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res });
@@ -2935,7 +2957,7 @@ ${this.getSkillsSummary()}
 
             updateStatusCallback('Importuję audio do After Effects...');
             return new Promise((resolve) => {
-                const csInterface = new CSInterface();
+                const csInterface = this._csi();
                 const safePath = filePath.replace(/\\/g, '\\\\');
                 csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                     resolve(res.startsWith('ERROR') ? { error: res } : { success: true, message: res, filePath: filePath, durationSec: audioDurationSec });
@@ -3062,7 +3084,7 @@ ${this.getSkillsSummary()}
                 updateStatusCallback("Importuję utwór Lyria 3 do After Effects...");
                 
                 return new Promise((resolve) => {
-                    const csInterface = new CSInterface();
+                    const csInterface = this._csi();
                     const safePath = filePath.replace(/\\/g, '\\\\');
                     csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res) => {
                         resolve(res.startsWith("ERROR") ? { error: res } : { success: true, message: res });
@@ -3129,7 +3151,7 @@ ${this.getSkillsSummary()}
 
             updateStatusCallback('Importuję SFX do After Effects...');
             return new Promise((resolve) => {
-                const csInterface = new CSInterface();
+                const csInterface = this._csi();
                 const safePath = filePath.replace(/\\/g, '\\\\');
                 csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res2) => {
                     resolve(res2.startsWith('ERROR') ? { error: res2 } : { success: true, message: res2, filePath: filePath });
@@ -3200,7 +3222,7 @@ ${this.getSkillsSummary()}
 
             updateStatusCallback('Importuję utwór ElevenLabs do After Effects...');
             return new Promise((resolve) => {
-                const csInterface = new CSInterface();
+                const csInterface = this._csi();
                 const safePath = filePath.replace(/\\/g, '\\\\');
                 csInterface.evalScript(`importAndAddToComp("${safePath}")`, (res2) => {
                     resolve(res2.startsWith('ERROR') ? { error: res2 } : { success: true, message: res2, filePath: filePath, durationSec: durationSec || null });

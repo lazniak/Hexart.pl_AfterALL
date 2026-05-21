@@ -1,5 +1,47 @@
 ﻿// jshint ignore: start
 
+// =====================================================================
+// Module-level helpers
+// =====================================================================
+// JSON-escape a string for safe embedding inside a JSON literal we build
+// by string concat. Used by ~6 sites that each defined a local copy.
+function escJSON(s) {
+    return (s == null ? "" : String(s))
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, "\\\"");
+}
+// Same as escJSON but also escapes newlines — for multi-line text values.
+function escJSONmulti(s) {
+    return (s == null ? "" : String(s))
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, "\\\"")
+        .replace(/\r?\n/g, "\\n");
+}
+// Walk every item in app.project. Callback may return false to stop early.
+// Returns true if completed, false if stopped or no project.
+function eachItem(cb) {
+    var proj = app.project;
+    if (!proj) return false;
+    for (var i = 1; i <= proj.numItems; i++) {
+        var it = null;
+        try { it = proj.item(i); } catch (_) { continue; }
+        if (it && cb(it, i) === false) return false;
+    }
+    return true;
+}
+// Walk every CompItem.
+function eachComp(cb) {
+    return eachItem(function (it, i) {
+        if (it instanceof CompItem) return cb(it, i);
+    });
+}
+// Walk every FootageItem.
+function eachFootage(cb) {
+    return eachItem(function (it, i) {
+        if (it instanceof FootageItem) return cb(it, i);
+    });
+}
+
 function getAEContext() {
     try {
         var proj = app.project;
@@ -180,13 +222,11 @@ function getDeepAEContext() {
 // MUST use this instead of proj.activeItem when targeting a specific comp.
 function findCompByName(name) {
     if (!name) return null;
-    var proj = app.project;
-    if (!proj) return null;
-    for (var i = 1; i <= proj.numItems; i++) {
-        var it = proj.item(i);
-        if (it instanceof CompItem && it.name === name) return it;
-    }
-    return null;
+    var match = null;
+    eachComp(function (it) {
+        if (it.name === name) { match = it; return false; } // stop
+    });
+    return match;
 }
 
 function getAESnapshot() {
@@ -514,9 +554,11 @@ function importFilesToProject(pathsJSON) {
 
 // ===== Get project folder path =====
 function getProjectFolder() {
-    if (app.project.file) {
-        return app.project.file.parent.fsName;
-    }
+    try {
+        if (app.project && app.project.file) {
+            return app.project.file.parent.fsName;
+        }
+    } catch (_) {}
     return "NO_PROJECT_SAVED";
 }
 
@@ -616,11 +658,12 @@ function getAssetSnapshot() {
 // ===== List all footage items with full paths =====
 function listFootagePaths() {
     var items = [];
-    for (var i = 1; i <= app.project.numItems; i++) {
-        var item = app.project.item(i);
-        if (item instanceof FootageItem && item.file) {
-            items.push(item.name + "|" + item.file.fsName);
-        }
-    }
+    try {
+        eachFootage(function (item) {
+            if (item.file) {
+                items.push(item.name + "|" + item.file.fsName);
+            }
+        });
+    } catch (_) {}
     return items.join("\n");
 }

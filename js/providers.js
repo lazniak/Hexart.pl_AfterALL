@@ -88,6 +88,45 @@
         }
         // Image generation — Promise<{ mimeType, data (base64) }>
         async generateImage(args) { throw new Error('not implemented'); }
+
+        // -------------------------------------------------------------
+        // Shared OpenAI-shape helpers (OpenRouter / OpenAI / LMStudio all
+        // expose the same /chat/completions schema, so unpacking is
+        // identical). Used to be duplicated 3x — now lives here.
+        // -------------------------------------------------------------
+        // SSE delta extractor for OpenAI-shape streaming events.
+        // `choices[0].delta.content` is either a string or an array of
+        // `{ type: 'text', text: '...' }` parts (multimodal). Returns
+        // empty string for non-text events (tool calls, role-only, etc.).
+        static _oaiDeltaExtract(obj) {
+            const delta = obj && obj.choices && obj.choices[0] && obj.choices[0].delta;
+            if (!delta) return '';
+            const c = delta.content;
+            if (typeof c === 'string') return c;
+            if (Array.isArray(c)) {
+                let s = '';
+                for (const part of c) {
+                    if (part && typeof part.text === 'string') s += part.text;
+                }
+                return s;
+            }
+            return '';
+        }
+        // Non-streaming OpenAI response text extractor.
+        static _extractOAIText(data) {
+            const msg = data && data.choices && data.choices[0] && data.choices[0].message;
+            if (!msg) return '';
+            const c = msg.content;
+            if (typeof c === 'string') return c;
+            if (Array.isArray(c)) {
+                let s = '';
+                for (const part of c) {
+                    if (part && typeof part.text === 'string') s += part.text;
+                }
+                return s;
+            }
+            return '';
+        }
     }
 
     // -----------------------------------------------------------------
@@ -541,11 +580,7 @@
             if (!data.choices || !data.choices[0]) {
                 throw new Error('OpenRouter: pusta odpowiedz. ' + (data.error ? JSON.stringify(data.error) : ''));
             }
-            const msg = data.choices[0].message || {};
-            const text = typeof msg.content === 'string'
-                ? msg.content
-                : (Array.isArray(msg.content) ? msg.content.map(c => c.text || '').join('') : '');
-            return { text: text, raw: data };
+            return { text: BaseProvider._extractOAIText(data), raw: data };
         }
 
         async streamChatCompletion(args, onChunk) {
@@ -563,20 +598,7 @@
                 const errTxt = await res.text();
                 throw new Error('OpenRouter stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
             }
-            const extract = (obj) => {
-                const choices = obj && obj.choices || [];
-                let s = '';
-                for (const c of choices) {
-                    const delta = c && c.delta;
-                    if (!delta) continue;
-                    if (typeof delta.content === 'string') s += delta.content;
-                    else if (Array.isArray(delta.content)) {
-                        for (const part of delta.content) if (part && part.text) s += part.text;
-                    }
-                }
-                return s;
-            };
-            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            const full = await consumeSSE(res, BaseProvider._oaiDeltaExtract, onChunk, args.signal);
             return { text: full, raw: { streamed: true } };
         }
 
@@ -757,11 +779,7 @@
             if (!data.choices || !data.choices[0]) {
                 throw new Error('OpenAI: empty response. ' + (data.error ? JSON.stringify(data.error) : ''));
             }
-            const msg = data.choices[0].message || {};
-            const text = typeof msg.content === 'string'
-                ? msg.content
-                : (Array.isArray(msg.content) ? msg.content.map(c => c.text || '').join('') : '');
-            return { text: text, raw: data };
+            return { text: BaseProvider._extractOAIText(data), raw: data };
         }
 
         async streamChatCompletion(args, onChunk) {
@@ -778,20 +796,7 @@
                 const errTxt = await res.text();
                 throw new Error('OpenAI stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
             }
-            const extract = (obj) => {
-                const choices = obj && obj.choices || [];
-                let s = '';
-                for (const c of choices) {
-                    const delta = c && c.delta;
-                    if (!delta) continue;
-                    if (typeof delta.content === 'string') s += delta.content;
-                    else if (Array.isArray(delta.content)) {
-                        for (const part of delta.content) if (part && part.text) s += part.text;
-                    }
-                }
-                return s;
-            };
-            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            const full = await consumeSSE(res, BaseProvider._oaiDeltaExtract, onChunk, args.signal);
             return { text: full, raw: { streamed: true } };
         }
 
@@ -1172,9 +1177,7 @@
             if (!data.choices || !data.choices[0]) {
                 throw new Error('LM Studio: pusta odpowiedz.');
             }
-            const msg = data.choices[0].message || {};
-            const text = typeof msg.content === 'string' ? msg.content : '';
-            return { text: text, raw: data };
+            return { text: BaseProvider._extractOAIText(data), raw: data };
         }
 
         async streamChatCompletion(args, onChunk) {
@@ -1191,15 +1194,7 @@
                 const errTxt = await res.text();
                 throw new Error('LM Studio stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
             }
-            const extract = (obj) => {
-                const choices = obj && obj.choices || [];
-                let s = '';
-                for (const c of choices) {
-                    if (c && c.delta && typeof c.delta.content === 'string') s += c.delta.content;
-                }
-                return s;
-            };
-            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            const full = await consumeSSE(res, BaseProvider._oaiDeltaExtract, onChunk, args.signal);
             return { text: full, raw: { streamed: true } };
         }
 
