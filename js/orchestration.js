@@ -226,8 +226,17 @@
             const idx = this.steps.findIndex(s => s.id === id);
             if (idx === -1) return;
             const s = this.steps[idx];
+            const prevStatus = s.status;
             if (patch.status === 'running' && !s.startTime) s.startTime = Date.now();
-            if ((patch.status === 'done' || patch.status === 'failed' || patch.status === 'skipped') && !s.endTime) s.endTime = Date.now();
+            if ((patch.status === 'done' || patch.status === 'failed'
+                 || patch.status === 'warning' || patch.status === 'skipped')
+                 && !s.endTime) s.endTime = Date.now();
+            // Mark transitions so the renderer can play a one-shot "stamp"
+            // animation. _justChanged is read once by _renderStep then cleared.
+            if (patch.status && patch.status !== prevStatus
+                && (patch.status === 'done' || patch.status === 'failed' || patch.status === 'warning')) {
+                s._justChanged = patch.status;
+            }
             Object.assign(s, patch);
             this._render();
         }
@@ -239,6 +248,7 @@
                 case 'pending':   return '<span class="ps-icon ps-pending">⋯</span>';
                 case 'running':   return '<span class="ps-icon ps-running"><span class="ps-spin"></span></span>';
                 case 'done':      return '<span class="ps-icon ps-done">✓</span>';
+                case 'warning':   return '<span class="ps-icon ps-warning">⚠</span>';
                 case 'failed':    return '<span class="ps-icon ps-failed">✕</span>';
                 case 'skipped':   return '<span class="ps-icon ps-skipped">⊘</span>';
                 case 'awaiting':  return '<span class="ps-icon ps-awaiting">?</span>';
@@ -280,6 +290,13 @@
         _renderStep(s) {
             const row = document.createElement('div');
             row.className = 'ps-step ps-step-' + s.status;
+            // Trigger a one-shot stamp animation when the step just
+            // transitioned to a terminal state. _justChanged is cleared
+            // after consumption so subsequent re-renders are still.
+            if (s._justChanged) {
+                row.classList.add('ps-step-just-' + s._justChanged);
+                s._justChanged = null;
+            }
             const kindIc = s.icon || this._kindIcon(s.kind);
             const dur = s.startTime && s.endTime ? ((s.endTime - s.startTime) / 1000).toFixed(1) + 's' : (s.startTime ? 'live' : '');
             let progressBar = '';
@@ -320,13 +337,23 @@
             if (this._renderTick) { clearInterval(this._renderTick); this._renderTick = null; }
             const total = this.steps.length;
             const done = this.steps.filter(s => s.status === 'done').length;
+            const warned = this.steps.filter(s => s.status === 'warning').length;
             const failed = this.steps.filter(s => s.status === 'failed').length;
             const elapsedSec = Math.round((Date.now() - this._startTime) / 1000);
-            const summaryText = summary
-                || (failed === 0 ? '✓ Wszystko gotowe — ' + done + '/' + total + ' kroków · ' + elapsedSec + 's'
-                                 : '⚠ Zakończono z błędami — ' + done + ' OK, ' + failed + ' fail, ' + elapsedSec + 's');
+            let summaryText;
+            if (summary) {
+                summaryText = summary;
+            } else if (failed > 0) {
+                summaryText = '✕ Finished with errors — ' + done + ' OK · ' + failed + ' failed' + (warned ? ' · ' + warned + ' warnings' : '') + ' · ' + elapsedSec + 's';
+            } else if (warned > 0) {
+                summaryText = '⚠ Done with warnings — ' + done + ' OK · ' + warned + ' warnings · ' + elapsedSec + 's';
+            } else {
+                summaryText = '✓ All done — ' + done + '/' + total + ' steps · ' + elapsedSec + 's';
+            }
             this._el.classList.add('pipeline-finished');
             if (failed > 0) this._el.classList.add('pipeline-has-errors');
+            else if (warned > 0) this._el.classList.add('pipeline-has-warnings');
+            else this._el.classList.add('pipeline-all-done');
             const sumEl = this._el.querySelector('.pipeline-summary');
             if (sumEl) sumEl.textContent = summaryText;
             this._updateElapsed();
