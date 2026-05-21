@@ -4668,13 +4668,35 @@ function t(key, fallback) {
         if (!mpPickedId || !mpCtx) return;
         const t = mpCtx.target;
         if (t && t.tagName === 'SELECT') {
-            // Ensure the option exists, then select it
-            let opt = Array.from(t.options).find(o => o.value === mpPickedId);
-            if (!opt) {
-                opt = document.createElement('option');
-                opt.value = mpPickedId;
-                opt.textContent = mpPickedId;
-                t.appendChild(opt);
+            // SYNC the dropdown with the picker's live list. This is the
+            // important bit: we don't just APPEND the picked model (which
+            // would leave stale / "imaginary" options from previous picks
+            // sitting next to a single fresh entry). We rebuild the whole
+            // dropdown from mpCache so it matches the catalog the user
+            // just browsed. mpCache IS the live API list — same data the
+            // picker rendered — so the dropdown stays grounded in reality.
+            const live = Array.isArray(mpCache) ? mpCache : [];
+            t.innerHTML = '';
+            const seen = new Set();
+            live.forEach(m => {
+                if (!m || !m.id || seen.has(m.id)) return;
+                seen.add(m.id);
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = (typeof formatModelLabel === 'function')
+                    ? formatModelLabel(m)
+                    : (m.name || m.id);
+                o.title = m.id + (m.description ? ' - ' + m.description : '');
+                t.appendChild(o);
+            });
+            // Pinned-picked fallback: if the picked id isn't in mpCache for
+            // any reason (cache invalidation race, custom user model), still
+            // add it explicitly so the value is selectable.
+            if (!seen.has(mpPickedId)) {
+                const o = document.createElement('option');
+                o.value = mpPickedId;
+                o.textContent = mpPickedId;
+                t.appendChild(o);
             }
             t.value = mpPickedId;
         } else if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
@@ -4794,16 +4816,21 @@ function t(key, fallback) {
             renderToolsQuickList();
             renderPermissionRules();
             updateMcpUI();
-            // Lazy-load Gemini models when settings open (cached for 15 min)
-            if (agent.apiKey && baseModelSelect.options.length <= 1) {
+            // Re-load Gemini models on every settings open. The 15-min agent
+            // cache makes this essentially free and keeps the dropdown
+            // grounded in the live API list (no leftover phantom entries).
+            if (agent.apiKey) {
                 loadGeminiModels(false);
             }
-            // For LM Studio tab: only auto-fetch if user already picked it as provider
-            if (agent.llmProvider === 'lmstudio' && lmstudioLLMModelSelect && lmstudioLLMModelSelect.options.length <= 1) {
+            // LM Studio: only auto-fetch when it's the active provider — the
+            // local server may not be running and we don't want a long
+            // timeout every settings-open if it isn't.
+            if (agent.llmProvider === 'lmstudio') {
                 loadLMStudioModels(false);
             }
-            // For OpenAI: auto-fetch if it's the active LLM provider and key exists
-            if (agent.llmProvider === 'openai' && agent.openaiApiKey && openaiLLMModelSelect && openaiLLMModelSelect.options.length <= 1) {
+            // OpenAI: auto-fetch if it's the active LLM provider and the key
+            // is configured. Cache prevents hammering the API.
+            if (agent.llmProvider === 'openai' && agent.openaiApiKey) {
                 loadOpenAIModels(false);
             }
             // For ElevenLabs: load models if provider active
