@@ -4083,7 +4083,7 @@ while (!isDone) {
                 if (userSuggestionQueue.length > 0) {
                     const queuedText = userSuggestionQueue.join('\n');
                     userSuggestionQueue = [];
-                    currentPrompt = `[NOWE WYTYCZNE UŻYTKOWNIKA W TRAKCIE ORKIESTRACJI]\nUżytkownik właśnie napisał nową wiadomość. Zignoruj częściowo swój plan jeśli kłóci się z tym co napisał teraz użytkownik. Nowa wiadomość: ${queuedText}\n\n[KONTYNUACJA ZADANIA]\n` + currentPrompt;
+                    currentPrompt = `[NEW USER GUIDANCE MID-ORCHESTRATION]\nThe user just sent a new message. Partially ignore your current plan if it conflicts with what the user wrote now. New message: ${queuedText}\n\n[TASK CONTINUATION]\n` + currentPrompt;
                     addLog(`Wstrzyknięto ${queuedText.length} znaków z kolejki sugestii gracza!`, 'warning');
                 }
 
@@ -4308,17 +4308,17 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             const reg = agent.loadSkillsRegistry();
                             const regSkill = reg.skills.find(s => s.name === skill.name);
                             if (regSkill && regSkill.scriptContent) {
-                                skillContext += '[GOTOWY SKRYPT PYTHON]\n' + regSkill.scriptContent + '\n\n';
+                                skillContext += '[READY PYTHON SCRIPT]\n' + regSkill.scriptContent + '\n\n';
                             }
-                            skillContext += '[JAK UZYC TEGO SKILLA]\nW parallel_tasks.python dodaj: {"env":"' + skill.env + '","packages":' + JSON.stringify(skill.packages || []) + ',"script":"<twoj skrypt uzywajacy tego env>"}\n';
-                            skillContext += 'Env "' + skill.env + '" ma juz zainstalowane pakiety - NIE MUSISZ ich ponownie instalowac.\n';
-                            skillContext += 'WAZNE: Uzyj PELNYCH SCIEZEK do plikow z manifestu assetow!\n';
+                            skillContext += '[HOW TO USE THIS SKILL]\nIn parallel_tasks.python add: {"env":"' + skill.env + '","packages":' + JSON.stringify(skill.packages || []) + ',"script":"<your script using this env>"}\n';
+                            skillContext += 'Env "' + skill.env + '" already has packages installed — you do NOT need to reinstall them.\n';
+                            skillContext += 'IMPORTANT: use FULL paths to files from the asset manifest!\n';
                         }
-                        skillContext += '\n[TERAZ WYKONAJ ZADANIE: wygeneruj parallel_tasks.python z powyzszym skillem LUB napisz ExtendScript. NIE ZOSTAWIAJ PUSTEGO KROKU!]';
+                        skillContext += '\n[NOW EXECUTE THE TASK: generate parallel_tasks.python with the skill above OR write ExtendScript. DO NOT LEAVE AN EMPTY STEP!]';
                         lastError = (lastError || '') + '\n' + skillContext;
                     } else {
-                        addLog(`Skill nie znaleziony: ${response.load_skill}`, 'warning');
-                        lastError = (lastError || '') + '\nSkill "' + response.load_skill + '" nie znaleziony. Uzyj parallel_tasks.python by stworzyc go od nowa.';
+                        addLog(`Skill not found: ${response.load_skill}`, 'warning');
+                        lastError = (lastError || '') + '\nSkill "' + response.load_skill + '" not found. Use parallel_tasks.python to recreate it from scratch.';
                     }
                 }
 
@@ -4615,13 +4615,13 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     
                     if (transcripts.length > 0) {
                         addLog('Przechwycono pomyslne transkrypcje: ' + transcripts.length, 'success');
-                        lastError = 'WYNIK ZADAN ROWNOLEGLYCH - TRANSKRYPCJA ELEVENLABS:\n' + transcripts.join('\n\n') + '\n\n-> Wykorzystaj dane JSON by stworzyc animowane napisy w After Effects.';
+                        lastError = 'PARALLEL TASK RESULTS - ELEVENLABS TRANSCRIPT:\n' + transcripts.join('\n\n') + '\n\n-> Use this JSON to build animated word-level captions in After Effects.';
                     }
 
                     if (errs.length > 0) {
                         addLog('Blad w zadaniach rownoleglych: ' + errs.join(', '), 'error');
                         appendMessage('assistant', 'Pewne procesy rownolegle napotkaly bledy: ' + errs.join(', '));
-                        lastError = (lastError ? lastError + "\n\n" : "") + 'Zadania rownolegle zwrocily bledy: ' + errs.join(', ');
+                        lastError = (lastError ? lastError + "\n\n" : "") + 'Parallel tasks returned errors: ' + errs.join(', ');
                     } else {
                         addLog('Zakonczono generowanie rownolegle pomyslnie w ' + pTime + 'ms.', 'success');
                     // Track action type for repetition detection
@@ -4671,7 +4671,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     });
                     
                     if (assetManifest.length > 0) {
-                        const manifestStr = '\n--- MANIFEST WYGENEROWANYCH ASSETOW ---\n' + 
+                        const manifestStr = '\n--- GENERATED ASSETS MANIFEST ---\n' +
                             assetManifest.map(a => {
                                 let line = '#' + a.id + ' [' + a.type + '] ' + a.file;
                                 if (a.prompt) line += ' | Prompt: "' + a.prompt + '"';
@@ -4679,7 +4679,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 if (a.supersedes) line += ' | ' + a.supersedes;
                                 return line;
                             }).join('\n') +
-                            '\n--- KONIEC MANIFESTU ---';
+                            '\n--- END OF MANIFEST ---';
                         lastError = (lastError || '') + manifestStr;
                         addLog('Manifest assetow: ' + assetManifest.length + ' plikow opisanych dla agenta.', 'success');
                     }
@@ -4689,13 +4689,13 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     if (wxResults.length > 0) {
                         wxResults.forEach(wx => {
                             if (wx.res.success && wx.res.words) {
-                                let wxCtx = '\n--- WHISPERX TRANSKRYPCJA (WORD-LEVEL) ---\n';
+                                let wxCtx = '\n--- WHISPERX TRANSCRIPTION (WORD-LEVEL) ---\n';
                                 wxCtx += 'Jezyk: ' + wx.res.language + ' | Slow: ' + wx.res.wordCount + '\n';
                                 wxCtx += 'Pelny tekst: ' + wx.res.text + '\n\n';
                                 wxCtx += 'Slowa z timestampami (JSON):\n';
                                 wxCtx += JSON.stringify(wx.res.words.slice(0, 200), null, 1);
                                 if (wx.res.words.length > 200) wxCtx += '\n... (' + (wx.res.words.length - 200) + ' wiecej slow)';
-                                wxCtx += '\n--- KONIEC WHISPERX ---';
+                                wxCtx += '\n--- END OF WHISPERX ---';
                                 wxCtx += '\n-> Uzyj tych danych do stworzenia animowanych napisow w AE (Source Text keyframes + marker per word).';
                                 lastError = (lastError || '') + wxCtx;
                                 addLog('WhisperX: ' + wx.res.wordCount + ' slow z timestampami dodano do kontekstu.', 'success');
@@ -4708,11 +4708,11 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     // Add Python task outputs to agent context
                     const pythonResults = results.filter(r => r.type === 'Python');
                     if (pythonResults.length > 0) {
-                        let pyCtx = '\n--- WYNIKI PYTHON ---\n';
+                        let pyCtx = '\n--- PYTHON RESULTS ---\n';
                         pythonResults.forEach(pr => {
                             pyCtx += '[' + pr.prompt + '] ' + (pr.res.message || pr.res.error || 'brak wynikow') + '\n';
                         });
-                        pyCtx += '--- KONIEC PYTHON ---';
+                        pyCtx += '--- END OF PYTHON RESULTS ---';
                         lastError = (lastError || '') + pyCtx;
                         addLog('Python wyniki dodane do kontekstu agenta.', 'success');
                     }
@@ -4749,7 +4749,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 sentAttachments = null;
                             }
                             if (!lastError) lastError = '';
-                            lastError += '\n[RENDER PREVIEW: Otrzymales ' + preview.frames.length + ' klatek animacji z roznych momentow timeline. Ocen ruch, timing i jakosc wizualna.]';
+                            lastError += '\n[RENDER PREVIEW: You received ' + preview.frames.length + ' animation frames from different moments of the timeline. Evaluate motion, timing, and visual quality.]';
                         } else {
                             addLog('Render preview: ' + (preview.error || 'brak klatek'), 'warning');
                         }
@@ -4762,7 +4762,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     
                     const qAnswers = await presentQuestionsToUser(response.questions_for_user);
                     
-                    currentPrompt = '[ODPOWIEDZI NA TWOJE PYTANIA (FORMULARZ)]\n' + qAnswers + '\n\nKontynuuj wykonywanie zadania. Jesli zatwierdzilem Twoje sugestie, zastosuj je w kodzie.';
+                    currentPrompt = '[ANSWERS TO YOUR QUESTIONS (FORM)]\n' + qAnswers + '\n\nContinue executing the task. If I accepted your suggestions, apply them in the code.';
                     appendMessage('user', "Zatwierdzono formularz odpowiedzi (Widoczne dla agenta).");
                     
                     sentAttachments = [];
@@ -4785,7 +4785,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         appendMessage('assistant', 'Kod zablokowany przez walidator: ' + errMsg + '. Naprawiam...');
                         retryCount++;
                         if (retryCount >= maxRetries) { isDone = true; updateStatus('Przerwano (walidacja).'); break; }
-                        currentPrompt = 'Twoj kod zostal ZABLOKOWANY przez pre-flight validator ZANIM dostal sie do AE. Bledy: ' + errMsg;
+                        currentPrompt = 'Your code was BLOCKED by the pre-flight validator BEFORE reaching AE. Errors: ' + errMsg;
                         showTyping();
                         continue;
                     }
@@ -4813,11 +4813,11 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             }
                         }
                         if (!allApproved) {
-                            lastError = '[USER DENIED DESTRUCTIVE OP] Użytkownik nie zgodził się na usunięcie. KATEGORYCZNIE nie usuwaj tego elementu. Zaproponuj alternatywę (np. zduplikuj zamiast usunąć, ukryj zamiast wymazać).';
+                            lastError = '[USER DENIED DESTRUCTIVE OP] The user refused the deletion. ABSOLUTELY do not delete this element. Propose an alternative (e.g. duplicate instead of delete, hide instead of remove).';
                             appendMessage('assistant', '⚠ Operacja usunięcia została odrzucona. Agent musi znaleźć alternatywę.');
                             retryCount++;
                             if (retryCount >= maxRetries) { isDone = true; updateStatus('Przerwano (user deny).'); break; }
-                            currentPrompt = 'Użytkownik ODMÓWIŁ operacji destrukcyjnej z poprzedniego kodu. Nie usuwaj tego elementu. Zaproponuj rozwiązanie ZACHOWUJĄCE oryginał (duplikat, ukrycie, kopia).';
+                            currentPrompt = 'The user REFUSED the destructive operation from the previous code. Do not delete this element. Propose a solution that PRESERVES the original (duplicate, hide, copy).';
                             showTyping();
                             continue;
                         }
@@ -4863,7 +4863,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         } else if (response.is_task_complete === false) {
                         sfx.taskComplete();
                             isDone = false;
-                            currentPrompt = "Krok ExtendScript wykonany pomyślnie. Czekam na Twoje kolejne polecenia.";
+                            currentPrompt = "ExtendScript step executed successfully. Awaiting your next instructions.";
                             aeContext = await agent.getAEContext();
                             addLog('Agent zdecydował o kontynuacji zadania (orkiestracja).', 'info');
                             showTyping();
@@ -4914,7 +4914,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                     }
                                 } catch (cpCmpErr) { addLog('Checkpoint compare failed: ' + cpCmpErr, 'warning'); }
                             }
-                            currentPrompt = "Twój kod lub proces wygenerował błąd. Spróbuj go naprawić lub użyć innej metody.";
+                            currentPrompt = "Your code or process produced an error. Try to fix it or use a different approach.";
                             addLog(`Przygotowanie do samo-naprawy (próba ${retryCount})...`, 'warning');
                         }
                     }
@@ -4936,7 +4936,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             emptyStepCount = 0;
                             isDone = false;
                             aeContext = await agent.getAEContext();
-                            currentPrompt = "Zasoby wygenerowane. Kontynuuj nastepny krok planu.";
+                            currentPrompt = "Assets generated. Continue with the next step of the plan.";
                             addLog('Agent kontynuuje po generowaniu zasobow.', 'info');
                             showTyping();
                         } else {
@@ -4944,7 +4944,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             if (response.parallel_tasks && (response.parallel_tasks.python || response.parallel_tasks.whisperx)) {
                                 emptyStepCount = 0;
                                 addLog('Krok produktywny (Python) - agent moze iterowac.', 'info');
-                                currentPrompt = "Wyniki Python sa w kontekscie. Przeanalizuj stdout/stderr. Jesli bledy - popraw skrypt i uruchom ponownie.";
+                                currentPrompt = "Python results are in context. Analyze stdout/stderr. If errors — fix the script and rerun.";
                                 isDone = false;
                                 aeContext = await agent.getAEContext();
                                 showTyping();
@@ -4974,7 +4974,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 if (msgIndicatesContinuation) {
                                     // Agent said it's about to do something — give it one more chance
                                     addLog('Agent zapowiedzial prace — kontynuuję.', 'info');
-                                    currentPrompt = "Kontynuuj zapowiedzianą pracę. MUSISZ teraz dostarczyc code lub parallel_tasks!";
+                                    currentPrompt = "Continue the work you announced. You MUST now deliver code or parallel_tasks!";
                                     isDone = false;
                                     aeContext = await agent.getAEContext();
                                     showTyping();
@@ -4991,14 +4991,14 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 sfx.taskComplete();
                                 updateStatus('Zadanie zakonczone.');
                             } else if (lastError) {
-                                currentPrompt = "Pojawil sie blad. Napraw i kontynuuj.";
+                                currentPrompt = "An error appeared. Fix it and continue.";
                                 if (retryCount >= maxRetries) { isDone = true; updateStatus('Przerwano po bledzie.'); break; }
                                 retryCount++;
                                 isDone = false;
                                 aeContext = await agent.getAEContext();
                                 showTyping();
                             } else {
-                                currentPrompt = "KRYTYCZNE: Nie dostarczyles kodu (code) ani zadan (parallel_tasks) w tym kroku. Jesli zadanie jest ZAKONCZONE - ustaw is_task_complete:true i napisz krotkie podsumowanie w message. Jesli NIE - napisz kod lub dodaj parallel_tasks. NASTEPNA PUSTA ITERACJA ZAKONCZY PROCES!";
+                                currentPrompt = "CRITICAL: You provided neither code nor parallel_tasks this step. If the task is COMPLETE — set is_task_complete:true and write a short summary in message. If NOT — provide code or add parallel_tasks. THE NEXT EMPTY ITERATION WILL TERMINATE THE PROCESS!";
                                 isDone = false;
                                 aeContext = await agent.getAEContext();
                                 addLog('Pusta iteracja ' + emptyStepCount + '/2 - brak kodu/zadan.', 'warning');
@@ -5039,7 +5039,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     } else {
                         retryCount++;
                         lastError = null;
-                        currentPrompt = 'BLAD: Twoja poprzednia odpowiedz nie byla poprawnym JSON. Odpowiadaj WYLACZNIE czystym obiektem JSON bez markdown. Kontynuuj zadanie.';
+                        currentPrompt = 'ERROR: Your previous response was not valid JSON. Reply ONLY with a clean JSON object, no markdown. Continue the task.';
                         addLog('Samo-naprawa składni (próba ' + retryCount + ')...', 'warning');
                         // Do not set isDone = true, let loop continue
                     }
