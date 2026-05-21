@@ -879,6 +879,7 @@ textarea::placeholder {
 /* =================================================================== */
 #settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
 #tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+#model-picker-overlay,
 #api-help-overlay, #permission-overlay, #save-project-overlay {
     /* Use position:fixed for all - works inside CEP regardless of body scroll */
     position: fixed;
@@ -901,6 +902,7 @@ textarea::placeholder {
 /* Hidden state — display:none is safer than opacity (prevents accidental click-through) */
 #settings-overlay.hidden, #sessions-overlay.hidden, #memory-overlay.hidden, #skills-overlay.hidden,
 #tools-overlay.hidden, #voice-picker-overlay.hidden, #openrouter-picker-overlay.hidden,
+#model-picker-overlay.hidden,
 #api-help-overlay.hidden, #permission-overlay.hidden, #save-project-overlay.hidden {
     display: none;
 }
@@ -1388,10 +1390,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 
 /* OpenRouter picker — overlay base from universal block; just z-index + backdrop tweak */
 #openrouter-picker-overlay { z-index: 1000; }
+#model-picker-overlay     { z-index: 1000; }
 .picker-filters {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 4px;
+    min-width: 0;
 }
 .picker-filters input, .picker-filters select {
     background: var(--input-bg);
@@ -1402,17 +1407,38 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     font-family: 'Outfit', sans-serif;
     font-size: 12px;
     outline: none;
-    flex: 1;
+    flex: 1 1 140px;
+    min-width: 0;
 }
 .picker-features {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 6px 12px;
     font-size: 11px;
     color: var(--text-secondary);
     margin-bottom: 6px;
     padding: 6px 0;
     border-bottom: 1px solid var(--panel-border);
+}
+.picker-features label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.picker-features label input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+}
+/* Narrow CEP panel — keep filter row tidy by stacking when sub-180px */
+@media (max-width: 520px) {
+    .picker-filters { gap: 4px; }
+    .picker-filters input { flex-basis: 100%; }
+    .picker-filters select { flex-basis: calc(50% - 2px); }
 }
 .picker-features label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .picker-features input[type=checkbox] { accent-color: var(--accent); }
@@ -2337,6 +2363,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 @media (max-height: 600px) {
     #settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
     #tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+    #model-picker-overlay,
     #api-help-overlay, #permission-overlay, #save-project-overlay {
         padding: 0.5rem 0.5rem;
     }
@@ -2344,6 +2371,7 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 @media (max-width: 500px) {
     #settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
     #tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+    #model-picker-overlay,
     #api-help-overlay, #permission-overlay, #save-project-overlay {
         padding: 0.75rem 0.4rem;
     }
