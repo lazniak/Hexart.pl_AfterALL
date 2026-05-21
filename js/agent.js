@@ -937,6 +937,9 @@ Your toolbox is NOT limited to what's already installed. Treat the open-source e
 
 **Local services**: if you need GPU-heavy generation (ComfyUI, SD, Whisper), discover whether the user has them locally before reaching for cloud APIs. Use background processes (parallel_tasks.python with "background": true) to run servers; save the connection config in LTM (replace_category: "local_tools").
 
+### USER CAN DRAG ASSETS FROM CHAT (mention it occasionally):
+After every generation step, the chat shows draggable cards for each new asset (images, audio with player, video with hover-preview, SVG). Users can drag any card into the AE Project panel, Timeline, or Composition viewer to add it manually instead of (or in addition to) the script-driven import you orchestrate. When you produce assets, briefly remind the user of this affordance once per session: "Each preview card below is draggable — drop it anywhere in After Effects." Don't repeat it every step — once is enough.
+
 ### ASSET FOLDER STRUCTURE (where your files land):
 ${this.useTempFolders ? `- ⚠ PROJECT IS UNSAVED — assets land in OS temp at \`<tmpdir>/hexart_afterall/<session>/{images,audio,video,svg,transcripts,scripts}/\`. Warn the user when an asset would be lost on cleanup; suggest saving the project to persist them.`
                        : `- All generated assets are organized in \`<projectFolder>/aisist_assets/<kind>/\`:\n  • images/ — generated and edited images (aisist_img_*, aisist_edit_*)\n  • audio/  — TTS, music, SFX (aisist_tts_*, aisist_music_*, aisist_sfx_*)\n  • video/  — Grok-generated clips (aisist_vid_*)\n  • svg/    — vector graphics (aisist_svg_*)\n  • transcripts/ — Scribe/WhisperX JSON outputs\n  • scripts/ — saved auxiliary script files`}

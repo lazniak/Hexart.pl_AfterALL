@@ -375,6 +375,10 @@ const i18nDict = {
         'save-project-using-temp-log': 'Pracuję w folderach tymczasowych — pamiętaj, mogą zostać usunięte.',
         'save-project-cancelled-log': 'Zadanie anulowane (projekt niezapisany).',
         'save-project-save-cancelled-log': 'Okno zapisu anulowane.',
+        // Drag-to-AE assets
+        'drag-to-ae-hint': 'Przeciągnij dokądkolwiek w After Effects (Project / Timeline / Composition)',
+        'drag-label': 'PRZECIĄGNIJ',
+        'asset-grid-header': 'Wygenerowano {n} zasobów — przeciągnij każdy z nich do dowolnego panelu After Effects.',
         'status-ready': 'Gotowy',
         'status-thinking': 'Myślę...',
         'status-processing': 'Przetwarzam...',
@@ -614,6 +618,10 @@ const i18nDict = {
         'save-project-using-temp-log': 'Working with temporary folders — remember they may be wiped.',
         'save-project-cancelled-log': 'Task cancelled (project unsaved).',
         'save-project-save-cancelled-log': 'Save dialog cancelled.',
+        // Drag-to-AE assets
+        'drag-to-ae-hint': 'Drag anywhere in After Effects (Project / Timeline / Composition)',
+        'drag-label': 'DRAG',
+        'asset-grid-header': 'Generated {n} assets — drag any of them into any After Effects panel.',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
         'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
@@ -868,6 +876,9 @@ const i18nDict = {
         'q-form-countdown': 'Auto-Übernahme in {n}s · klicke ein Feld zum Abbrechen',
         'q-form-countdown-cancelled': 'Auto-Timer deaktiviert',
         'q-form-no-answer-fallback': 'Ich stimme deinem Vorschlag zu / keine Anmerkungen.',
+        'drag-to-ae-hint': 'Ziehe das Asset an einen beliebigen Ort in After Effects (Projekt / Timeline / Komposition)',
+        'drag-label': 'ZIEHEN',
+        'asset-grid-header': '{n} Assets generiert — ziehe jedes davon in ein beliebiges After-Effects-Panel.',
         'tool-imageGen-label': 'Bildgenerator',
         'tool-videoGen-label': 'Videogenerator (Grok)',
         'tool-ttsGen-label': 'Sprachgenerator (TTS)',
@@ -954,6 +965,9 @@ const i18nDict = {
         'q-form-countdown': 'Auto-aplicación en {n}s · clic en cualquier campo para cancelar',
         'q-form-countdown-cancelled': 'Temporizador desactivado',
         'q-form-no-answer-fallback': 'Acepto tu sugerencia / sin comentarios.',
+        'drag-to-ae-hint': 'Arrastra a cualquier sitio de After Effects (Proyecto / Línea de tiempo / Composición)',
+        'drag-label': 'ARRASTRAR',
+        'asset-grid-header': '{n} recursos generados — arrastra cualquiera a cualquier panel de After Effects.',
         'tool-imageGen-label': 'Generador de Imágenes',
         'tool-videoGen-label': 'Generador de Vídeo (Grok)',
         'tool-ttsGen-label': 'Generador de Voz (TTS)',
@@ -1040,6 +1054,9 @@ const i18nDict = {
         'q-form-countdown': 'Auto-application dans {n}s · clique sur un champ pour annuler',
         'q-form-countdown-cancelled': 'Timer désactivé',
         'q-form-no-answer-fallback': 'J\'accepte ta suggestion / pas de remarques.',
+        'drag-to-ae-hint': 'Glisse n\'importe où dans After Effects (Projet / Timeline / Composition)',
+        'drag-label': 'GLISSER',
+        'asset-grid-header': '{n} ressources générées — glisse n\'importe laquelle dans un panneau After Effects.',
         'tool-imageGen-label': 'Générateur d\'Images',
         'tool-videoGen-label': 'Générateur Vidéo (Grok)',
         'tool-ttsGen-label': 'Générateur de Voix (TTS)',
@@ -1126,6 +1143,9 @@ const i18nDict = {
         'q-form-countdown': '{n}秒後に自動適用 · フィールドをクリックでキャンセル',
         'q-form-countdown-cancelled': '自動タイマー無効',
         'q-form-no-answer-fallback': 'あなたの提案に同意します / 追加コメントはありません。',
+        'drag-to-ae-hint': 'After Effects の任意のパネルにドラッグ (Project / Timeline / Composition)',
+        'drag-label': 'ドラッグ',
+        'asset-grid-header': '{n} 個のアセットを生成しました — 任意の After Effects パネルにドラッグできます。',
         'tool-imageGen-label': '画像ジェネレーター',
         'tool-videoGen-label': '動画ジェネレーター (Grok)',
         'tool-ttsGen-label': '音声ジェネレーター (TTS)',
@@ -4024,6 +4044,138 @@ function t(key, fallback) {
 
     let currentWorkingProject = null;
 
+    // ===== Drag-out: chat asset → anywhere in After Effects ============
+    // After Effects accepts native OS file drops on Project panel, Timeline,
+    // Composition viewer, and Footage viewer. We hook HTML5 drag events on
+    // every asset preview rendered in the chat and emit the Chromium-recognised
+    // "DownloadURL" data-transfer payload — AE's OS-level drop handler sees a
+    // real file drag and imports correctly. Supported drop targets:
+    //   • Project panel — adds the asset to the project tree
+    //   • Timeline panel — adds as a new layer at the dropped position
+    //   • Composition viewer — adds as layer at the drop coordinates
+    //   • Folders in Project panel — places asset inside that folder
+    function guessMimeFromExt(filePath) {
+        const ext = (filePath || '').toLowerCase().split('.').pop();
+        const map = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+            gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff',
+            svg: 'image/svg+xml',
+            mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac',
+            aac: 'audio/aac', m4a: 'audio/mp4', opus: 'audio/opus', aiff: 'audio/aiff',
+            mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska',
+            avi: 'video/x-msvideo',
+            aep: 'application/x-aftereffects-project', aet: 'application/x-aftereffects-template'
+        };
+        return map[ext] || 'application/octet-stream';
+    }
+
+    function makeAssetDraggable(element, filePath, opts) {
+        if (!element || !filePath) return;
+        opts = opts || {};
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        const fileName = opts.fileName || normalizedPath.split('/').pop();
+        const mimeType = opts.mimeType || guessMimeFromExt(filePath);
+        // Use the most-recognized URL form for AE on both Windows and macOS.
+        // Chromium turns this into a true OS file drag.
+        const fileUrl = 'file:///' + normalizedPath.replace(/^\/+/, '');
+
+        element.setAttribute('draggable', 'true');
+        element.classList.add('asset-draggable');
+        if (!element.title) element.title = tr('drag-to-ae-hint');
+
+        element.addEventListener('dragstart', (e) => {
+            try {
+                e.dataTransfer.effectAllowed = 'copy';
+                // Primary signal — Chromium-specific format AE recognises as a real file drag.
+                e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + fileUrl);
+                // Standard URI list — picked up by some panels and external apps.
+                e.dataTransfer.setData('text/uri-list', fileUrl);
+                // Fallback — raw file path for any handler that reads plain text.
+                e.dataTransfer.setData('text/plain', filePath);
+                element.classList.add('asset-dragging');
+                addLog('Drag started: ' + fileName, 'info');
+            } catch (err) {
+                console.warn('Drag start failed:', err);
+            }
+        });
+        element.addEventListener('dragend', () => {
+            element.classList.remove('asset-dragging');
+        });
+    }
+
+    // Render a single asset card for the chat. assetType: 'image'|'audio'|'video'|'svg'.
+    // Audio subKind (tts/music/sfx) selects the icon and accent.
+    function renderAssetCard(asset) {
+        const card = document.createElement('div');
+        card.className = 'asset-card asset-card-' + asset.type;
+        const fileName = asset.fileName || (asset.filePath || '').replace(/\\/g, '/').split('/').pop();
+        const safeFileUrl = 'file:///' + (asset.filePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+        const idxBadge = (typeof asset.index === 'number') ? '<span class="asset-card-index">#' + (asset.index + 1) + '</span>' : '';
+
+        if (asset.type === 'image' || asset.type === 'svg') {
+            card.innerHTML = `
+                <img src="${escapeAttr(safeFileUrl)}" alt="${escapeAttr(asset.prompt || fileName)}">
+                <div class="asset-card-footer">
+                    ${idxBadge}
+                    <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                </div>
+            `;
+        } else if (asset.type === 'audio') {
+            const icon = asset.kind === 'tts' ? '🎙' : asset.kind === 'music' ? '🎵' : asset.kind === 'sfx' ? '🔊' : '🎧';
+            const meta = asset.duration ? Math.round(asset.duration) + 's' : '';
+            card.innerHTML = `
+                <div class="asset-card-audio-icon">${icon}</div>
+                <div class="asset-card-audio-body">
+                    <div class="asset-card-audio-name">${escapeAttr(fileName)}</div>
+                    <audio src="${escapeAttr(safeFileUrl)}" controls preload="metadata"></audio>
+                    <div class="asset-card-audio-meta">
+                        ${meta ? '<span>' + meta + '</span>' : ''}
+                        ${asset.prompt ? '<span class="asset-card-prompt">' + escapeAttr(asset.prompt.substring(0, 60)) + (asset.prompt.length > 60 ? '…' : '') + '</span>' : ''}
+                        <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                    </div>
+                </div>
+            `;
+        } else if (asset.type === 'video') {
+            card.innerHTML = `
+                <video src="${escapeAttr(safeFileUrl)}" muted preload="metadata" loop></video>
+                <div class="asset-card-footer">
+                    ${idxBadge}
+                    ${asset.duration ? '<span class="asset-card-meta">' + Math.round(asset.duration) + 's</span>' : ''}
+                    <span class="asset-card-drag-hint" title="${escapeAttr(tr('drag-to-ae-hint'))}">⇲ ${escapeAttr(tr('drag-label'))}</span>
+                </div>
+            `;
+            // Show preview frame at 0.5s on hover
+            const v = card.querySelector('video');
+            if (v) {
+                v.addEventListener('mouseenter', () => { try { v.play().catch(() => {}); } catch(_) {} });
+                v.addEventListener('mouseleave', () => { try { v.pause(); v.currentTime = 0; } catch(_) {} });
+            }
+        }
+        makeAssetDraggable(card, asset.filePath, { fileName: fileName, mimeType: guessMimeFromExt(asset.filePath) });
+        return card;
+    }
+
+    // Append a row of asset cards as a single assistant message in the chat.
+    function appendAssetGrid(assets, headerText) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message assistant';
+        const content = document.createElement('div');
+        content.className = 'message-content asset-grid-container';
+        if (headerText) {
+            const header = document.createElement('div');
+            header.className = 'asset-grid-header';
+            header.textContent = headerText;
+            content.appendChild(header);
+        }
+        const grid = document.createElement('div');
+        grid.className = 'asset-grid';
+        assets.forEach(a => grid.appendChild(renderAssetCard(a)));
+        content.appendChild(grid);
+        msgDiv.appendChild(content);
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
     // Auto-applies the agent's "suggestion" field for every question after AUTO_APPLY_SECONDS,
     // unless the user clicks (focuses) any input or the chat textarea first. Designed to keep
     // the orchestrator flowing without blocking on every question — sensible defaults win.
@@ -5023,19 +5175,47 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         addLog('Python wyniki dodane do kontekstu agenta.', 'success');
                     }
 
-                    // Display generated image previews in chat
-                    const imageResults = results.filter(r => r.type === 'Obraz' && r.res.success && r.res.filePath);
-                    if (imageResults.length > 0) {
-                        let imgHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">';
-                        imageResults.forEach((r, idx) => {
-                            const fileUrl = 'file:///' + r.res.filePath.replace(/\\/g, '/');
-                            imgHtml += '<div style="position:relative;">';
-                            imgHtml += '<img src="' + fileUrl + '" style="max-width:180px; max-height:120px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);" title="' + (r.prompt || '').substring(0, 60).replace(/"/g, '') + '">';
-                            imgHtml += '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);border-radius:4px;padding:1px 6px;font-size:9px;color:var(--text-secondary);">#' + (idx + 1) + '</div>';
-                            imgHtml += '</div>';
-                        });
-                        imgHtml += '</div>';
-                        appendMessage('assistant', 'Wygenerowano ' + imageResults.length + ' obraz' + (imageResults.length > 1 ? 'y' : '') + ':' + imgHtml);
+                    // Display generated assets as draggable cards in chat (image/audio/video/SVG).
+                    // Users can drag any card into Project / Timeline / Comp panels in After Effects.
+                    const assetCards = [];
+
+                    // Images & SVG edits
+                    results.filter(r => (r.type === 'Obraz' || r.type === 'Image Edit') && r.res.success && r.res.filePath)
+                        .forEach((r, idx) => assetCards.push({
+                            type: 'image', filePath: r.res.filePath, prompt: r.prompt || '', index: idx
+                        }));
+                    results.filter(r => r.type === 'SVG' && r.res.success && r.res.filePath)
+                        .forEach((r) => assetCards.push({
+                            type: 'svg', filePath: r.res.filePath, prompt: r.prompt || ''
+                        }));
+
+                    // Audio: TTS / music / SFX (each has its own kind hint for icon selection)
+                    results.filter(r => r.type === 'Lektor' && r.res.success && r.res.filePath)
+                        .forEach((r) => assetCards.push({
+                            type: 'audio', kind: 'tts', filePath: r.res.filePath,
+                            duration: r.res.durationSec, prompt: r.prompt || ''
+                        }));
+                    results.filter(r => r.type === 'Muzyka' && r.res.success && r.res.filePath)
+                        .forEach((r) => assetCards.push({
+                            type: 'audio', kind: 'music', filePath: r.res.filePath,
+                            duration: r.res.durationSec, prompt: r.prompt || ''
+                        }));
+                    results.filter(r => r.type === 'SFX' && r.res.success && r.res.filePath)
+                        .forEach((r) => assetCards.push({
+                            type: 'audio', kind: 'sfx', filePath: r.res.filePath,
+                            duration: r.res.durationSec, prompt: r.prompt || ''
+                        }));
+
+                    // Video (Grok)
+                    results.filter(r => r.type === 'Wideo Grok' && r.res.success && r.res.filePath)
+                        .forEach((r, idx) => assetCards.push({
+                            type: 'video', filePath: r.res.filePath,
+                            duration: r.res.durationSec, prompt: r.prompt || '', index: idx
+                        }));
+
+                    if (assetCards.length > 0) {
+                        const headerText = tr('asset-grid-header').replace('{n}', assetCards.length);
+                        appendAssetGrid(assetCards, headerText);
                     }
                 }
 
