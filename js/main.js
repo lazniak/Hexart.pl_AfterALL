@@ -5685,6 +5685,152 @@ function t(key, fallback) {
     });
 
     // ---------------------------------------------------------------
+    // Markdown renderer for chat messages
+    // ---------------------------------------------------------------
+    // Lightweight, XSS-safe markdown -> HTML. The agent's responses
+    // frequently contain MD artifacts (**bold**, ``` code blocks ```,
+    // # headers, - lists, [links](http://...), etc.) and previously we
+    // just shoved the text into innerHTML, which both broke formatting
+    // and was a security liability.
+    //
+    // Pipeline:
+    //   1. HTML-escape the raw input (& < > " all become entities).
+    //   2. Pull fenced code blocks (``` ... ```) into placeholders so
+    //      their content is NEVER touched by later MD passes.
+    //   3. Pull inline code (`...`) into placeholders for the same
+    //      reason.
+    //   4. Walk line-by-line — headers / lists / blockquotes / hr.
+    //   5. Inline formatting on what's left: bold, italic, strike,
+    //      links. Bold must run BEFORE italic so ** doesn't get eaten
+    //      as two single asterisks.
+    //   6. Newline -> <br>, collapsing the spurious <br> right after
+    //      closing block tags so spacing stays clean.
+    //   7. Restore the code placeholders (already-escaped content).
+    //
+    // Links restricted to http / https / mailto schemes — `javascript:`
+    // and `data:` payloads cannot sneak through.
+    function renderMarkdown(input) {
+        if (input == null) return '';
+        let text = String(input);
+        if (!text) return '';
+
+        // 1. Escape HTML
+        text = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        // 2. Fenced code blocks
+        const codeBlocks = [];
+        text = text.replace(/```([^\n`]*)\n?([\s\S]*?)```/g, function (_m, lang, code) {
+            const i = codeBlocks.length;
+            codeBlocks.push({
+                lang: (lang || '').trim(),
+                code: (code || '').replace(/\n$/, '')
+            });
+            return '\x01CB' + i + '\x01';
+        });
+
+        // 3. Inline code
+        const inlineCode = [];
+        text = text.replace(/`([^`\n]+)`/g, function (_m, code) {
+            const i = inlineCode.length;
+            inlineCode.push(code);
+            return '\x01IC' + i + '\x01';
+        });
+
+        // 4. Block-level constructs (line-walked)
+        const lines = text.split('\n');
+        const out = [];
+        let i = 0;
+        while (i < lines.length) {
+            const line = lines[i];
+
+            // Headers
+            const h3 = /^###\s+(.+)$/.exec(line);
+            if (h3) { out.push('<h3>' + h3[1] + '</h3>'); i++; continue; }
+            const h2 = /^##\s+(.+)$/.exec(line);
+            if (h2) { out.push('<h2>' + h2[1] + '</h2>'); i++; continue; }
+            const h1 = /^#\s+(.+)$/.exec(line);
+            if (h1) { out.push('<h1>' + h1[1] + '</h1>'); i++; continue; }
+
+            // Horizontal rule
+            if (/^[-*_]{3,}\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+
+            // Unordered list — collect contiguous items
+            if (/^\s*[-*]\s+/.test(line)) {
+                const items = [];
+                while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+                    items.push('<li>' + lines[i].replace(/^\s*[-*]\s+/, '') + '</li>');
+                    i++;
+                }
+                out.push('<ul>' + items.join('') + '</ul>');
+                continue;
+            }
+
+            // Ordered list — collect contiguous items
+            if (/^\s*\d+\.\s+/.test(line)) {
+                const items = [];
+                while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+                    items.push('<li>' + lines[i].replace(/^\s*\d+\.\s+/, '') + '</li>');
+                    i++;
+                }
+                out.push('<ol>' + items.join('') + '</ol>');
+                continue;
+            }
+
+            // Blockquote — collect contiguous lines
+            if (/^>\s?/.test(line)) {
+                const acc = [];
+                while (i < lines.length && /^>\s?/.test(lines[i])) {
+                    acc.push(lines[i].replace(/^>\s?/, ''));
+                    i++;
+                }
+                out.push('<blockquote>' + acc.join('<br>') + '</blockquote>');
+                continue;
+            }
+
+            // Regular line — passed through for inline parsing
+            out.push(line);
+            i++;
+        }
+        text = out.join('\n');
+
+        // 5. Inline formatting
+        // Bold must run before italic so ** is grabbed first.
+        text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+        // Italic — negative lookbehind/ahead via alternation so we don't
+        // re-eat bold's leftover asterisks.
+        text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+        text = text.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+        text = text.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+        // Links — http/https/mailto only. Inner text can contain inline
+        // code placeholders / bold / italic, which were already converted.
+        text = text.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+        // 6. Newlines -> <br>, then collapse the <br> immediately after
+        //    closing block tags so we don't get extra vertical gap.
+        text = text.replace(/\n/g, '<br>');
+        text = text.replace(/(<\/(?:h[1-3]|ul|ol|blockquote)>|<hr>)<br>/g, '$1');
+        text = text.replace(/<br>(<(?:h[1-3]|ul|ol|blockquote|hr|pre)\b)/g, '$1');
+
+        // 7. Restore code placeholders
+        text = text.replace(/\x01IC(\d+)\x01/g, function (_m, idx) {
+            return '<code>' + inlineCode[+idx] + '</code>';
+        });
+        text = text.replace(/\x01CB(\d+)\x01/g, function (_m, idx) {
+            const b = codeBlocks[+idx];
+            const langAttr = b.lang ? ' data-lang="' + b.lang + '"' : '';
+            return '<pre' + langAttr + '><code>' + b.code + '</code></pre>';
+        });
+
+        return text;
+    }
+
+    // ---------------------------------------------------------------
     // Relative chat timestamps
     // ---------------------------------------------------------------
     // Renders a small subtle "X ago" label above every chat message.
@@ -5799,7 +5945,18 @@ function t(key, fallback) {
 
         if (text) {
             const textDiv = document.createElement('div');
-            textDiv.innerHTML = text.replace(/\n/g, '<br>');
+            textDiv.className = 'message-text';
+            // Sender-specific rendering:
+            //   assistant: full markdown rendering (the agent emits MD freely).
+            //   user:      markdown too — user may paste snippets with MD.
+            //   system:    keep as innerHTML so i18n keys that already carry
+            //              HTML (<code>, <strong>) render. System text is
+            //              controlled and trusted.
+            if (sender === 'system') {
+                textDiv.innerHTML = String(text).replace(/\n/g, '<br>');
+            } else {
+                textDiv.innerHTML = renderMarkdown(text);
+            }
             msgContent.appendChild(textDiv);
         }
 
@@ -6010,7 +6167,10 @@ function t(key, fallback) {
                     }
                     if (fields.message && fields.message.length > 6 && messageEl) {
                         messageEl.classList.remove('hidden');
-                        messageEl.textContent = fields.message;
+                        // Render the partial message with markdown so live
+                        // **bold** / `code` / lists show up the same way
+                        // they will in the final bubble.
+                        messageEl.innerHTML = renderMarkdown(fields.message);
                     }
                 } catch (_) {}
                 // Follow the growing thinking block down with the outer chat
