@@ -528,23 +528,44 @@ textarea::placeholder {
     padding-right: 0.5rem;
 }
 
-/* Settings, Sessions & Memory Modal */
-#settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+/* =================================================================== */
+/* UNIVERSAL MODAL CONTRACT                                            */
+/* =================================================================== */
+/* Every overlay (settings / sessions / memory / skills / tools /      */
+/* voice picker / OpenRouter picker / API help / permissions) follows  */
+/* the same rules:                                                     */
+/*   - the overlay uses flex centering WITH padding (top/bottom gap)   */
+/*   - the modal can never exceed (overlay - padding) so it always     */
+/*     fits inside the viewport, even on tiny CEP panels               */
+/*   - header + footer are flex-shrink: 0 (never collapse)             */
+/*   - body grows and scrolls vertically                               */
+/* =================================================================== */
+#settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
+#tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+#api-help-overlay, #permission-overlay {
+    /* Use position:fixed for all - works inside CEP regardless of body scroll */
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
     opacity: 1;
     transition: opacity 0.2s;
+    /* CRITICAL: padding creates the always-visible margin around the modal */
+    padding: 1.5rem 0.75rem;
+    box-sizing: border-box;
+    /* Allow the overlay itself to scroll if a modal is forced taller (last-resort fallback) */
+    overflow-y: auto;
 }
 
-#settings-overlay.hidden, #sessions-overlay.hidden, #memory-overlay.hidden, #skills-overlay.hidden {
-    opacity: 0;
-    pointer-events: none;
+/* Hidden state — display:none is safer than opacity (prevents accidental click-through) */
+#settings-overlay.hidden, #sessions-overlay.hidden, #memory-overlay.hidden, #skills-overlay.hidden,
+#tools-overlay.hidden, #voice-picker-overlay.hidden, #openrouter-picker-overlay.hidden,
+#api-help-overlay.hidden, #permission-overlay.hidden {
+    display: none;
 }
 
 .settings-modal {
@@ -554,11 +575,23 @@ textarea::placeholder {
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    max-height: 85vh;
+    /* CRITICAL: modal max-height is the OVERLAY's available space (overlay has padding 1.5rem 0.75rem,
+       so 100% of overlay = viewport minus 3rem). Modal can never push beyond viewport. */
+    max-height: 100%;
     overflow: hidden;
     box-sizing: border-box;
-    /* Prevent any child (like long <option> text) from expanding the modal */
     min-width: 0;
+}
+/* Header and footer never collapse — close + save buttons always visible */
+.settings-modal > .settings-header,
+.settings-modal > .settings-footer {
+    flex-shrink: 0;
+}
+/* Body always grows and scrolls when needed */
+.settings-modal > .settings-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 /* Make sure body / labels / cards never let inner controls push them wider */
@@ -898,18 +931,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-color: rgba(220,163,83,0.5);
 }
 
-/* OpenRouter picker styles */
-#openrouter-picker-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-#openrouter-picker-overlay.hidden { display: none; }
+/* OpenRouter picker — overlay base from universal block; just z-index + backdrop tweak */
+#openrouter-picker-overlay { z-index: 1000; }
 .picker-filters {
     display: flex;
     gap: 6px;
@@ -1058,18 +1081,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     border-color: rgba(220,163,83,0.4);
 }
 
-/* Voice picker modal */
-#voice-picker-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-#voice-picker-overlay.hidden { display: none; }
+/* Voice picker — overlay base from universal block */
+#voice-picker-overlay { z-index: 1000; }
 .voice-row {
     padding: 10px 12px;
     background: rgba(255,255,255,0.025);
@@ -1206,18 +1219,13 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     color: var(--text-secondary);
 }
 
-/* Tools overlay */
-#tools-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* Tools overlay — wider, taller modal but still safely within viewport */
+#tools-overlay { z-index: 1000; }
+/* The tools modal has its own internal sidebar+detail layout, override to height: 100% safely */
+#tools-overlay .settings-modal {
+    height: 100%;       /* fill the overlay's content box (which is viewport - padding) */
+    max-height: 100%;
 }
-#tools-overlay.hidden { display: none; }
 
 #tools-sidebar-list .tools-group-header {
     font-size: 10px;
@@ -1393,17 +1401,8 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
     transform: scale(1.1);
 }
 
-#api-help-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(8px);
-    z-index: 1100;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-#api-help-overlay.hidden { display: none; }
+/* API help — top z-index (above other modals so it can be summoned from within them) */
+#api-help-overlay { z-index: 1100; }
 
 .api-help-section {
     margin-bottom: 1rem;
@@ -1832,18 +1831,78 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 /* =================================================================== */
 /* Permission modal styling                                            */
 /* =================================================================== */
+/* Permission modal — highest z-index (above everything) */
 #permission-overlay {
-    position: fixed;
-    inset: 0;
+    z-index: 1500;
     background: rgba(0,0,0,0.78);
     backdrop-filter: blur(10px);
-    z-index: 1500;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     animation: fadeIn 0.2s ease-out;
 }
-#permission-overlay.hidden { display: none; }
+
+/* =================================================================== */
+/* Small CEP panel adjustments                                         */
+/* =================================================================== */
+/* CEP panels are often narrow (300-500px) and short (400-700px).      */
+/* Tighten overlay padding so big modals still fit.                    */
+@media (max-height: 600px) {
+    #settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
+    #tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+    #api-help-overlay, #permission-overlay {
+        padding: 0.5rem 0.5rem;
+    }
+}
+@media (max-width: 500px) {
+    #settings-overlay, #sessions-overlay, #memory-overlay, #skills-overlay,
+    #tools-overlay, #voice-picker-overlay, #openrouter-picker-overlay,
+    #api-help-overlay, #permission-overlay {
+        padding: 0.75rem 0.4rem;
+    }
+    /* On very narrow panels, collapse the tools sidebar+detail to single column */
+    #tools-overlay .tools-body { flex-direction: column !important; }
+    #tools-overlay #tools-sidebar {
+        width: 100% !important;
+        max-height: 35vh;
+        border-right: none !important;
+        border-bottom: 1px solid var(--panel-border);
+    }
+}
+
+/* Universal scrollbar styling for ALL modal bodies (consistent look) */
+.settings-body::-webkit-scrollbar,
+#tools-sidebar::-webkit-scrollbar,
+#tool-detail-pane::-webkit-scrollbar,
+#openrouter-models-list::-webkit-scrollbar,
+#voice-picker-list::-webkit-scrollbar,
+#api-help-body::-webkit-scrollbar {
+    width: 8px;
+}
+.settings-body::-webkit-scrollbar-track,
+#tools-sidebar::-webkit-scrollbar-track,
+#tool-detail-pane::-webkit-scrollbar-track,
+#openrouter-models-list::-webkit-scrollbar-track,
+#voice-picker-list::-webkit-scrollbar-track,
+#api-help-body::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.18);
+    border-radius: 4px;
+}
+.settings-body::-webkit-scrollbar-thumb,
+#tools-sidebar::-webkit-scrollbar-thumb,
+#tool-detail-pane::-webkit-scrollbar-thumb,
+#openrouter-models-list::-webkit-scrollbar-thumb,
+#voice-picker-list::-webkit-scrollbar-thumb,
+#api-help-body::-webkit-scrollbar-thumb {
+    background: rgba(220,163,83,0.25);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+.settings-body::-webkit-scrollbar-thumb:hover,
+#tools-sidebar::-webkit-scrollbar-thumb:hover,
+#tool-detail-pane::-webkit-scrollbar-thumb:hover,
+#openrouter-models-list::-webkit-scrollbar-thumb:hover,
+#voice-picker-list::-webkit-scrollbar-thumb:hover,
+#api-help-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(220,163,83,0.5);
+}
 
 #permission-overlay .settings-modal {
     animation: pipelineSlideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);

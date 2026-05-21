@@ -620,7 +620,7 @@
                     <label><input type="checkbox" id="or-feat-imgout"> <span data-i18n="or-feat-imgout">Generuje obrazy</span></label>
                 </div>
                 <div id="openrouter-list-status" data-i18n="or-pick-prompt" style="font-size:11px; color:var(--text-secondary); padding: 4px 0;">Wybierz katalog by załadować modele...</div>
-                <div id="openrouter-models-list" style="max-height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:6px;"></div>
+                <div id="openrouter-models-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
                 <button id="reload-openrouter-list" data-i18n="or-reload" style="flex:1; background:rgba(255,255,255,0.06); padding:8px; border-radius:6px; color:var(--text-primary); font-size:12px;">↻ Pobierz ponownie</button>
@@ -737,7 +737,7 @@
                     </select>
                 </div>
                 <div id="voice-picker-status" data-i18n="voice-picker-load-prompt" style="font-size:11px; color:var(--text-secondary); padding: 4px 0;">Naciśnij ↻ aby załadować głosy...</div>
-                <div id="voice-picker-list" style="max-height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:6px;"></div>
+                <div id="voice-picker-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             <div class="settings-footer" style="display:flex; gap:0.5rem; padding:0.8rem 1rem;">
                 <button id="reload-voice-list" class="mini-btn" data-i18n="voice-picker-load" style="flex:1;">↻ Pobierz / odśwież</button>
@@ -748,19 +748,19 @@
 
     <!-- Tools (toolkit) Overlay -->
     <div id="tools-overlay" class="hidden">
-        <div class="settings-modal glass-panel" style="max-width: 880px; width: 92%; height: 80vh; display:flex; flex-direction:column;">
+        <div class="settings-modal glass-panel" style="max-width: 880px; width: 92%;">
             <div class="settings-header">
                 <h2 data-i18n="tools-modal-title">Toolsy — Panel Narzędzi</h2>
                 <button id="close-tools-btn">&times;</button>
             </div>
-            <div style="display:flex; flex:1; min-height:0;">
+            <div class="tools-body" style="display:flex; flex:1 1 auto; min-height:0;">
                 <!-- Left sidebar: list of tools with enable toggles -->
-                <div id="tools-sidebar" style="width: 280px; border-right: 1px solid var(--panel-border); overflow-y: auto; padding: 0.6rem;">
+                <div id="tools-sidebar" style="width: 280px; border-right: 1px solid var(--panel-border); overflow-y: auto; padding: 0.6rem; min-height: 0;">
                     <input type="text" id="tools-filter" data-i18n-ph="tools-filter-ph" placeholder="🔎 Filtruj..." style="width: 100%; background: var(--input-bg); border: 1px solid var(--panel-border); color: white; padding: 6px 8px; border-radius: 6px; font-size: 11px; margin-bottom: 0.5rem;">
                     <div id="tools-sidebar-list"></div>
                 </div>
                 <!-- Right panel: detail / settings for selected tool -->
-                <div id="tool-detail-pane" style="flex: 1; overflow-y: auto; padding: 1rem;">
+                <div id="tool-detail-pane" style="flex: 1; overflow-y: auto; padding: 1rem; min-height: 0;">
                     <div data-i18n="tools-select-prompt" style="color: var(--text-secondary); font-size: 12px; text-align: center; padding: 2rem 1rem;">
                         Wybierz narzędzie z listy po lewej, aby zobaczyć ustawienia.
                     </div>
@@ -780,7 +780,7 @@
                 <h2 data-i18n="sessions-title">Historia Sesji</h2>
                 <button id="close-sessions-btn">&times;</button>
             </div>
-            <div class="settings-body" style="max-height: 60vh; overflow-y: auto;" id="sessions-list"></div>
+            <div class="settings-body" id="sessions-list"></div>
             <div class="settings-footer" style="padding: 0.8rem 1rem; border-top: 1px solid var(--panel-border);">
                 <button id="new-session-btn" data-i18n="new-session-btn" style="background: linear-gradient(135deg, var(--accent), #b8862d); width: 100%; padding: 10px 16px; font-size: 14px; font-weight: 500; border-radius: 8px; color: white; letter-spacing: 0.3px;">+ Rozpocznij Nową Sesję</button>
             </div>
@@ -793,7 +793,7 @@
                 <h2 data-i18n="memory-title">Mózg Agenta (LTM)</h2>
                 <button id="close-memory-btn">&times;</button>
             </div>
-            <div class="settings-body" style="max-height: 60vh; overflow-y: auto;" id="memory-list">
+            <div class="settings-body" id="memory-list">
                 <!-- Memory items will be inserted here -->
             </div>
             <div class="settings-footer" style="padding: 0.8rem 1rem; border-top: 1px solid var(--panel-border);">
@@ -811,7 +811,7 @@
                 <h2 data-i18n="skills-title">Skills</h2>
                 <button id="close-skills-btn">&times;</button>
             </div>
-            <div class="settings-body" style="max-height: 60vh; overflow-y: auto;" id="skills-list">
+            <div class="settings-body" id="skills-list">
                 <!-- Skills will be inserted here -->
             </div>
             <div class="settings-footer" style="padding: 0.8rem 1rem; border-top: 1px solid var(--panel-border);">
