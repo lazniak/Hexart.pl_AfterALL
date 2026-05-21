@@ -264,12 +264,17 @@
                 signal: args.signal
             }, { timeoutMs: 180000, signal: args.signal, retries: 1 });
             if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-                const reason = data.promptFeedback ? JSON.stringify(data.promptFeedback) : 'brak candidates';
-                throw new Error('Pusta odpowiedz Gemini: ' + reason);
+                const reason = data.promptFeedback ? JSON.stringify(data.promptFeedback) : 'no candidates returned';
+                throw new Error('Gemini returned an empty response for model "' + model + '": ' + reason
+                    + '. The model name may be invalid — open Settings → LLM Providers → Gemini → click 📋 to pick from the live list.');
             }
             const parts = data.candidates[0].content.parts || [];
             let text = '';
             for (const p of parts) { if (p.text) text += p.text; }
+            if (!text.trim()) {
+                throw new Error('Gemini returned no text content for model "' + model
+                    + '". The model name may be invalid or the request was blocked. Open Settings → LLM Providers → Gemini → click 📋.');
+            }
             return { text: text, raw: data };
         }
 
@@ -318,6 +323,17 @@
                 return s;
             };
             const full = await consumeSSE(res, extract, onChunk, args.signal);
+            // Gemini's streamGenerateContent returns HTTP 200 + an empty SSE
+            // body when given a non-existent model name (e.g. "gemini-3.5-flash"
+            // — there's no 3.5 in Google's lineup). Strip thought sentinels
+            // first, then if NOTHING is left we throw a clear actionable
+            // error instead of letting the agent retry-loop on empty input.
+            const stripped = full.replace(/\x01T_OPEN\x01[\s\S]*?\x01T_CLOSE\x01/g, '').trim();
+            if (!stripped) {
+                throw new Error('Gemini returned an empty response for model "' + model
+                    + '". The model name may be invalid or the API rejected the request silently. '
+                    + 'Open Settings → LLM Providers → Gemini, click the 📋 picker, and choose a model from the live list (e.g. gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro).');
+            }
             return { text: full, raw: { streamed: true } };
         }
 
