@@ -4773,15 +4773,31 @@ function t(key, fallback) {
             if (opts.provider === 'openai' && openaiApiInput && openaiApiInput.value.trim()) {
                 agent.openaiApiKey = openaiApiInput.value.trim();
             }
-            // Call provider directly so we get the kind-specific list
+            // Call provider directly so we get the kind-specific list.
+            // For LLM kind we delegate to agent.fetchModels below — it already
+            // routes through getProvider() and benefits from the 15-min cache —
+            // so the instance is only really needed when we have to call
+            // listImageModels/listTTSModels (gemini, openai, comfyui, etc).
             const P = window.AfterAllProviders;
-            let instance;
+            let instance = null;
             if (opts.provider === 'gemini') {
                 instance = P.create('gemini', { apiKey: agent.apiKey });
             } else if (opts.provider === 'openai') {
                 instance = P.create('openai', { apiKey: agent.openaiApiKey, baseUrl: agent.openaiBaseUrl });
             } else if (opts.provider === 'openrouter') {
                 instance = P.create('openrouter', { apiKey: agent.openrouterApiKey });
+            } else if (opts.provider === 'lmstudio') {
+                // LM Studio is LLM-only (no image / TTS); the LLM branch
+                // below short-circuits to agent.fetchModels(), so we don't
+                // need to construct an instance here — but we keep it
+                // around in case the picker is asked for something other
+                // than LLM in the future.
+                instance = P.create('lmstudio', {
+                    baseUrl: agent.lmstudioBaseUrl,
+                    apiKey:  agent.lmstudioApiKey
+                });
+            } else if (opts.provider === 'comfyui') {
+                instance = P.create('comfyui', { baseUrl: agent.comfyuiBaseUrl });
             } else {
                 throw new Error('Picker: unsupported provider ' + opts.provider);
             }
