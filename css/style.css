@@ -602,6 +602,28 @@ button:hover {
     transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Small relative timestamp above each chat message. Sits as the first
+   child of .message so it appears just above the bubble, aligned to
+   the message's side (right for user, left for assistant/system). */
+.msg-timestamp {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.55;
+    line-height: 1.2;
+    padding: 0 4px;
+    margin-bottom: 2px;
+    letter-spacing: 0.2px;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    cursor: default;
+    transition: opacity 0.2s;
+    font-family: 'Outfit', sans-serif;
+}
+.message:hover .msg-timestamp { opacity: 0.85; }
+.message.user .msg-timestamp { text-align: right; }
+.message.assistant .msg-timestamp,
+.message.system .msg-timestamp { text-align: left; }
+
 .message-content:hover {
     transform: translateY(-2px);
 }

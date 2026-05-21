@@ -375,6 +375,13 @@ const i18nDict = {
     'pl': {
         // Header / status
         'greeting': 'HEXART.PL/AfterALL — agent gotowy do działania! ✨',
+        // Relative chat timestamps
+        'ts-just-now': 'przed chwilą',
+        'ts-seconds':  '{n} s temu',
+        'ts-minutes':  '{n} min temu',
+        'ts-hours':    '{n} godz. temu',
+        'ts-days':     '{n} dni temu',
+        'ts-weeks':    '{n} tyg. temu',
         'log-console-btn': 'Konsola Logów',
         'prompt-placeholder': 'Wpisz polecenie dla After Effects...',
         // Question form (with auto-apply timeout)
@@ -880,6 +887,12 @@ const i18nDict = {
     },
     'en': {
         'greeting': 'HEXART.PL/AfterALL — agent ready! ✨',
+        'ts-just-now': 'just now',
+        'ts-seconds':  '{n}s ago',
+        'ts-minutes':  '{n} min ago',
+        'ts-hours':    '{n} h ago',
+        'ts-days':     '{n} d ago',
+        'ts-weeks':    '{n} w ago',
         'log-console-btn': 'Log Console',
         'prompt-placeholder': 'Type command for After Effects...',
         // Question form (with auto-apply timeout)
@@ -1345,6 +1358,12 @@ const i18nDict = {
     },
     'de': {
         'greeting': 'HEXART.PL/AfterALL — Agent bereit! ✨',
+        'ts-just-now': 'gerade eben',
+        'ts-seconds':  'vor {n} s',
+        'ts-minutes':  'vor {n} Min.',
+        'ts-hours':    'vor {n} Std.',
+        'ts-days':     'vor {n} T.',
+        'ts-weeks':    'vor {n} Wo.',
         'log-console-btn': 'Log-Konsole',
         'prompt-placeholder': 'Befehl für After Effects eingeben...',
         'status-ready': 'Bereit', 'status-thinking': 'Denke nach...', 'status-processing': 'Verarbeite...', 'status-done': 'Aufgabe erledigt.',
@@ -1517,6 +1536,12 @@ const i18nDict = {
     },
     'es': {
         'greeting': 'HEXART.PL/AfterALL — ¡agente listo! ✨',
+        'ts-just-now': 'ahora mismo',
+        'ts-seconds':  'hace {n} s',
+        'ts-minutes':  'hace {n} min',
+        'ts-hours':    'hace {n} h',
+        'ts-days':     'hace {n} d',
+        'ts-weeks':    'hace {n} sem.',
         'log-console-btn': 'Consola de registros',
         'prompt-placeholder': 'Escribe un comando para After Effects...',
         'status-ready': 'Listo', 'status-thinking': 'Pensando...', 'status-processing': 'Procesando...', 'status-done': 'Tarea completada.',
@@ -1676,6 +1701,12 @@ const i18nDict = {
     },
     'fr': {
         'greeting': 'HEXART.PL/AfterALL — agent prêt ! ✨',
+        'ts-just-now': 'à l\'instant',
+        'ts-seconds':  'il y a {n} s',
+        'ts-minutes':  'il y a {n} min',
+        'ts-hours':    'il y a {n} h',
+        'ts-days':     'il y a {n} j',
+        'ts-weeks':    'il y a {n} sem.',
         'log-console-btn': 'Console de logs',
         'prompt-placeholder': 'Saisissez une commande pour After Effects...',
         'status-ready': 'Prêt', 'status-thinking': 'Réflexion...', 'status-processing': 'Traitement...', 'status-done': 'Tâche terminée.',
@@ -1835,6 +1866,12 @@ const i18nDict = {
     },
     'ja': {
         'greeting': 'HEXART.PL/AfterALL — エージェント準備完了！✨',
+        'ts-just-now': 'たった今',
+        'ts-seconds':  '{n} 秒前',
+        'ts-minutes':  '{n} 分前',
+        'ts-hours':    '{n} 時間前',
+        'ts-days':     '{n} 日前',
+        'ts-weeks':    '{n} 週間前',
         'log-console-btn': 'ログコンソール',
         'prompt-placeholder': 'After Effects へのコマンドを入力...',
         'status-ready': '準備完了', 'status-thinking': '考え中...', 'status-processing': '処理中...', 'status-done': 'タスク完了。',
@@ -5647,10 +5684,72 @@ function t(key, fallback) {
             .replace('{tts}', agent.ttsProvider));
     });
 
+    // ---------------------------------------------------------------
+    // Relative chat timestamps
+    // ---------------------------------------------------------------
+    // Renders a small subtle "X ago" label above every chat message.
+    // Format follows best practices:
+    //   <5 s      -> "just now"
+    //   <60 s     -> "Ns ago"
+    //   <60 min   -> "N min ago"
+    //   <24 h     -> "N h ago"
+    //   <7  d     -> "N d ago"
+    //   <30 d     -> "N w ago"
+    //   else      -> full "YYYY-MM-DD HH:MM:SS" (absolute timestamp)
+    //
+    // A single interval walks all [data-ts] nodes every 30 s and rewrites
+    // their textContent — survives session restore (the data-ts attribute
+    // is part of the saved chatContainer.innerHTML).
+    function formatRelativeTimestamp(tsMs) {
+        const now = Date.now();
+        const tsNum = parseInt(tsMs, 10);
+        if (!tsNum || !isFinite(tsNum)) return '';
+        const deltaSec = Math.max(0, Math.round((now - tsNum) / 1000));
+        if (deltaSec < 5)        return tr('ts-just-now');
+        if (deltaSec < 60)       return tr('ts-seconds').replace('{n}', String(deltaSec));
+        const deltaMin = Math.floor(deltaSec / 60);
+        if (deltaMin < 60)       return tr('ts-minutes').replace('{n}', String(deltaMin));
+        const deltaHr = Math.floor(deltaMin / 60);
+        if (deltaHr < 24)        return tr('ts-hours').replace('{n}', String(deltaHr));
+        const deltaDay = Math.floor(deltaHr / 24);
+        if (deltaDay < 7)        return tr('ts-days').replace('{n}', String(deltaDay));
+        if (deltaDay < 30) {
+            const deltaWk = Math.floor(deltaDay / 7);
+            return tr('ts-weeks').replace('{n}', String(deltaWk));
+        }
+        // Older than ~1 month: switch to absolute YYYY-MM-DD HH:MM:SS
+        const d = new Date(tsNum);
+        const pad = n => String(n).padStart(2, '0');
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+             + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    function refreshAllChatTimestamps() {
+        const nodes = (chatContainer || document).querySelectorAll('.msg-timestamp[data-ts]');
+        nodes.forEach(el => {
+            const txt = formatRelativeTimestamp(el.getAttribute('data-ts'));
+            if (txt) el.textContent = txt;
+        });
+    }
+    // Start the refresh ticker once. 30 s cadence is plenty for "X ago"
+    // updates while staying easy on the event loop.
+    if (!window.__afterallTsTicker) {
+        window.__afterallTsTicker = setInterval(refreshAllChatTimestamps, 30000);
+    }
+
     function appendMessage(sender, text, thought = null, planArray = null, attachedImageUri = null) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${sender}`;
-        
+
+        // Timestamp pill — small, subtle, sits above the message bubble.
+        const tsEl = document.createElement('div');
+        tsEl.className = 'msg-timestamp';
+        const tsNow = Date.now();
+        tsEl.setAttribute('data-ts', String(tsNow));
+        tsEl.title = new Date(tsNow).toLocaleString();
+        tsEl.textContent = tr('ts-just-now');
+        msgDiv.appendChild(tsEl);
+
         const msgContent = document.createElement('div');
         msgContent.className = 'message-content';
         
