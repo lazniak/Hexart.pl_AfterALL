@@ -6000,15 +6000,58 @@ function t(key, fallback) {
             };
         }
 
+        // Gemini's thinking-model stream wraps reasoning parts in sentinel
+        // markers (\x01T_OPEN\x01 ... \x01T_CLOSE\x01). Split the live text
+        // into THOUGHT segments (rendered with a softer italic style) and
+        // FINAL OUTPUT segments (rendered plain). The JSON-extract preview
+        // only inspects the final-output text — partial JSON inside reasoning
+        // would never parse anyway and just causes flicker.
+        function splitThoughtsAndOutput(text) {
+            if (!text) return { html: '', outputOnly: '' };
+            if (text.indexOf('\x01T_OPEN\x01') === -1) {
+                return { html: escapeAttr(text), outputOnly: text };
+            }
+            let html = '';
+            let outputOnly = '';
+            let i = 0;
+            while (i < text.length) {
+                const open = text.indexOf('\x01T_OPEN\x01', i);
+                if (open === -1) {
+                    html += escapeAttr(text.slice(i));
+                    outputOnly += text.slice(i);
+                    break;
+                }
+                if (open > i) {
+                    const out = text.slice(i, open);
+                    html += escapeAttr(out);
+                    outputOnly += out;
+                }
+                const close = text.indexOf('\x01T_CLOSE\x01', open + 8);
+                if (close === -1) {
+                    const tail = text.slice(open + 8);
+                    html += '<span class="stream-thought">' + escapeAttr(tail) + '</span>';
+                    break;
+                }
+                const thought = text.slice(open + 8, close);
+                html += '<span class="stream-thought">' + escapeAttr(thought) + '</span>';
+                i = close + 9;
+            }
+            return { html: html, outputOnly: outputOnly };
+        }
+
         return {
             update: (delta, fullText) => {
                 if (!thoughtEl) return;
-                thoughtEl.textContent = fullText;
+                const parts = splitThoughtsAndOutput(fullText);
+                // innerHTML is safe here because every text segment inside
+                // splitThoughtsAndOutput is passed through escapeAttr.
+                thoughtEl.innerHTML = parts.html;
                 if (charCountEl) charCountEl.textContent = fullText.length;
                 if (autoScroll) thoughtEl.scrollTop = thoughtEl.scrollHeight;
-                // Try to extract early fields and show them as a preview above
+                // Run the early-field extractor on outputOnly so partial
+                // thought text never poisons the grab() regexes.
                 try {
-                    const fields = extractPartial(fullText);
+                    const fields = extractPartial(parts.outputOnly);
                     if (fields.plan && fields.plan.length > 0 && planEl) {
                         planEl.classList.remove('hidden');
                         planEl.innerHTML = '<strong>' + escapeAttr(tr('plan-preview-label') || 'Plan') + '</strong>'

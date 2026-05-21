@@ -195,6 +195,21 @@
             return all.filter(m => /tts/i.test(m.id));
         }
 
+        // Gemini 2.5+ ("thinking") and 3.x models do extensive server-side
+        // reasoning before emitting any output token. Without
+        // thinkingConfig.includeThoughts, an SSE stream stays silent for
+        // 30-90s and looks broken. With includeThoughts=true, the server
+        // streams thought-summary parts (each carries thought: true) so the
+        // user can watch the model reason live.
+        _isThinkingModel(modelId) {
+            if (!modelId) return false;
+            // gemini-2.5-*, gemini-3-*, gemini-3.x-*  (excluding lite variants
+            // which don't accept thinkingConfig). Lite still works without it.
+            if (/gemini-[2-9]\.\d/i.test(modelId) && !/-lite/i.test(modelId)) return true;
+            if (/^gemini-[3-9](-|$)/i.test(modelId)) return true;
+            return false;
+        }
+
         _buildGenPayload(args, stream) {
             // IMPORTANT: when streaming, we MUST NOT request
             // responseMimeType=application/json. Gemini's streaming endpoint
@@ -215,6 +230,14 @@
                 // Streaming: drop the JSON-mode hint so the server emits tokens
                 // as they're generated.
                 delete baseGenCfg.responseMimeType;
+            }
+            // Stream thought summaries for reasoning models so the live
+            // thinking block actually shows activity during the server-side
+            // reasoning phase. Non-thinking models silently ignore the field.
+            if (stream && this._isThinkingModel(args.model)) {
+                baseGenCfg.thinkingConfig = Object.assign({
+                    includeThoughts: true
+                }, baseGenCfg.thinkingConfig || {});
             }
             const payload = {
                 contents: args.messages,
@@ -267,11 +290,31 @@
                 const errTxt = await res.text();
                 throw new Error('Gemini stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
             }
+            // The extractor returns BOTH the final-output text and any
+            // thought-summary parts. We keep them separate so the JSON
+            // parser downstream only sees final-output text (thoughts would
+            // confuse it), while the live UI block sees everything.
+            //
+            // Thought parts in the response have `thought: true`. Plain
+            // output parts only have `text`. We emit thoughts wrapped in
+            // a sentinel envelope (\x01THOUGHT_OPEN\x01 ... \x01THOUGHT_CLOSE\x01)
+            // so the agent's stream callback can route them visually while
+            // the parser strips them before JSON parsing.
             const extract = (obj) => {
                 const parts = obj && obj.candidates && obj.candidates[0]
                     && obj.candidates[0].content && obj.candidates[0].content.parts || [];
                 let s = '';
-                for (const p of parts) if (p && p.text) s += p.text;
+                for (const p of parts) {
+                    if (!p || !p.text) continue;
+                    if (p.thought) {
+                        // Wrap thought text in an invisible marker pair so
+                        // the chat-side parser can strip it before JSON.parse
+                        // (see agent.js → strip-thoughts post-process).
+                        s += '\x01T_OPEN\x01' + p.text + '\x01T_CLOSE\x01';
+                    } else {
+                        s += p.text;
+                    }
+                }
                 return s;
             };
             const full = await consumeSSE(res, extract, onChunk, args.signal);

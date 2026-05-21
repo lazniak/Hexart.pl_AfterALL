@@ -1484,6 +1484,20 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 
 /* GitHub "give us a star" CTA — appears at the bottom of the Update card */
+/* Gemini thinking-model reasoning chunks (server-streamed thought
+   summaries). Rendered with a slightly softer / italic treatment so the
+   user can tell reasoning apart from the final output at a glance. */
+.thought-content-stream .stream-thought {
+    color: #c7d2fe;
+    font-style: italic;
+    opacity: 0.82;
+    background: rgba(167, 139, 250, 0.06);
+    border-left: 2px solid rgba(167, 139, 250, 0.45);
+    padding: 1px 4px;
+    margin: 0 1px;
+    border-radius: 2px;
+}
+
 /* Pricing badge in model picker rows */
 .badge.price-badge {
     background: rgba(34, 197, 94, 0.12);

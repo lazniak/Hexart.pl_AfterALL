@@ -3006,7 +3006,14 @@ ${this.getSkillsSummary()}
             }
             completion = await provider.chatCompletion(args);
         }
-        const rawText = completion.text || '';
+        // Gemini's thinking-model stream wraps reasoning parts in
+        //   \x01T_OPEN\x01 ... \x01T_CLOSE\x01
+        // sentinels so the UI could surface them while the JSON parser
+        // strips them here before any downstream processing.
+        let rawText = completion.text || '';
+        if (rawText.indexOf('\x01T_OPEN\x01') !== -1) {
+            rawText = rawText.replace(/\x01T_OPEN\x01[\s\S]*?\x01T_CLOSE\x01/g, '');
+        }
 
         // ---- Save to history (no binary blobs, to prevent token explosion) --
         this.history.push({
