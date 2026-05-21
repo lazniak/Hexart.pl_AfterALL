@@ -105,7 +105,7 @@
                     </svg>
                 </button>
             </div>
-            <div id="status-indicator">Gotowy</div>
+            <div id="status-indicator" data-i18n="status-ready">Ready</div>
         </footer>
     </div>
 
@@ -214,6 +214,13 @@
                                 <button type="button" id="pick-openrouter-llm" class="mini-btn" title="Wybierz model z katalogu OpenRouter">📋</button>
                             </div>
                             <span class="hint" data-i18n="openrouter-hint">Wymaga klucza OpenRouter API · kliknij ikonę listy by przeglądać i filtrować</span>
+
+                            <label for="openrouter-grounding-model" data-i18n="openrouter-grounding-label" style="margin-top: 0.7rem;">Model do wyszukiwania w sieci (Grounding)</label>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="openrouter-grounding-model" placeholder="np. perplexity/llama-3.1-sonar-large-128k-online" style="flex:1;">
+                                <button type="button" id="pick-openrouter-grounding" class="mini-btn" title="Pick a web-search-capable model">📋</button>
+                            </div>
+                            <span class="hint" data-i18n="openrouter-grounding-hint">Używany tylko gdy „Google Search Grounding" jest włączony. Polecane: Perplexity Sonar Online · GPT-4o z web · DeepSeek Reasoner z search.</span>
                         </div>
 
                         <!-- LMStudio LLM -->

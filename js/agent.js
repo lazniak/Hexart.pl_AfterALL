@@ -96,6 +96,7 @@ class AisistAgent {
         // Per-provider model selections
         this.geminiModel = storedBaseModel || getStr('hexart_gemini_model', 'gemini-2.5-flash');
         this.openrouterLLMModel = getStr('hexart_openrouter_llm_model', 'anthropic/claude-3.5-sonnet');
+        this.openrouterGroundingModel = getStr('hexart_openrouter_grounding_model', 'perplexity/llama-3.1-sonar-large-128k-online');
         this.lmstudioLLMModel = getStr('hexart_lmstudio_llm_model', '');
         this.lmstudioBaseUrl = getStr('hexart_lmstudio_url', 'http://localhost:1234');
 
@@ -225,6 +226,15 @@ class AisistAgent {
             case 'lmstudio':   return this.lmstudioLLMModel;
             default:           return this.geminiModel;
         }
+    }
+    // When grounding is enabled and the active provider is OpenRouter, swap to the
+    // configured grounding model (e.g. Perplexity Sonar online) for this single call.
+    // Returns the model name to use for the current LLM request.
+    getModelForCall(needsGrounding) {
+        if (needsGrounding && this.llmProvider === 'openrouter' && this.openrouterGroundingModel) {
+            return this.openrouterGroundingModel;
+        }
+        return this.getActiveLLMModel();
     }
     getActiveImageModel() {
         return this.imgProvider === 'openrouter' ? this.openrouterImageModel : this.geminiImageModel;
@@ -982,7 +992,7 @@ Your toolbox is NOT limited to what's already installed. Treat the open-source e
 **3-step Tool Selection Algorithm — apply EVERY time you face a non-trivial task:**
 
 1. **REUSE FIRST** — scan YOUR SAVED SKILLS (Python + Markdown) at the top of every task. If a saved skill solves 70%+ of the problem, use it; if 30-70%, extend it; if <30%, move to step 2.
-2. **DISCOVER ONLINE** — ${this.useGrounding && this.llmProvider === 'gemini' ? 'use Google Search Grounding actively' : 'when grounding is disabled, use Python with requests + BeautifulSoup to scrape PyPI / GitHub search'} to find existing libraries. Search patterns: "python <task> library", "<topic> github stars", "best <thing> opensource 2025". Examine README, stars, last commit, license.
+2. **DISCOVER ONLINE** — ${(this.useGrounding && this.isFeatureEnabled('grounding') && (this.llmProvider === 'gemini' || (this.llmProvider === 'openrouter' && this.openrouterGroundingModel))) ? ('web-search grounding is active (' + (this.llmProvider === 'gemini' ? 'Google Search' : 'OpenRouter ' + this.openrouterGroundingModel) + '). USE IT PROACTIVELY for fresh facts and library discovery') : 'grounding is currently inactive — research via Python (requests + BeautifulSoup) or your own knowledge'}. Search patterns: "python <task> library", "<topic> github stars", "best <thing> opensource 2025". Examine README, stars, last commit, license.
 3. **CREATE NEW** — only after steps 1 and 2 found nothing. Write a Python script in a new venv. The moment it works → IMMEDIATELY call save_as_skill so the next task starts at step 1, not step 3.
 
 **Be opportunistic about persistence**: every successful Python invocation should ASK the question "is this reusable?" → if yes, save_as_skill with a precise description. The agent who saves 5 skills per session in 3 months has a 500-skill toolbox.
@@ -1312,6 +1322,7 @@ ${this.getSkillsSummary()}
         assign('imgProvider', 'imgProvider', 'hexart_img_provider');
         assign('geminiModel', 'geminiModel', 'hexart_gemini_model');
         assign('openrouterLLMModel', 'openrouterLLMModel', 'hexart_openrouter_llm_model');
+        assign('openrouterGroundingModel', 'openrouterGroundingModel', 'hexart_openrouter_grounding_model');
         assign('lmstudioLLMModel', 'lmstudioLLMModel', 'hexart_lmstudio_llm_model');
         assign('lmstudioBaseUrl', 'lmstudioBaseUrl', 'hexart_lmstudio_url');
         assign('geminiImageModel', 'geminiImageModel', 'hexart_gemini_img_model');
@@ -2539,7 +2550,10 @@ ${this.getSkillsSummary()}
 
         // ---- Call active LLM provider ----------------------------------
         const provider = this.getProvider('llm');
-        const model = this.getActiveLLMModel();
+        // Grounding routing: if user enabled grounding and we're on OpenRouter, swap to
+        // the configured grounding model (e.g. Perplexity Sonar) just for this call.
+        const wantsGrounding = this.useGrounding && this.isFeatureEnabled('grounding');
+        const model = this.getModelForCall(wantsGrounding);
         if (!model) throw new Error('Nie wybrano modelu dla dostawcy ' + this.llmProvider + '. Otwórz Ustawienia → Dostawcy LLM.');
 
         const signal = this.abortController ? this.abortController.signal : undefined;

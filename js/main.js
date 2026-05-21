@@ -318,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const llmProviderSelect = document.getElementById('llm-provider-select');
     const imgProviderSelect = document.getElementById('image-provider-select');
     const openrouterLLMModelInput = document.getElementById('openrouter-llm-model');
+    const openrouterGroundingModelInput = document.getElementById('openrouter-grounding-model');
     const openrouterImgModelInput = document.getElementById('openrouter-img-model');
     const lmstudioLLMModelSelect = document.getElementById('lmstudio-llm-model');
     const lmstudioBaseUrlInput = document.getElementById('lmstudio-base-url');
@@ -383,6 +384,95 @@ const i18nDict = {
         'thinking-live-label': 'Agent myśli — strumień LLM',
         'thinking-done-label': '⚙ Proces decyzyjny (streamowany — kliknij, by rozwinąć)',
         'plan-preview-label': 'Plan (w trakcie)',
+        // ----- Status indicator -----
+        'status-scanning-project': 'Skanuję projekt AE...',
+        'status-fixing-error': 'Naprawiam błąd (próba {n}/{max})...',
+        'status-task-interrupted': 'Zadanie przerwane.',
+        'status-awaiting-response': 'Oczekuję na odpowiedź.',
+        'status-task-error': 'Przerwano po błędzie.',
+        'status-comm-error': 'Błąd komunikacji.',
+        'status-aborted': 'Przerwano.',
+        'status-aborting': 'Przerywam...',
+        'status-json-recovery-aborted': 'Przerwano po błędzie JSON.',
+        'status-task-completed-repetition': 'Zadanie zakończone (anty-pętla).',
+        // ----- Save settings confirmation -----
+        'settings-saved-toast': '✓ Ustawienia zaktualizowane. LLM: {llm} ({model}) · Obrazy: {img} · TTS: {tts}.',
+        // ----- First-run hint -----
+        'first-run-hint': '⚙ Otwórz Ustawienia (ikona koła zębatego) i skonfiguruj klucze API oraz wybierz dostawcę LLM.',
+        // ----- Send / task lifecycle messages -----
+        'amsg-no-api-key': '⚠ Nie wprowadzono klucza API. Kliknij ikonę zębatki, aby to naprawić.',
+        'sysmsg-aborting-ops': '⚡ Przerywam bieżące operacje na żądanie użytkownika...',
+        'sysmsg-prev-aborted-new-task': '⚡ Przerwano poprzednie zadanie. Rozpoczynam nowe.',
+        'sysmsg-bridge-failed-start': '⚠ Bridge nie wystartował: {err} (zmień port i spróbuj ponownie)',
+        'sysmsg-bridge-port-changed': '⚠ Port zmieniony — zatrzymaj i uruchom bridge ponownie, by zmiana zadziałała.',
+        'sysmsg-el-no-permissions': '⚠ Twój klucz ElevenLabs nie ma uprawnienia <b>models_read</b>. Wygeneruj nowy klucz z permission "All" (zalecane) lub przynajmniej <b>models_read</b> i <b>voices_read</b>.',
+        'sysmsg-el-key-needed': '⚠ Wprowadź klucz ElevenLabs w zakładce „Klucze API" przed otwarciem biblioteki głosów.',
+        'sysmsg-delete-rejected': '⚠ Operacja usunięcia została odrzucona. Agent musi znaleźć alternatywę.',
+        'sysmsg-task-cancelled': 'Zadanie zostało przerwane na Twoje życzenie. Co robimy dalej?',
+        'sysmsg-json-recovery-failed': 'Wyczerpano próby odzyskania formatu JSON. Spróbuj ponownie z prostszym poleceniem.',
+        'sysmsg-comm-error': '⚠ Wystąpił błąd komunikacji: {err}',
+        // ----- Assistant fallback messages -----
+        'amsg-task-done': 'Zadanie zakończone.',
+        'amsg-doing-task': 'Realizuję zadanie...',
+        'amsg-execution-result': 'Wynik działania: {res}',
+        'amsg-code-error-fixing': 'Błąd w kodzie: {err}. Próbuję naprawić...',
+        'amsg-code-error-stopped': 'Błąd w kodzie: {err}. Zatrzymano z powodu błędu.',
+        'amsg-repetition-stop': 'Wygenerowano 4 obrazy z rzędu. Jeśli potrzebujesz dalszych zmian, napisz co poprawić.',
+        // ----- Log messages -----
+        'log-stop-signal-sent': 'Wysłano sygnał przerwania operacji...',
+        'log-new-task': '--- Nowe zadanie ---',
+        'log-prompt': 'Prompt: "{text}"',
+        'log-user-interrupting': 'Użytkownik przerywa bieżący proces: "{text}"',
+        'log-abort-sent': 'Abort wysłany — agent przerwie się przy najbliższej kontroli.',
+        'log-soft-suggestion': 'Wiadomość w trakcie pracy (wstrzykuję do następnego kroku): "{text}"',
+        'log-sending-script-context': 'Wysyłam zapytanie do środowiska ExtendScript o kontekst projektu...',
+        'log-ae-context-received': 'Otrzymano kontekst projektu w {ms}ms. (Projekt aktywny: {active})',
+        'log-protection-snapshot': 'Snapshot ochrony: {items} elementów / {comps} komp. (chronione przed agentem)',
+        'log-changed-project': 'Zmiana projektu: {from} → {to}',
+        'log-loaded-project-session': 'Wczytano ostatnią sesję projektu: {title}',
+        'log-injected-queue': 'Wstrzyknięto {n} znaków z kolejki sugestii gracza!',
+        'log-fetching-gemini-models': 'Pobieram listę modeli Gemini z API...',
+        'log-fetching-lmstudio-models': 'Pobieram listę modeli z LM Studio...',
+        'log-llm-call': 'Wywołanie LLM ({model})...',
+        'log-llm-responded': 'LLM odpowiedział w {ms}ms (streamowane).',
+        'log-task-completed-flag': 'Zadanie zakończone (is_task_complete: true).',
+        'log-extendscript-call': 'Wywołuję kod ExtendScript w After Effects...',
+        'log-extendscript-success': 'Skrypt wykonany pomyślnie w {ms}ms.',
+        'log-extendscript-error': 'Błąd ExtendScript [Linia {line}]: {err}',
+        'log-undo-success': 'Cofnięto zmiany z błędnego skryptu (Undo).',
+        'log-undo-failed': 'Nie udało się cofnąć zmian (Undo).',
+        'log-prep-self-repair': 'Przygotowanie do samo-naprawy (próba {n})...',
+        'log-exhausted-retries': 'Wyczerpano próby naprawy ({max}). Pozostawiam zmiany w projekcie.',
+        'log-process-cancelled-user': 'Proces pomyślnie anulowany przez użytkownika.',
+        'log-app-exception': 'Wyjątek aplikacji: {err}',
+        'log-json-format-err': 'Błąd formatu JSON od modelu. ({hint})',
+        'log-self-repair-syntax': 'Samo-naprawa składni (próba {n})...',
+        'log-detected-destructive': 'Wykryto {n} operacji destrukcyjnych — pytam o zgodę...',
+        'log-skip-transient-file': 'Pomijam akceptację dla pliku tymczasowego: {target}',
+        'log-user-denied-op': 'Użytkownik odmówił operacji: {op} na {target}',
+        'log-loaded-session': 'Wczytano sesję z {date}',
+        'log-deleted-session': 'Usunięto sesję z {date}',
+        'log-new-session-created': 'Utworzono nową sesję.',
+        'log-skill-not-found': 'Skill nie znaleziony: {name}',
+        'log-skill-loaded': 'Agent załadował Skill: {name}',
+        'log-skill-saved': 'Agent zapisał nowy Skill: {name}',
+        'log-skill-deleted': 'Usunięto skill: {name}',
+        'log-ltm-updated': 'Zaktualizowano Pamięć LTM ({n} operacji)',
+        'log-ltm-rule-added': 'Ręcznie dodano regułę do LTM',
+        'log-ltm-rule-deleted': 'Usunięto regułę LTM',
+        'log-perm-rule-revoked': 'Cofnięto regułę uprawnień: {op} / {target}',
+        'log-voice-pick-empty': 'Wybierz głos z listy',
+        'log-voice-selected-as': 'Wybrano głos „{name}" jako {target}',
+        'log-voice-added': 'Dodano głos „{name}" do biblioteki użytkownika.',
+        'log-agent-resumes-prework': 'Agent zapowiedział pracę — kontynuuję.',
+        'log-agent-continues-orchestration': 'Agent zdecydował o kontynuacji zadania (orkiestracja).',
+        'log-modal-pause-required': 'Pauza wg żądania modelu (requires_user_input).',
+        'log-skill-saved-as': 'Skill zapisany: {name} ({desc})',
+        'log-saved-skill-toast': 'Zapisano nowy skill: {name}',
+        // ----- Saved-skill chat output -----
+        'sysmsg-skill-saved-toast': 'Zapisano nowy skill: <b>{name}</b>',
+        // ----- Status: result returned by model -----
+        'amsg-task-aborted-user': 'Zadanie zostało przerwane na Twoje życzenie. Co robimy dalej?',
         'status-ready': 'Gotowy',
         'status-thinking': 'Myślę...',
         'status-processing': 'Przetwarzam...',
@@ -409,6 +499,8 @@ const i18nDict = {
         'gemini-hint': 'Lista pobierana z Google API · wymaga klucza Gemini',
         'openrouter-model-label': 'Model OpenRouter',
         'openrouter-hint': 'Wymaga klucza OpenRouter API · kliknij ikonę listy by przeglądać i filtrować',
+        'openrouter-grounding-label': 'Model do wyszukiwania w sieci (Grounding)',
+        'openrouter-grounding-hint': 'Używany tylko gdy „Google Search Grounding" jest włączony. Polecane: Perplexity Sonar Online · GPT-4o z web · DeepSeek z search.',
         'lmstudio-model-label': 'Model LM Studio',
         'lmstudio-url-label': 'URL serwera LM Studio',
         'lmstudio-hint': 'Lokalne modele · wymagany uruchomiony serwer LM Studio (Server Mode)',
@@ -630,6 +722,95 @@ const i18nDict = {
         'thinking-live-label': 'Agent thinking — live LLM stream',
         'thinking-done-label': '⚙ Decision process (streamed — click to expand)',
         'plan-preview-label': 'Plan (in progress)',
+        // ----- Status indicator -----
+        'status-scanning-project': 'Scanning AE project...',
+        'status-fixing-error': 'Fixing error (attempt {n}/{max})...',
+        'status-task-interrupted': 'Task interrupted.',
+        'status-awaiting-response': 'Awaiting your response.',
+        'status-task-error': 'Stopped after error.',
+        'status-comm-error': 'Communication error.',
+        'status-aborted': 'Aborted.',
+        'status-aborting': 'Aborting...',
+        'status-json-recovery-aborted': 'Stopped after JSON error.',
+        'status-task-completed-repetition': 'Task complete (anti-loop).',
+        // ----- Save settings confirmation -----
+        'settings-saved-toast': '✓ Settings updated. LLM: {llm} ({model}) · Images: {img} · TTS: {tts}.',
+        // ----- First-run hint -----
+        'first-run-hint': '⚙ Open Settings (gear icon) and configure your API keys + pick an LLM provider.',
+        // ----- Send / task lifecycle messages -----
+        'amsg-no-api-key': '⚠ No API key entered. Click the gear icon to fix this.',
+        'sysmsg-aborting-ops': '⚡ Aborting current operations at your request...',
+        'sysmsg-prev-aborted-new-task': '⚡ Previous task aborted. Starting a new one.',
+        'sysmsg-bridge-failed-start': '⚠ Bridge failed to start: {err} (change the port and try again)',
+        'sysmsg-bridge-port-changed': '⚠ Port changed — stop and restart the bridge for it to take effect.',
+        'sysmsg-el-no-permissions': '⚠ Your ElevenLabs key is missing the <b>models_read</b> permission. Generate a new key with permission "All" (recommended) or at least <b>models_read</b> and <b>voices_read</b>.',
+        'sysmsg-el-key-needed': '⚠ Enter your ElevenLabs key in the "API Keys" tab before opening the voice library.',
+        'sysmsg-delete-rejected': '⚠ Deletion was rejected. The agent must find an alternative.',
+        'sysmsg-task-cancelled': 'The task was interrupted at your request. What\'s next?',
+        'sysmsg-json-recovery-failed': 'Exhausted attempts to recover JSON format. Try again with a simpler prompt.',
+        'sysmsg-comm-error': '⚠ Communication error: {err}',
+        // ----- Assistant fallback messages -----
+        'amsg-task-done': 'Task complete.',
+        'amsg-doing-task': 'Working on it...',
+        'amsg-execution-result': 'Execution result: {res}',
+        'amsg-code-error-fixing': 'Code error: {err}. Attempting repair...',
+        'amsg-code-error-stopped': 'Code error: {err}. Stopped due to error.',
+        'amsg-repetition-stop': 'Generated 4 images in a row. If you need further changes, tell me what to adjust.',
+        // ----- Log messages -----
+        'log-stop-signal-sent': 'Stop signal sent...',
+        'log-new-task': '--- New task ---',
+        'log-prompt': 'Prompt: "{text}"',
+        'log-user-interrupting': 'User interrupts current process: "{text}"',
+        'log-abort-sent': 'Abort dispatched — agent will halt at next checkpoint.',
+        'log-soft-suggestion': 'Mid-work message (injecting into next step): "{text}"',
+        'log-sending-script-context': 'Requesting project context from ExtendScript...',
+        'log-ae-context-received': 'Received project context in {ms}ms. (Active project: {active})',
+        'log-protection-snapshot': 'Protection snapshot: {items} items / {comps} comps (protected from the agent)',
+        'log-changed-project': 'Project changed: {from} → {to}',
+        'log-loaded-project-session': 'Loaded last session for this project: {title}',
+        'log-injected-queue': 'Injected {n} characters from user suggestion queue!',
+        'log-fetching-gemini-models': 'Fetching Gemini model list from API...',
+        'log-fetching-lmstudio-models': 'Fetching LM Studio model list...',
+        'log-llm-call': 'Calling LLM ({model})...',
+        'log-llm-responded': 'LLM responded in {ms}ms (streamed).',
+        'log-task-completed-flag': 'Task complete (is_task_complete: true).',
+        'log-extendscript-call': 'Calling ExtendScript in After Effects...',
+        'log-extendscript-success': 'Script executed successfully in {ms}ms.',
+        'log-extendscript-error': 'ExtendScript error [Line {line}]: {err}',
+        'log-undo-success': 'Rolled back changes from failed script (Undo).',
+        'log-undo-failed': 'Failed to undo changes.',
+        'log-prep-self-repair': 'Preparing self-repair (attempt {n})...',
+        'log-exhausted-retries': 'Exhausted repair attempts ({max}). Leaving changes in the project.',
+        'log-process-cancelled-user': 'Process successfully cancelled by user.',
+        'log-app-exception': 'Application exception: {err}',
+        'log-json-format-err': 'JSON format error from model. ({hint})',
+        'log-self-repair-syntax': 'Self-repairing syntax (attempt {n})...',
+        'log-detected-destructive': 'Detected {n} destructive operations — asking for consent...',
+        'log-skip-transient-file': 'Skipping consent for transient file: {target}',
+        'log-user-denied-op': 'User denied operation: {op} on {target}',
+        'log-loaded-session': 'Loaded session from {date}',
+        'log-deleted-session': 'Deleted session from {date}',
+        'log-new-session-created': 'New session created.',
+        'log-skill-not-found': 'Skill not found: {name}',
+        'log-skill-loaded': 'Agent loaded skill: {name}',
+        'log-skill-saved': 'Agent saved new skill: {name}',
+        'log-skill-deleted': 'Deleted skill: {name}',
+        'log-ltm-updated': 'LTM memory updated ({n} operations)',
+        'log-ltm-rule-added': 'Manually added LTM rule',
+        'log-ltm-rule-deleted': 'Deleted LTM rule',
+        'log-perm-rule-revoked': 'Revoked permission rule: {op} / {target}',
+        'log-voice-pick-empty': 'Pick a voice from the list',
+        'log-voice-selected-as': 'Selected voice "{name}" as {target}',
+        'log-voice-added': 'Added voice "{name}" to your library.',
+        'log-agent-resumes-prework': 'Agent announced work — continuing.',
+        'log-agent-continues-orchestration': 'Agent decided to continue (orchestration).',
+        'log-modal-pause-required': 'Paused by model request (requires_user_input).',
+        'log-skill-saved-as': 'Skill saved: {name} ({desc})',
+        'log-saved-skill-toast': 'Saved new skill: {name}',
+        // ----- Saved-skill chat output -----
+        'sysmsg-skill-saved-toast': 'Saved new skill: <b>{name}</b>',
+        // ----- Status: result returned by model -----
+        'amsg-task-aborted-user': 'The task was interrupted at your request. What\'s next?',
         'status-ready': 'Ready', 'status-thinking': 'Thinking...', 'status-processing': 'Processing...', 'status-done': 'Task complete.',
         'settings-title': 'Settings · HEXART.PL/AfterALL',
         'tab-general': 'General', 'tab-providers': 'LLM Providers', 'tab-tts-stt': 'TTS / STT', 'tab-features': 'Features', 'tab-paths': 'Paths / Sandbox', 'tab-secrets': 'API Keys',
@@ -644,6 +825,8 @@ const i18nDict = {
         'gemini-hint': 'List fetched from Google API · requires Gemini key',
         'openrouter-model-label': 'OpenRouter Model',
         'openrouter-hint': 'Requires OpenRouter API key · click the list icon to browse and filter',
+        'openrouter-grounding-label': 'Web-search model (Grounding)',
+        'openrouter-grounding-hint': 'Used only when "Google Search Grounding" is enabled. Recommended: Perplexity Sonar Online · GPT-4o with web · DeepSeek with search.',
         'lmstudio-model-label': 'LM Studio Model',
         'lmstudio-url-label': 'LM Studio Server URL',
         'lmstudio-hint': 'Local models · requires LM Studio Server Mode running',
@@ -887,6 +1070,39 @@ const i18nDict = {
         'drag-to-ae-hint': 'Ziehe das Asset an einen beliebigen Ort in After Effects (Projekt / Timeline / Komposition)',
         'drag-label': 'ZIEHEN',
         'asset-grid-header': '{n} Assets generiert — ziehe jedes davon in ein beliebiges After-Effects-Panel.',
+        'status-scanning-project': 'AE-Projekt wird gescannt...',
+        'status-fixing-error': 'Fehler wird behoben (Versuch {n}/{max})...',
+        'status-task-interrupted': 'Aufgabe unterbrochen.',
+        'status-awaiting-response': 'Warte auf deine Antwort.',
+        'status-task-error': 'Nach Fehler gestoppt.',
+        'status-comm-error': 'Kommunikationsfehler.',
+        'status-aborted': 'Abgebrochen.',
+        'status-aborting': 'Wird abgebrochen...',
+        'status-json-recovery-aborted': 'Nach JSON-Fehler gestoppt.',
+        'status-task-completed-repetition': 'Aufgabe erledigt (Anti-Schleife).',
+        'settings-saved-toast': '✓ Einstellungen aktualisiert. LLM: {llm} ({model}) · Bilder: {img} · TTS: {tts}.',
+        'first-run-hint': '⚙ Öffne Einstellungen (Zahnrad) und konfiguriere API-Schlüssel + wähle LLM-Anbieter.',
+        'amsg-no-api-key': '⚠ Kein API-Schlüssel eingegeben. Klicke das Zahnrad, um das zu beheben.',
+        'sysmsg-aborting-ops': '⚡ Operationen werden auf Wunsch abgebrochen...',
+        'sysmsg-prev-aborted-new-task': '⚡ Vorherige Aufgabe abgebrochen. Neue beginnt.',
+        'sysmsg-task-cancelled': 'Die Aufgabe wurde auf deinen Wunsch unterbrochen. Wie weiter?',
+        'sysmsg-comm-error': '⚠ Kommunikationsfehler: {err}',
+        'amsg-task-done': 'Aufgabe erledigt.',
+        'amsg-doing-task': 'Arbeite daran...',
+        'amsg-execution-result': 'Ausführungsergebnis: {res}',
+        'amsg-code-error-fixing': 'Code-Fehler: {err}. Reparatur läuft...',
+        'amsg-code-error-stopped': 'Code-Fehler: {err}. Wegen Fehler gestoppt.',
+        'log-new-task': '--- Neue Aufgabe ---',
+        'log-prompt': 'Prompt: "{text}"',
+        'log-llm-call': 'LLM-Aufruf ({model})...',
+        'log-llm-responded': 'LLM antwortete in {ms}ms (gestreamt).',
+        'log-extendscript-call': 'Rufe ExtendScript in After Effects auf...',
+        'log-extendscript-success': 'Skript erfolgreich ausgeführt in {ms}ms.',
+        'log-extendscript-error': 'ExtendScript-Fehler [Zeile {line}]: {err}',
+        'log-undo-success': 'Änderungen vom fehlgeschlagenen Skript zurückgesetzt (Undo).',
+        'log-prep-self-repair': 'Selbstreparatur vorbereitet (Versuch {n})...',
+        'log-process-cancelled-user': 'Prozess vom Benutzer erfolgreich abgebrochen.',
+        'amsg-task-aborted-user': 'Die Aufgabe wurde auf deinen Wunsch unterbrochen. Wie weiter?',
         'tool-imageGen-label': 'Bildgenerator',
         'tool-videoGen-label': 'Videogenerator (Grok)',
         'tool-ttsGen-label': 'Sprachgenerator (TTS)',
@@ -976,6 +1192,39 @@ const i18nDict = {
         'drag-to-ae-hint': 'Arrastra a cualquier sitio de After Effects (Proyecto / Línea de tiempo / Composición)',
         'drag-label': 'ARRASTRAR',
         'asset-grid-header': '{n} recursos generados — arrastra cualquiera a cualquier panel de After Effects.',
+        'status-scanning-project': 'Escaneando proyecto de AE...',
+        'status-fixing-error': 'Corrigiendo error (intento {n}/{max})...',
+        'status-task-interrupted': 'Tarea interrumpida.',
+        'status-awaiting-response': 'Esperando tu respuesta.',
+        'status-task-error': 'Detenido tras error.',
+        'status-comm-error': 'Error de comunicación.',
+        'status-aborted': 'Cancelado.',
+        'status-aborting': 'Cancelando...',
+        'status-json-recovery-aborted': 'Detenido tras error JSON.',
+        'status-task-completed-repetition': 'Tarea completada (anti-bucle).',
+        'settings-saved-toast': '✓ Ajustes actualizados. LLM: {llm} ({model}) · Imágenes: {img} · TTS: {tts}.',
+        'first-run-hint': '⚙ Abre Ajustes (engranaje) y configura tus claves API + elige proveedor LLM.',
+        'amsg-no-api-key': '⚠ No has introducido la clave API. Haz clic en el engranaje para corregirlo.',
+        'sysmsg-aborting-ops': '⚡ Cancelando operaciones a petición tuya...',
+        'sysmsg-prev-aborted-new-task': '⚡ Tarea anterior cancelada. Comenzando una nueva.',
+        'sysmsg-task-cancelled': 'La tarea fue interrumpida a petición tuya. ¿Qué sigue?',
+        'sysmsg-comm-error': '⚠ Error de comunicación: {err}',
+        'amsg-task-done': 'Tarea completada.',
+        'amsg-doing-task': 'Trabajando en ello...',
+        'amsg-execution-result': 'Resultado: {res}',
+        'amsg-code-error-fixing': 'Error de código: {err}. Reparando...',
+        'amsg-code-error-stopped': 'Error de código: {err}. Detenido por error.',
+        'log-new-task': '--- Nueva tarea ---',
+        'log-prompt': 'Prompt: "{text}"',
+        'log-llm-call': 'Llamando al LLM ({model})...',
+        'log-llm-responded': 'LLM respondió en {ms}ms (streaming).',
+        'log-extendscript-call': 'Ejecutando ExtendScript en After Effects...',
+        'log-extendscript-success': 'Script ejecutado con éxito en {ms}ms.',
+        'log-extendscript-error': 'Error ExtendScript [Línea {line}]: {err}',
+        'log-undo-success': 'Deshicimos los cambios del script fallido.',
+        'log-prep-self-repair': 'Preparando auto-reparación (intento {n})...',
+        'log-process-cancelled-user': 'Proceso cancelado correctamente por el usuario.',
+        'amsg-task-aborted-user': 'La tarea fue interrumpida a petición tuya. ¿Qué sigue?',
         'tool-imageGen-label': 'Generador de Imágenes',
         'tool-videoGen-label': 'Generador de Vídeo (Grok)',
         'tool-ttsGen-label': 'Generador de Voz (TTS)',
@@ -1065,6 +1314,39 @@ const i18nDict = {
         'drag-to-ae-hint': 'Glisse n\'importe où dans After Effects (Projet / Timeline / Composition)',
         'drag-label': 'GLISSER',
         'asset-grid-header': '{n} ressources générées — glisse n\'importe laquelle dans un panneau After Effects.',
+        'status-scanning-project': 'Analyse du projet AE...',
+        'status-fixing-error': 'Correction de l\'erreur (essai {n}/{max})...',
+        'status-task-interrupted': 'Tâche interrompue.',
+        'status-awaiting-response': 'En attente de ta réponse.',
+        'status-task-error': 'Arrêté après erreur.',
+        'status-comm-error': 'Erreur de communication.',
+        'status-aborted': 'Annulé.',
+        'status-aborting': 'Annulation...',
+        'status-json-recovery-aborted': 'Arrêté après erreur JSON.',
+        'status-task-completed-repetition': 'Tâche terminée (anti-boucle).',
+        'settings-saved-toast': '✓ Paramètres mis à jour. LLM : {llm} ({model}) · Images : {img} · TTS : {tts}.',
+        'first-run-hint': '⚙ Ouvre les Paramètres (roue dentée) et configure tes clés API + choisis un fournisseur LLM.',
+        'amsg-no-api-key': '⚠ Aucune clé API saisie. Clique sur la roue dentée pour corriger.',
+        'sysmsg-aborting-ops': '⚡ Annulation des opérations en cours sur ta demande...',
+        'sysmsg-prev-aborted-new-task': '⚡ Tâche précédente annulée. Démarrage d\'une nouvelle.',
+        'sysmsg-task-cancelled': 'La tâche a été interrompue à ta demande. On fait quoi ?',
+        'sysmsg-comm-error': '⚠ Erreur de communication : {err}',
+        'amsg-task-done': 'Tâche terminée.',
+        'amsg-doing-task': 'Je travaille dessus...',
+        'amsg-execution-result': 'Résultat : {res}',
+        'amsg-code-error-fixing': 'Erreur de code : {err}. Tentative de réparation...',
+        'amsg-code-error-stopped': 'Erreur de code : {err}. Arrêté en raison de l\'erreur.',
+        'log-new-task': '--- Nouvelle tâche ---',
+        'log-prompt': 'Prompt : "{text}"',
+        'log-llm-call': 'Appel LLM ({model})...',
+        'log-llm-responded': 'LLM a répondu en {ms}ms (streaming).',
+        'log-extendscript-call': 'Appel ExtendScript dans After Effects...',
+        'log-extendscript-success': 'Script exécuté avec succès en {ms}ms.',
+        'log-extendscript-error': 'Erreur ExtendScript [Ligne {line}] : {err}',
+        'log-undo-success': 'Modifications du script échoué annulées (Undo).',
+        'log-prep-self-repair': 'Préparation à l\'auto-réparation (essai {n})...',
+        'log-process-cancelled-user': 'Processus annulé avec succès par l\'utilisateur.',
+        'amsg-task-aborted-user': 'La tâche a été interrompue à ta demande. On fait quoi ?',
         'tool-imageGen-label': 'Générateur d\'Images',
         'tool-videoGen-label': 'Générateur Vidéo (Grok)',
         'tool-ttsGen-label': 'Générateur de Voix (TTS)',
@@ -1154,6 +1436,39 @@ const i18nDict = {
         'drag-to-ae-hint': 'After Effects の任意のパネルにドラッグ (Project / Timeline / Composition)',
         'drag-label': 'ドラッグ',
         'asset-grid-header': '{n} 個のアセットを生成しました — 任意の After Effects パネルにドラッグできます。',
+        'status-scanning-project': 'AE プロジェクトをスキャン中...',
+        'status-fixing-error': 'エラー修正中 (試行 {n}/{max})...',
+        'status-task-interrupted': 'タスク中断。',
+        'status-awaiting-response': '応答待ち。',
+        'status-task-error': 'エラーで停止。',
+        'status-comm-error': '通信エラー。',
+        'status-aborted': 'キャンセル済み。',
+        'status-aborting': 'キャンセル中...',
+        'status-json-recovery-aborted': 'JSON エラーで停止。',
+        'status-task-completed-repetition': 'タスク完了 (ループ防止)。',
+        'settings-saved-toast': '✓ 設定を更新しました。LLM: {llm} ({model}) · 画像: {img} · TTS: {tts}。',
+        'first-run-hint': '⚙ 設定 (歯車アイコン) を開き、API キーを設定して LLM プロバイダーを選択してください。',
+        'amsg-no-api-key': '⚠ API キーが未入力です。歯車アイコンをクリックして修正してください。',
+        'sysmsg-aborting-ops': '⚡ 現在の操作をキャンセル中...',
+        'sysmsg-prev-aborted-new-task': '⚡ 前のタスクをキャンセル。新しいタスクを開始。',
+        'sysmsg-task-cancelled': 'タスクは中断されました。次は何をしますか？',
+        'sysmsg-comm-error': '⚠ 通信エラー: {err}',
+        'amsg-task-done': 'タスク完了。',
+        'amsg-doing-task': '作業中...',
+        'amsg-execution-result': '実行結果: {res}',
+        'amsg-code-error-fixing': 'コードエラー: {err}。修復を試みます...',
+        'amsg-code-error-stopped': 'コードエラー: {err}。エラーで停止しました。',
+        'log-new-task': '--- 新しいタスク ---',
+        'log-prompt': 'プロンプト: "{text}"',
+        'log-llm-call': 'LLM 呼び出し ({model})...',
+        'log-llm-responded': 'LLM が {ms}ms で応答 (ストリーミング)。',
+        'log-extendscript-call': 'After Effects で ExtendScript を呼び出し中...',
+        'log-extendscript-success': 'スクリプトを {ms}ms で正常実行。',
+        'log-extendscript-error': 'ExtendScript エラー [行 {line}]: {err}',
+        'log-undo-success': '失敗したスクリプトの変更を取り消しました。',
+        'log-prep-self-repair': '自己修復の準備中 (試行 {n})...',
+        'log-process-cancelled-user': 'プロセスがユーザーにより正常にキャンセルされました。',
+        'amsg-task-aborted-user': 'タスクは中断されました。次は何をしますか？',
         'tool-imageGen-label': '画像ジェネレーター',
         'tool-videoGen-label': '動画ジェネレーター (Grok)',
         'tool-ttsGen-label': '音声ジェネレーター (TTS)',
@@ -1255,6 +1570,7 @@ function t(key, fallback) {
     if (llmProviderSelect) llmProviderSelect.value = agent.llmProvider || 'gemini';
     if (imgProviderSelect) imgProviderSelect.value = agent.imgProvider || 'gemini';
     if (openrouterLLMModelInput) openrouterLLMModelInput.value = agent.openrouterLLMModel || '';
+    if (openrouterGroundingModelInput) openrouterGroundingModelInput.value = agent.openrouterGroundingModel || '';
     if (openrouterImgModelInput) openrouterImgModelInput.value = agent.openrouterImageModel || '';
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
     if (pythonSandboxPathInput) pythonSandboxPathInput.value = agent.pythonSandboxPath || '';
@@ -1390,7 +1706,7 @@ function t(key, fallback) {
             row.querySelector('[data-revoke]').addEventListener('click', () => {
                 permManager.revoke(r.operation, r.target);
                 renderPermissionRules();
-                addLog('Cofnięto regułę uprawnień: ' + r.operation + ' / ' + r.target, 'info');
+                addLog(tr('log-perm-rule-revoked').replace('{op}', r.operation).replace('{target}', r.target), 'info');
             });
             listEl.appendChild(row);
         });
@@ -1553,7 +1869,7 @@ function t(key, fallback) {
                 window.diskStorage.setItem('hexart_mcp_port', String(mcpBridge.port));
             } catch (e) {
                 addLog('MCP Bridge start failed: ' + e.message, 'error');
-                appendMessage('system', '⚠ Bridge nie wystartował: ' + e.message + ' (zmień port i spróbuj ponownie)');
+                appendMessage('system', tr('sysmsg-bridge-failed-start').replace('{err}', e.message));
             }
         }
         updateMcpUI();
@@ -1580,7 +1896,7 @@ function t(key, fallback) {
         if (mcpBridge) {
             const p = parseInt(mcpPortInput.value, 10) || 7890;
             if (mcpBridge.isRunning()) {
-                appendMessage('system', '⚠ Port zmieniony — zatrzymaj i uruchom bridge ponownie, by zmiana zadziałała.');
+                appendMessage('system', tr('sysmsg-bridge-port-changed'));
             }
             window.diskStorage.setItem('hexart_mcp_port', String(p));
             mcpBridge.setPort(p);
@@ -2103,7 +2419,7 @@ function t(key, fallback) {
             if (/missing_permissions/i.test(e.message) || /models_read/i.test(e.message)) {
                 label = '⚠ Klucz API bez uprawnień models_read';
                 // Toast hint
-                appendMessage('system', '⚠ Twój klucz ElevenLabs nie ma uprawnienia <b>models_read</b>. Wygeneruj nowy klucz na <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">elevenlabs.io/app/settings/api-keys</a> z permission "All" (zalecane) lub przynajmniej <b>models_read</b> i <b>voices_read</b>.');
+                appendMessage('system', tr('sysmsg-el-no-permissions'));
             }
             elModelSelect.innerHTML = '<option value="">' + label + '</option>';
         }
@@ -2130,7 +2446,7 @@ function t(key, fallback) {
 
     function openVoicePicker(target) {
         if (!agent.elevenlabsApiKey) {
-            appendMessage('system', '⚠ Wprowadź klucz ElevenLabs w zakładce „Klucze API" przed otwarciem biblioteki głosów.');
+            appendMessage('system', tr('sysmsg-el-key-needed'));
             return;
         }
         voicePickerTarget = target;
@@ -2247,7 +2563,7 @@ function t(key, fallback) {
                     const client = new ELClient({ apiKey: agent.elevenlabsApiKey });
                     await client.addSharedVoice(v.public_owner_id, v.voice_id, v.name);
                     addBtn.textContent = '✓ Dodano';
-                    addLog('Dodano głos "' + v.name + '" do biblioteki użytkownika.', 'success');
+                    addLog(tr('log-voice-added').replace('{name}', v.name), 'success');
                 } catch (err) {
                     addBtn.textContent = '✕ Błąd'; addBtn.disabled = false;
                     addLog('Voice add error: ' + err.message, 'error');
@@ -2272,9 +2588,9 @@ function t(key, fallback) {
     if (reloadVoiceBtn) reloadVoiceBtn.addEventListener('click', () => loadVoicePicker());
     const applyVoiceBtn = document.getElementById('apply-voice-pick');
     if (applyVoiceBtn) applyVoiceBtn.addEventListener('click', () => {
-        if (!voicePickerSelectedVoice) { addLog('Wybierz głos z listy', 'warning'); return; }
+        if (!voicePickerSelectedVoice) { addLog(tr('log-voice-pick-empty'), 'warning'); return; }
         setVoiceDisplay(voicePickerTarget, voicePickerSelectedVoice);
-        addLog('Wybrano głos „' + voicePickerSelectedVoice.name + '" jako ' + voicePickerTarget, 'success');
+        addLog(tr('log-voice-selected-as').replace('{name}', voicePickerSelectedVoice.name).replace('{target}', voicePickerTarget), 'success');
         if (voicePickerCurrentPreviewAudio) { voicePickerCurrentPreviewAudio.pause(); voicePickerCurrentPreviewAudio = null; }
         voicePickerOverlay.classList.add('hidden');
     });
@@ -3086,7 +3402,7 @@ function t(key, fallback) {
             return;
         }
         try {
-            addLog('Pobieram listę modeli Gemini z API...', 'info');
+            addLog(tr('log-fetching-gemini-models'), 'info');
             const list = await agent.fetchModels('gemini', !!force);
             const llmList = list.filter(m => !/image|tts|embedding|aqa/i.test(m.id));
             const imgList = list.filter(m => /image/i.test(m.id));
@@ -3120,7 +3436,7 @@ function t(key, fallback) {
         if (!lmstudioLLMModelSelect) return;
         agent.lmstudioBaseUrl = lmstudioBaseUrlInput ? (lmstudioBaseUrlInput.value || 'http://localhost:1234') : 'http://localhost:1234';
         try {
-            addLog('Pobieram listę modeli z LM Studio...', 'info');
+            addLog(tr('log-fetching-lmstudio-models'), 'info');
             const list = await agent.fetchModels('lmstudio', !!force);
             lmstudioLLMModelSelect.innerHTML = '';
             if (list.length === 0) {
@@ -3322,17 +3638,21 @@ function t(key, fallback) {
     if (reloadOrBtn) reloadOrBtn.addEventListener('click', () => loadOpenRouterCatalog(true));
     const applyOrPick = document.getElementById('apply-openrouter-pick');
     if (applyOrPick) applyOrPick.addEventListener('click', () => {
-        if (!orPickedModelId) { addLog('Wybierz model z listy', 'warning'); return; }
+        if (!orPickedModelId) { addLog(tr('log-voice-pick-empty'), 'warning'); return; }
         if (orPickerTarget === 'image') {
             openrouterImgModelInput.value = orPickedModelId;
+        } else if (orPickerTarget === 'grounding') {
+            if (openrouterGroundingModelInput) openrouterGroundingModelInput.value = orPickedModelId;
         } else {
             openrouterLLMModelInput.value = orPickedModelId;
         }
         orPickerOverlay.classList.add('hidden');
-        addLog('Wybrano model OpenRouter: ' + orPickedModelId, 'success');
+        addLog('Selected OpenRouter model: ' + orPickedModelId, 'success');
     });
     const pickOrLLM = document.getElementById('pick-openrouter-llm');
     if (pickOrLLM) pickOrLLM.addEventListener('click', () => openOpenRouterPicker('llm'));
+    const pickOrGrounding = document.getElementById('pick-openrouter-grounding');
+    if (pickOrGrounding) pickOrGrounding.addEventListener('click', () => openOpenRouterPicker('grounding'));
     const pickOrImg = document.getElementById('pick-openrouter-img');
     if (pickOrImg) pickOrImg.addEventListener('click', () => openOpenRouterPicker('image'));
 
@@ -3363,11 +3683,11 @@ function t(key, fallback) {
     // Initial greeting
     setTimeout(() => {
         const lang = (uiLangSelect.value === 'auto' && navigator.language.startsWith('pl')) ? 'pl' : (i18nDict[uiLangSelect.value] ? uiLangSelect.value : 'en');
-        appendMessage('assistant', i18nDict[lang]['greeting'] || 'HEXART.PL/AfterALL gotowy do działania! ✨');
+        appendMessage('assistant', i18nDict[lang]['greeting'] || tr('greeting'));
         // First-run hint when no key is configured
         if (!agent.apiKey && !agent.openrouterApiKey && agent.llmProvider !== 'lmstudio') {
             setTimeout(() => {
-                appendMessage('system', '⚙ Otwórz Ustawienia (ikona koła zębatego) i skonfiguruj klucze API oraz wybierz dostawcę LLM.');
+                appendMessage('system', tr('first-run-hint'));
             }, 800);
         }
     }, 500);
@@ -3398,8 +3718,8 @@ function t(key, fallback) {
             agent.abortProcess();
             stopBtn.classList.add('hidden');
             sendBtn.classList.remove('hidden');
-            addLog("Wysłano sygnał przerwania operacji...", "warning");
-            updateStatus("Przerywanie...");
+            addLog(tr('log-stop-signal-sent'), "warning");
+            updateStatus(tr('status-aborting'));
         }
     });
 
@@ -3625,7 +3945,7 @@ function t(key, fallback) {
                 window.diskStorage.setItem('aisist_memory_arr', JSON.stringify(agent.longTermMemory));
                 newMemoryInput.value = '';
                 renderMemoryList();
-                addLog('Ręcznie dodano regułę do LTM', 'success');
+                addLog(tr('log-ltm-rule-added'), 'success');
             }
         });
         
@@ -3652,7 +3972,7 @@ function t(key, fallback) {
                 agent.longTermMemory = agent.longTermMemory.filter(item => item.id !== m.id);
                 window.diskStorage.setItem('aisist_memory_arr', JSON.stringify(agent.longTermMemory));
                 renderMemoryList();
-                addLog('Usunięto regułę LTM', 'info');
+                addLog(tr('log-ltm-rule-deleted'), 'info');
             });
             memoryList.appendChild(div);
         });
@@ -3744,7 +4064,7 @@ function t(key, fallback) {
                 e.stopPropagation();
                 agent.deleteSkill(s.name);
                 renderSkillsList();
-                addLog(`Usunięto skill: ${s.name}`, 'info');
+                addLog(tr('log-skill-deleted').replace('{name}', s.name), 'info');
             });
             div.firstElementChild.addEventListener('click', () => {
                 // Show skill content in a simple alert-like overlay
@@ -3796,7 +4116,7 @@ function t(key, fallback) {
             chatContainer.innerHTML = sessions[id].html || '';
             chatContainer.scrollTop = chatContainer.scrollHeight;
             sessionsOverlay.classList.add('hidden');
-            addLog(`Wczytano sesję z ${sessions[id].date}`, 'info');
+            addLog(tr('log-loaded-session').replace('{date}', sessions[id].date), 'info');
         }
     }
 
@@ -3863,7 +4183,7 @@ function t(key, fallback) {
                     delete currentSessions[s.id];
                     window.diskStorage.setItem('aisist_sessions', JSON.stringify(currentSessions));
                     renderSessions();
-                    addLog(`Usunięto sesję z ${s.date}`, 'info');
+                    addLog(tr('log-deleted-session').replace('{date}', s.date), 'info');
                     if (currentSessionId === s.id) {
                         newSessionBtn.click();
                     }
@@ -3876,7 +4196,7 @@ function t(key, fallback) {
                 chatContainer.innerHTML = s.html || '';
                 chatContainer.scrollTop = chatContainer.scrollHeight;
                 sessionsOverlay.classList.add('hidden');
-                addLog(`Wczytano sesję z ${s.date}`, 'info');
+                addLog(tr('log-loaded-session').replace('{date}', s.date), 'info');
             });
             sessionsList.appendChild(div);
         });
@@ -3893,7 +4213,7 @@ function t(key, fallback) {
             </div>`;
         saveSession();
         sessionsOverlay.classList.add('hidden');
-        addLog('Utworzono nową sesję.', 'success');
+        addLog(tr('log-new-session-created'), 'success');
     });
 
     saveSettingsBtn.addEventListener('click', () => {
@@ -3914,6 +4234,7 @@ function t(key, fallback) {
             geminiModel: baseModelSelect.value,
             geminiImageModel: imageModelSelect.value,
             openrouterLLMModel: openrouterLLMModelInput ? openrouterLLMModelInput.value.trim() : '',
+            openrouterGroundingModel: openrouterGroundingModelInput ? openrouterGroundingModelInput.value.trim() : '',
             openrouterImageModel: openrouterImgModelInput ? openrouterImgModelInput.value.trim() : '',
             lmstudioLLMModel: lmstudioLLMModelSelect ? lmstudioLLMModelSelect.value : '',
             lmstudioBaseUrl: lmstudioBaseUrlInput ? lmstudioBaseUrlInput.value.trim() : 'http://localhost:1234',
@@ -3948,7 +4269,11 @@ function t(key, fallback) {
         });
         settingsOverlay.classList.add('hidden');
         applyTranslations(uiLangSelect.value);
-        appendMessage('system', '✓ Ustawienia zaktualizowane. LLM: ' + agent.llmProvider + ' (' + (agent.getActiveLLMModel() || '—') + ') · Obrazy: ' + agent.imgProvider + ' · TTS: ' + agent.ttsProvider + '.');
+        appendMessage('system', tr('settings-saved-toast')
+            .replace('{llm}', agent.llmProvider)
+            .replace('{model}', agent.getActiveLLMModel() || '—')
+            .replace('{img}', agent.imgProvider)
+            .replace('{tts}', agent.ttsProvider));
     });
 
     function appendMessage(sender, text, thought = null, planArray = null, attachedImageUri = null) {
@@ -4510,7 +4835,7 @@ function t(key, fallback) {
         }
         
         if (!agent.apiKey) {
-            appendMessage('assistant', '⚠ Nie wprowadzono klucza API. Kliknij w ikonę zębatki aby to naprawić.');
+            appendMessage('assistant', tr('amsg-no-api-key'));
             addLog('Brak klucza API.', 'error');
             return;
         }
@@ -4537,7 +4862,7 @@ function t(key, fallback) {
             
             if (isAbortIntent || isNewTask) {
                 // Abort current operations and redirect
-                addLog('Uzytkownik przerywa bieżący proces: "' + text.substring(0, 50) + '..."', 'warning');
+                addLog(tr('log-user-interrupting').replace('{text}', text.substring(0, 50) + '...'), 'warning');
                 sfx.warning();
                 agent.isAborted = true;
                 if (agent.abortController) agent.abortController.abort();
@@ -4554,12 +4879,12 @@ function t(key, fallback) {
                 
                 // Queue the message — it will be picked up when the abort resolves
                 userSuggestionQueue.push(text);
-                appendMessage('system', '⚡ Przerywam bieżące operacje na żądanie użytkownika...');
-                addLog('Abort wysłany — agent przerwie się przy najbliższej kontroli.', 'warning');
+                appendMessage('system', tr('sysmsg-aborting-ops'));
+                addLog(tr('log-abort-sent'), 'warning');
             } else {
                 // Soft suggestion — queue it for injection into next iteration
                 userSuggestionQueue.push(text);
-                addLog('Wiadomość w trakcie pracy (wstrzykuję do następnego kroku): "' + text.substring(0, 60) + '"', 'info');
+                addLog(tr('log-soft-suggestion').replace('{text}', text.substring(0, 60)), 'info');
                 sfx.apiResponse();
             }
             return;
@@ -4572,11 +4897,11 @@ function t(key, fallback) {
         sendBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
         
-        addLog(`--- Nowe zadanie ---`, 'info');
+        addLog(tr('log-new-task'), 'info');
                 sfx.taskStart();
-        addLog(`Prompt: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`, 'info');
+        addLog(tr('log-prompt').replace('{text}', text.substring(0, 50) + (text.length > 50 ? '...' : '')), 'info');
 
-        updateStatus('Przetwarzam...', true);
+        updateStatus(tr('status-processing'), true);
         showTyping();
         
         if (thinkingVideo) {
@@ -4591,8 +4916,8 @@ function t(key, fallback) {
         
         let currentPrompt = text;
         
-        updateStatus('Skanuję projekt AE...', true);
-        addLog('Wysyłam zapytanie do środowiska ExtendScript o kontekst projektu...', 'warning');
+        updateStatus(tr('status-scanning-project'), true);
+        addLog(tr('log-sending-script-context'), 'warning');
 
         // ---- Save-project pre-flight ---------------------------------
         // If the project is not saved yet, pause and recommend saving so all generated
@@ -4629,7 +4954,7 @@ function t(key, fallback) {
                 await assetTracker.snapshotProject(csi);
                 const items = (assetTracker.snapshot.items || []).length;
                 const comps = Object.keys(assetTracker.snapshot.layers || {}).length;
-                if (items > 0) addLog('Snapshot ochrony: ' + items + ' elementów / ' + comps + ' komp. (chronione przed agentem)', 'info');
+                if (items > 0) addLog(tr('log-protection-snapshot').replace('{items}', items).replace('{comps}', comps), 'info');
             } catch (snapErr) {
                 addLog('Asset snapshot failed (non-fatal): ' + snapErr.message, 'warning');
             }
@@ -4641,7 +4966,7 @@ function t(key, fallback) {
         
         let projectIdentifier = aeContext.projectName || "Bez Tytułu";
         if (currentWorkingProject !== null && currentWorkingProject !== projectIdentifier) {
-            addLog(`Zmiana projektu: ${currentWorkingProject} → ${projectIdentifier}`, 'info');
+            addLog(tr('log-changed-project').replace('{from}', currentWorkingProject).replace('{to}', projectIdentifier), 'info');
             // Try to load the last session for this project
             const sessions = JSON.parse(window.diskStorage.getItem('aisist_sessions') || '{}');
             const projectSessions = Object.values(sessions)
@@ -4652,13 +4977,13 @@ function t(key, fallback) {
                 currentSessionId = lastSession.id;
                 agent.history = lastSession.history || [];
                 chatContainer.innerHTML = lastSession.html || '';
-                addLog(`Wczytano ostatnią sesję projektu: ${lastSession.title}`, 'success');
+                addLog(tr('log-loaded-project-session').replace('{title}', lastSession.title), 'success');
             }
             // If no session for this project — keep current chat, don't reset
         }
         currentWorkingProject = projectIdentifier;
         
-        addLog(`Otrzymano kontekst projektu w ${aeCtxTime}ms. (Projekt aktywny: ${aeContext.hasActiveComp ? 'Tak' : 'Nie'})`, 'success');
+        addLog(tr('log-ae-context-received').replace('{ms}', aeCtxTime).replace('{active}', aeContext.hasActiveComp ? '✓' : '✕'), 'success');
 
         let emptyStepCount = 0; // Anti-loop: consecutive empty iterations
 
@@ -4693,10 +5018,12 @@ while (!isDone) {
                     const queuedText = userSuggestionQueue.join('\n');
                     userSuggestionQueue = [];
                     currentPrompt = `[NEW USER GUIDANCE MID-ORCHESTRATION]\nThe user just sent a new message. Partially ignore your current plan if it conflicts with what the user wrote now. New message: ${queuedText}\n\n[TASK CONTINUATION]\n` + currentPrompt;
-                    addLog(`Wstrzyknięto ${queuedText.length} znaków z kolejki sugestii gracza!`, 'warning');
+                    addLog(tr('log-injected-queue').replace('{n}', queuedText.length), 'warning');
                 }
 
-                updateStatus(retryCount > 0 ? `Naprawiam błąd (próba ${retryCount}/${maxRetries})...` : 'Myślę...', true);
+                updateStatus(retryCount > 0
+                    ? tr('status-fixing-error').replace('{n}', retryCount).replace('{max}', maxRetries)
+                    : tr('status-thinking'), true);
                 
                 let snapshotData = null;
                 if (visionContextCheck.checked) {
@@ -4720,7 +5047,7 @@ while (!isDone) {
                 // Track if this step had code (for next iteration's vision decision)
                 var lastResponseHadCode = false;
 
-                addLog(`Wysyłanie danych do Gemini API (${agent.baseModel})...`, 'warning');
+                addLog(tr('log-llm-call').replace('{model}', agent.getActiveLLMModel() || agent.baseModel), 'warning');
                 const apiStart = Date.now();
                                 // Merge session-persistent attachments
                 if (agent.sessionAttachments && agent.sessionAttachments.length > 0) {
@@ -4768,7 +5095,7 @@ while (!isDone) {
                     if (messageOutput) {
                         appendMessage('assistant', messageOutput, response.thought, response.current_plan);
                     } else {
-                        appendMessage('assistant', 'Zadanie zakończone.', response.thought, response.current_plan);
+                        appendMessage('assistant', tr('amsg-task-done'), response.thought, response.current_plan);
                     }
                     isDone = true;
                     addLog('Zadanie zakonczone (is_task_complete: true).', 'success');
@@ -4911,15 +5238,15 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     });
                     window.diskStorage.setItem('aisist_memory_arr', JSON.stringify(agent.longTermMemory));
                     if (typeof renderMemoryList === 'function') renderMemoryList();
-                    addLog(`Zaktualizowano Pamięć LTM (${response.update_memory.length} operacji)`, 'info');
+                    addLog(tr('log-ltm-updated').replace('{n}', response.update_memory.length), 'info');
                 }
 
                 // Handle save_skill from agent
                 if (response.save_skill && response.save_skill.name && response.save_skill.content) {
                     const saved = agent.saveSkill(response.save_skill.name, response.save_skill.content);
                     if (saved) {
-                        addLog(`Agent zapisał nowy Skill: ${response.save_skill.name}`, 'success');
-                        appendMessage('assistant', `Zapisano nowy skill: **${response.save_skill.name}**`);
+                        addLog(tr('log-skill-saved').replace('{name}', response.save_skill.name), 'success');
+                        appendMessage('assistant', tr('sysmsg-skill-saved-toast').replace('{name}', response.save_skill.name));
                     }
                 }
 
@@ -4927,7 +5254,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                 if (response.load_skill) {
                     const skill = agent.skills.find(s => s.name === response.load_skill);
                     if (skill) {
-                        addLog(`Agent załadował Skill: ${skill.name}`, 'info');
+                        addLog(tr('log-skill-loaded').replace('{name}', skill.name), 'info');
                         let skillContext = '[SKILL LOADED: ' + skill.name + ']\n' + skill.content + '\n\n';
                         // For Python skills, add actionable usage instructions
                         if (skill.type === 'python' && skill.env) {
@@ -4951,9 +5278,9 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                 hideTyping();
 
                 if (messageOutput || response.current_plan) {
-                    appendMessage('assistant', messageOutput || 'Wykonywanie skomplikowanej orkiestracji...', response.thought, response.current_plan);
+                    appendMessage('assistant', messageOutput || tr('amsg-doing-task'), response.thought, response.current_plan);
                 } else if (response.thought) {
-                    appendMessage('assistant', 'Realizuję zadanie...', response.thought);
+                    appendMessage('assistant', tr('amsg-doing-task'), response.thought);
                 }
 
                 // --- PARALLEL TASKS (must run BEFORE questions_for_user!) ---
@@ -5203,7 +5530,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                         scriptPath: pyTask.save_as_skill.scriptPath || null,
                                         scriptContent: pyTask.script || null
                                     })
-                                        addLog('Skill zapisany: ' + saved.name + ' (' + saved.description + ')', 'success');
+                                        addLog(tr('log-skill-saved-as').replace('{name}', saved.name).replace('{desc}', saved.description), 'success');
                                     }
 
                                     return { type: 'Python', res: { success: true, message: output, filePath: res.envPath }, prompt: 'env:' + (pyTask.env || 'default') };
@@ -5265,7 +5592,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             addLog('Repetition detector: 4 consecutive image generations — forcing completion to prevent infinite loop.', 'warning');
                             sfx.taskComplete();
                             isDone = true;
-                            appendMessage('assistant', 'Wygenerowano 4 obrazy z rzędu. Jeśli potrzebujesz dalszych zmian, napisz co poprawić.');
+                            appendMessage('assistant', tr('amsg-repetition-stop'));
                             updateStatus('Zadanie zakonczone (repetition detection).');
                         }
                     }
@@ -5448,27 +5775,27 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     // If validator flagged remove() / file deletion, ask user before executing.
                     if (validation.destructiveOps && validation.destructiveOps.length > 0 && permManager) {
                         const ops = validation.destructiveOps;
-                        addLog('Wykryto ' + ops.length + ' operacji destrukcyjnych - pytam o zgodę...', 'warning');
+                        addLog(tr('log-detected-destructive').replace('{n}', ops.length), 'warning');
                         let allApproved = true;
                         for (const op of ops) {
                             const target = op.target || '(brak nazwy)';
                             // Auto-allow if target is a known transient (aisist_*)
                             const classification = assetTracker ? assetTracker.classify(target.replace(/['"]/g, '')) : 'unknown';
                             if (classification === 'transient') {
-                                addLog('Pomijam akceptację dla pliku tymczasowego: ' + target, 'info');
+                                addLog(tr('log-skip-transient-file').replace('{target}', target), 'info');
                                 continue;
                             }
                             const reasonText = response.message || response.thought || '(brak uzasadnienia w odpowiedzi agenta)';
                             const decision = await requestPermission(op.op, target, reasonText.substring(0, 300));
                             if (decision === 'deny') {
                                 allApproved = false;
-                                addLog('Użytkownik odmówił operacji: ' + op.op + ' na ' + target, 'warning');
+                                addLog(tr('log-user-denied-op').replace('{op}', op.op).replace('{target}', target), 'warning');
                                 break;
                             }
                         }
                         if (!allApproved) {
                             lastError = '[USER DENIED DESTRUCTIVE OP] The user refused the deletion. ABSOLUTELY do not delete this element. Propose an alternative (e.g. duplicate instead of delete, hide instead of remove).';
-                            appendMessage('assistant', '⚠ Operacja usunięcia została odrzucona. Agent musi znaleźć alternatywę.');
+                            appendMessage('assistant', tr('sysmsg-delete-rejected'));
                             retryCount++;
                             if (retryCount >= maxRetries) { isDone = true; updateStatus('Przerwano (user deny).'); break; }
                             currentPrompt = 'The user REFUSED the destructive operation from the previous code. Do not delete this element. Propose a solution that PRESERVES the original (duplicate, hide, copy).';
@@ -5498,7 +5825,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         addLog(`Skrypt wykonany z sukcesem w ${codeTime}ms.`, 'success');
                     sfx.codeRun();
                         if (aeResult.result && aeResult.result !== "Done" && aeResult.result !== "undefined") {
-                             appendMessage('assistant', `Wynik działania: ${aeResult.result}`);
+                             appendMessage('assistant', tr('amsg-execution-result').replace('{res}', aeResult.result));
                              addLog(`Wynik: ${aeResult.result}`, 'info');
                         }
                         // Surface UndoGroup warning to agent so it learns to drop manual begin/end calls
@@ -5512,18 +5839,18 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                         emptyStepCount = 0; // Reset anti-loop counter
                         if (response.requires_user_input === true) {
                             isDone = true;
-                            updateStatus('Oczekuję na odpowiedź.');
-                            addLog('Przerwa wg żądania modelu (requires_user_input).', 'warning');
+                            updateStatus(tr('status-awaiting-response'));
+                            addLog(tr('log-modal-pause-required'), 'warning');
                         } else if (response.is_task_complete === false) {
                         sfx.taskComplete();
                             isDone = false;
                             currentPrompt = "ExtendScript step executed successfully. Awaiting your next instructions.";
                             aeContext = await agent.getAEContext();
-                            addLog('Agent zdecydował o kontynuacji zadania (orkiestracja).', 'info');
+                            addLog(tr('log-agent-continues-orchestration'), 'info');
                             showTyping();
                         } else {
                             isDone = true;
-                            updateStatus('Zadanie zakończone.');
+                            updateStatus(tr('status-done'));
                         }
                     } else {
                         var codeLines = extCode.split('\n');
@@ -5535,21 +5862,21 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                             return (ln === errorLine ? ' >>> ' : '     ') + ln + ': ' + l;
                         }).join('\n');
                         lastError = 'Linia: ' + aeResult.line + '. Blad: ' + aeResult.error + '\n--- Fragment kodu ---\n' + codeFragment + '\n--- Pelny kod ---\n' + extCode;
-                        addLog(`Błąd ExtendScript [Linia ${aeResult.line}]: ${aeResult.error}`, 'error');
+                        addLog(tr('log-extendscript-error').replace('{line}', aeResult.line).replace('{err}', aeResult.error), 'error');
                     sfx.error();
-                        appendMessage('assistant', `Błąd w kodzie: ${aeResult.error}. ${maxRetries > 0 ? 'Próbuję naprawić...' : 'Zatrzymano z powodu błędu.'}`);
+                        appendMessage('assistant', (maxRetries > 0 ? tr('amsg-code-error-fixing') : tr('amsg-code-error-stopped')).replace('{err}', aeResult.error));
                         console.error(lastError);
                         if (retryCount >= maxRetries) {
                             isDone = true;
-                            addLog(`Wyczerpano próby naprawy (${maxRetries}). Pozostawiam zmiany w projekcie.`, 'error');
-                            updateStatus('Przerwano po błędzie.');
+                            addLog(tr('log-exhausted-retries').replace('{max}', maxRetries), 'error');
+                            updateStatus(tr('status-task-error'));
                         } else {
                             retryCount++;
                             // Cofnij zmiany z nieudanego skryptu (Undo)
                             try {
                                 await agent.runExtendScript('app.executeCommand(16);');
-                                addLog('Cofnięto zmiany z błędnego skryptu (Undo).', 'warning');
-                            } catch(undoErr) { addLog('Nie udało się cofnąć zmian (Undo).', 'error'); }
+                                addLog(tr('log-undo-success'), 'warning');
+                            } catch(undoErr) { addLog(tr('log-undo-failed'), 'error'); }
                             
                             // --- Checkpoint: compare state AFTER undo ---
                             if (checkpoint) {
@@ -5569,7 +5896,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 } catch (cpCmpErr) { addLog('Checkpoint compare failed: ' + cpCmpErr, 'warning'); }
                             }
                             currentPrompt = "Your code or process produced an error. Try to fix it or use a different approach.";
-                            addLog(`Przygotowanie do samo-naprawy (próba ${retryCount})...`, 'warning');
+                            addLog(tr('log-prep-self-repair').replace('{n}', retryCount), 'warning');
                         }
                     }
                 } else {
@@ -5627,7 +5954,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 
                                 if (msgIndicatesContinuation) {
                                     // Agent said it's about to do something — give it one more chance
-                                    addLog('Agent zapowiedzial prace — kontynuuję.', 'info');
+                                    addLog(tr('log-agent-resumes-prework'), 'info');
                                     currentPrompt = "Continue the work you announced. You MUST now deliver code or parallel_tasks!";
                                     isDone = false;
                                     aeContext = await agent.getAEContext();
@@ -5675,12 +6002,12 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     // Don't count as error - just retry without attachments
                     continue;
                 } else if (agent.isAborted || err.name === 'AbortError' || err.message.includes('AbortError')) {
-                    addLog("Proces pomyślnie anulowany przez użytkownika.", "warning");
-                    updateStatus('Zadanie przerwane.');
-                    appendMessage('assistant', 'Zadanie zostało przerwane na Twoje życzenie. Co robimy dalej?');
+                    addLog(tr('log-process-cancelled-user'), "warning");
+                    updateStatus(tr('status-task-interrupted'));
+                    appendMessage('assistant', tr('amsg-task-aborted-user'));
                     isDone = true;
                 } else if (err.message.includes('Model_JSON_Error')) {
-                    addLog(`Błąd formatu JSON od modelu. Zapisano zrzut na dysk C:\\tmp\\failed_json.txt. ${maxRetries > 0 ? 'Wymuszam poprawę...' : ''}`, 'error');
+                    addLog(tr('log-json-format-err').replace('{hint}', 'dump at C:\\tmp\\failed_json.txt; will retry: ' + (maxRetries > 0)), 'error');
                     console.error(err);
                     try {
                         const fs = require('fs');
@@ -5688,19 +6015,19 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     } catch(fserr) {}
                     if (retryCount >= maxRetries) {
                         isDone = true;
-                        updateStatus('Przerwano po błędzie JSON.');
-                        appendMessage('assistant', 'Wyczerpano próby odzyskania formatu JSON. Spróbuj ponownie z prostszym poleceniem.');
+                        updateStatus(tr('status-json-recovery-aborted'));
+                        appendMessage('assistant', tr('sysmsg-json-recovery-failed'));
                     } else {
                         retryCount++;
                         lastError = null;
                         currentPrompt = 'ERROR: Your previous response was not valid JSON. Reply ONLY with a clean JSON object, no markdown. Continue the task.';
-                        addLog('Samo-naprawa składni (próba ' + retryCount + ')...', 'warning');
+                        addLog(tr('log-self-repair-syntax').replace('{n}', retryCount), 'warning');
                         // Do not set isDone = true, let loop continue
                     }
                 } else {
-                    appendMessage('assistant', `⚠ Wystąpił błąd komunikacji: ${err.message}`);
-                    addLog(`Wyjątek aplikacji: ${err.message}`, 'error');
-                    updateStatus('Błąd komunikacji.');
+                    appendMessage('assistant', tr('sysmsg-comm-error').replace('{err}', err.message));
+                    addLog(tr('log-app-exception').replace('{err}', err.message), 'error');
+                    updateStatus(tr('status-comm-error'));
                     console.error(err);
                     isDone = true;
                 }
