@@ -289,6 +289,18 @@
             if (!this._thinkingConfigBroken) this._thinkingConfigBroken = {};
             const skipThinking = !!this._thinkingConfigBroken[model];
 
+            // Some checkpoints (e.g. gemini-3.5-flash at certain moments)
+            // return empty SSE bodies even WITHOUT thinkingConfig. After
+            // observing that for a model we go straight to non-streaming
+            // (chatCompletion) — that endpoint works for these models.
+            // We signal this by throwing a sentinel error that the agent's
+            // streamChatCompletion catch block converts into a chatCompletion
+            // call.
+            if (!this._streamingBroken) this._streamingBroken = {};
+            if (this._streamingBroken[model]) {
+                throw new Error('GEMINI_STREAM_DISABLED: model "' + model + '" returned empty streams previously — using non-streaming path.');
+            }
+
             // streamGenerateContent + alt=sse → clean Server-Sent Events with `data: {...}\n\n` framing
             const url = this.apiBase + '/models/' + encodeURIComponent(model) + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(this.cfg.apiKey);
             // CRITICAL: pass stream=true so _buildGenPayload drops responseMimeType.
@@ -362,10 +374,12 @@
                 }
             }
 
-            // Still empty after retry — bubble up a clear, actionable error.
-            throw new Error('Gemini stream returned an empty body for model "' + model
-                + '" (both with and without thinkingConfig). The model may be temporarily unavailable or the prompt may have been blocked by safety filters. '
-                + 'Try a different model (📋 picker shows the live list), check the prompt for sensitive content, or try again in a moment.');
+            // Still empty after retry — the streaming endpoint is broken
+            // for this checkpoint. Mark it so future calls skip streaming
+            // immediately and signal the agent to fall back to
+            // chatCompletion.
+            this._streamingBroken[model] = true;
+            throw new Error('GEMINI_STREAM_EMPTY: model "' + model + '" returned empty streams (with and without thinkingConfig). Falling back to non-streaming for this model from now on.');
         }
 
         async generateImage(args) {

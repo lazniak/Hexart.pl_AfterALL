@@ -7041,6 +7041,17 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     }
 
                     // Build asset manifest for agent context
+                    // Some result envelopes carry `prompt` as a STRING (TTS,
+                    // images, SFX, video) and some as an OBJECT (Eleven Music
+                    // shape: { prompt, duration_seconds, composition_plan, … }).
+                    // Normalize to a string before .substring or anything else
+                    // chokes.
+                    const promptToString = (p) => {
+                        if (!p) return '';
+                        if (typeof p === 'string') return p;
+                        if (typeof p === 'object') return String(p.prompt || p.text || '');
+                        return String(p);
+                    };
                     let assetManifest = [];
                     results.forEach((r, idx) => {
                         if (r.res && r.res.success) {
@@ -7049,7 +7060,7 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                                 type: r.type,
                                 file: r.res.filePath ? r.res.filePath.replace(/\\/g, '/').split('/').pop() : 'unknown',
                                 path: r.res.filePath || '',
-                                prompt: (r.prompt || '').substring(0, 80),
+                                prompt: promptToString(r.prompt).substring(0, 80),
                                 duration: r.res.durationSec || null
                             };
                             // Mark edited images as superseding originals
@@ -7114,35 +7125,35 @@ if (response.update_memory && Array.isArray(response.update_memory)) {
                     // Images & SVG edits
                     results.filter(r => (r.type === 'Obraz' || r.type === 'Image Edit') && r.res.success && r.res.filePath)
                         .forEach((r, idx) => assetCards.push({
-                            type: 'image', filePath: r.res.filePath, prompt: r.prompt || '', index: idx
+                            type: 'image', filePath: r.res.filePath, prompt: promptToString(r.prompt), index: idx
                         }));
                     results.filter(r => r.type === 'SVG' && r.res.success && r.res.filePath)
                         .forEach((r) => assetCards.push({
-                            type: 'svg', filePath: r.res.filePath, prompt: r.prompt || ''
+                            type: 'svg', filePath: r.res.filePath, prompt: promptToString(r.prompt)
                         }));
 
                     // Audio: TTS / music / SFX (each has its own kind hint for icon selection)
                     results.filter(r => r.type === 'Lektor' && r.res.success && r.res.filePath)
                         .forEach((r) => assetCards.push({
                             type: 'audio', kind: 'tts', filePath: r.res.filePath,
-                            duration: r.res.durationSec, prompt: r.prompt || ''
+                            duration: r.res.durationSec, prompt: promptToString(r.prompt)
                         }));
                     results.filter(r => r.type === 'Muzyka' && r.res.success && r.res.filePath)
                         .forEach((r) => assetCards.push({
                             type: 'audio', kind: 'music', filePath: r.res.filePath,
-                            duration: r.res.durationSec, prompt: r.prompt || ''
+                            duration: r.res.durationSec, prompt: promptToString(r.prompt)
                         }));
                     results.filter(r => r.type === 'SFX' && r.res.success && r.res.filePath)
                         .forEach((r) => assetCards.push({
                             type: 'audio', kind: 'sfx', filePath: r.res.filePath,
-                            duration: r.res.durationSec, prompt: r.prompt || ''
+                            duration: r.res.durationSec, prompt: promptToString(r.prompt)
                         }));
 
                     // Video (Grok)
                     results.filter(r => r.type === 'Wideo Grok' && r.res.success && r.res.filePath)
                         .forEach((r, idx) => assetCards.push({
                             type: 'video', filePath: r.res.filePath,
-                            duration: r.res.durationSec, prompt: r.prompt || '', index: idx
+                            duration: r.res.durationSec, prompt: promptToString(r.prompt), index: idx
                         }));
 
                     if (assetCards.length > 0) {
