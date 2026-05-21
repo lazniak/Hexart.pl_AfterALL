@@ -880,10 +880,43 @@ except Exception as e:
     GITHUB_REPO_OWNER = 'lazniak';
     GITHUB_REPO_NAME  = 'Hexart.pl_AfterALL';
 
+    // In CEP, __dirname for script-loaded JS resolves to the HTML directory
+    // (the plugin root), NOT the directory containing agent.js. So
+    // path.resolve(__dirname, '..') would overshoot. The reliable source is
+    // CSInterface.getSystemPath('extension'), which CEP guarantees points at
+    // the extension root. We probe multiple candidates and return the first
+    // one that actually has CSXS/manifest.xml — robust against weird
+    // packaging / junction layouts.
     pluginRoot() {
-        // js/agent.js lives at <pluginRoot>/js/agent.js
-        try { return path.resolve(__dirname, '..'); }
-        catch (_) { return process.cwd(); }
+        if (this._pluginRootCache) return this._pluginRootCache;
+        const candidates = [];
+        // 1. CEP's documented "extension root" API
+        try {
+            if (typeof CSInterface !== 'undefined') {
+                const csi = new CSInterface();
+                const extPath = csi.getSystemPath && csi.getSystemPath('extension');
+                if (extPath) candidates.push(extPath);
+            }
+        } catch (_) {}
+        // 2. __dirname IS the HTML directory in CEP (= plugin root for our layout)
+        try { if (typeof __dirname === 'string' && __dirname) candidates.push(__dirname); } catch (_) {}
+        // 3. parent of __dirname — kept for environments where __dirname does
+        //    resolve to the JS file's folder (e.g. unit tests under plain Node)
+        try { if (typeof __dirname === 'string' && __dirname) candidates.push(path.resolve(__dirname, '..')); } catch (_) {}
+        // 4. process.cwd() as a last resort
+        try { candidates.push(process.cwd()); } catch (_) {}
+        for (const c of candidates) {
+            try {
+                if (c && fs.existsSync(path.join(c, 'CSXS', 'manifest.xml'))) {
+                    this._pluginRootCache = c;
+                    return c;
+                }
+            } catch (_) {}
+        }
+        // Nothing matched — return the most-likely candidate anyway so
+        // downstream callers (e.g. git pull) still have something usable.
+        this._pluginRootCache = candidates[0] || '';
+        return this._pluginRootCache;
     }
 
     getCurrentVersion() {
