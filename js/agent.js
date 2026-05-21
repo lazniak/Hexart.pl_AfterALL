@@ -89,16 +89,40 @@ class AisistAgent {
         }
 
         // ---- Providers configuration -----------------------------------
-        // LLM provider: 'gemini' | 'openrouter' | 'lmstudio'
-        this.llmProvider = getStr('hexart_llm_provider', 'gemini') || 'gemini';
+        // LLM provider: 'gemini' | 'openrouter' | 'openai' | 'lmstudio'
+        // First-run default is OpenRouter — gives the user immediate access to
+        // every major frontier model (Claude, GPT, Gemini, Sonar, …) behind a
+        // single account, which is the smoothest onboarding for a brand-new
+        // user. Existing users keep whatever they previously selected.
+        this.llmProvider = getStr('hexart_llm_provider', 'openrouter') || 'openrouter';
+        // Image provider: 'gemini' | 'openai' | 'openrouter' | 'comfyui'
         this.imgProvider = getStr('hexart_img_provider', 'gemini') || 'gemini';
 
         // Per-provider model selections
         this.geminiModel = storedBaseModel || getStr('hexart_gemini_model', 'gemini-2.5-flash');
-        this.openrouterLLMModel = getStr('hexart_openrouter_llm_model', 'anthropic/claude-3.5-sonnet');
-        this.openrouterGroundingModel = getStr('hexart_openrouter_grounding_model', 'perplexity/llama-3.1-sonar-large-128k-online');
+        this.openrouterLLMModel = getStr('hexart_openrouter_llm_model', 'anthropic/claude-opus-4.7');
+        this.openrouterGroundingModel = getStr('hexart_openrouter_grounding_model', 'perplexity/sonar-pro-search');
         this.lmstudioLLMModel = getStr('hexart_lmstudio_llm_model', '');
         this.lmstudioBaseUrl = getStr('hexart_lmstudio_url', 'http://localhost:1234');
+
+        // ---- OpenAI (LLM + Image) ---------------------------------------
+        this.openaiApiKey      = getStr('hexart_openai_key');
+        this.openaiLLMModel    = getStr('hexart_openai_llm_model', 'gpt-4o');
+        this.openaiImageModel  = getStr('hexart_openai_image_model', 'gpt-image-1');
+        this.openaiBaseUrl     = getStr('hexart_openai_base_url', 'https://api.openai.com/v1');
+
+        // ---- ComfyUI (local image generation) ---------------------------
+        // ComfyUI is a node-graph image generator that you run locally
+        // (e.g. ComfyUI Manager, Stability Matrix, ComfyUI portable).
+        // The plugin POSTs a workflow JSON to /prompt and polls /history.
+        this.comfyuiBaseUrl    = getStr('hexart_comfyui_url', 'http://127.0.0.1:8188');
+        this.comfyuiWorkflow   = getStr('hexart_comfyui_workflow', '');   // optional JSON template
+        this.comfyuiClientId   = getStr('hexart_comfyui_client_id', '')
+                              || (Math.random().toString(36).slice(2) + Date.now().toString(36));
+        // Persist the generated client_id so progress events can be matched
+        if (!diskStorage.getItem('hexart_comfyui_client_id')) {
+            diskStorage.setItem('hexart_comfyui_client_id', this.comfyuiClientId);
+        }
 
         this.geminiImageModel = getStr('hexart_gemini_img_model', 'gemini-2.5-flash-image-preview');
         this.openrouterImageModel = getStr('hexart_openrouter_img_model', 'google/gemini-2.5-flash-image-preview');
@@ -208,6 +232,7 @@ class AisistAgent {
         this._modelCache = {
             gemini: { list: null, ts: 0 },
             openrouter: { list: null, ts: 0 },
+            openai: { list: null, ts: 0 },
             lmstudio: { list: null, ts: 0 }
         };
         this.MODEL_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
@@ -218,15 +243,24 @@ class AisistAgent {
         const P = window.AfterAllProviders;
         if (!P) throw new Error('AfterAllProviders not loaded.');
         const which = (kind === 'image') ? this.imgProvider : this.llmProvider;
-        if (which === 'gemini') return P.create('gemini', { apiKey: this.apiKey });
-        if (which === 'openrouter') return P.create('openrouter', { apiKey: this.openrouterApiKey });
-        if (which === 'lmstudio') return P.create('lmstudio', { baseUrl: this.lmstudioBaseUrl });
-        return P.create('gemini', { apiKey: this.apiKey });
+        switch (which) {
+            case 'gemini':     return P.create('gemini',     { apiKey: this.apiKey });
+            case 'openrouter': return P.create('openrouter', { apiKey: this.openrouterApiKey });
+            case 'openai':     return P.create('openai',     { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
+            case 'lmstudio':   return P.create('lmstudio',   { baseUrl: this.lmstudioBaseUrl });
+            case 'comfyui':    return P.create('comfyui',    {
+                                  baseUrl: this.comfyuiBaseUrl,
+                                  clientId: this.comfyuiClientId,
+                                  workflow: this.comfyuiWorkflow
+                              });
+            default:           return P.create('gemini',     { apiKey: this.apiKey });
+        }
     }
 
     getActiveLLMModel() {
         switch (this.llmProvider) {
             case 'openrouter': return this.openrouterLLMModel;
+            case 'openai':     return this.openaiLLMModel;
             case 'lmstudio':   return this.lmstudioLLMModel;
             default:           return this.geminiModel;
         }
@@ -241,7 +275,12 @@ class AisistAgent {
         return this.getActiveLLMModel();
     }
     getActiveImageModel() {
-        return this.imgProvider === 'openrouter' ? this.openrouterImageModel : this.geminiImageModel;
+        switch (this.imgProvider) {
+            case 'openrouter': return this.openrouterImageModel;
+            case 'openai':     return this.openaiImageModel;
+            case 'comfyui':    return 'comfyui-workflow';   // model name lives in the workflow JSON
+            default:           return this.geminiImageModel;
+        }
     }
 
     // ---- Dynamic model list with caching -------------------------------
@@ -256,7 +295,9 @@ class AisistAgent {
         let providerInstance;
         if (providerName === 'gemini') providerInstance = P.create('gemini', { apiKey: this.apiKey });
         else if (providerName === 'openrouter') providerInstance = P.create('openrouter', { apiKey: this.openrouterApiKey });
+        else if (providerName === 'openai') providerInstance = P.create('openai', { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
         else if (providerName === 'lmstudio') providerInstance = P.create('lmstudio', { baseUrl: this.lmstudioBaseUrl });
+        else if (providerName === 'comfyui') providerInstance = P.create('comfyui', { baseUrl: this.comfyuiBaseUrl, clientId: this.comfyuiClientId });
         else throw new Error('Unknown provider: ' + providerName);
         const list = await providerInstance.listLLMModels();
         this._modelCache[providerName] = { list: list, ts: now };
@@ -1321,6 +1362,7 @@ ${this.getSkillsSummary()}
         assign('openrouterApiKey', 'openrouterApiKey', 'hexart_openrouter_key');
         assign('replicateApiKey', 'replicateApiKey', 'aisist_replicate_key');
         assign('elevenlabsApiKey', 'elevenlabsApiKey', 'aisist_elevenlabs_key');
+        assign('openaiApiKey', 'openaiApiKey', 'hexart_openai_key');
 
         assign('llmProvider', 'llmProvider', 'hexart_llm_provider');
         assign('imgProvider', 'imgProvider', 'hexart_img_provider');
@@ -1331,6 +1373,11 @@ ${this.getSkillsSummary()}
         assign('lmstudioBaseUrl', 'lmstudioBaseUrl', 'hexart_lmstudio_url');
         assign('geminiImageModel', 'geminiImageModel', 'hexart_gemini_img_model');
         assign('openrouterImageModel', 'openrouterImageModel', 'hexart_openrouter_img_model');
+        assign('openaiLLMModel', 'openaiLLMModel', 'hexart_openai_llm_model');
+        assign('openaiImageModel', 'openaiImageModel', 'hexart_openai_image_model');
+        assign('openaiBaseUrl', 'openaiBaseUrl', 'hexart_openai_base_url');
+        assign('comfyuiBaseUrl', 'comfyuiBaseUrl', 'hexart_comfyui_url');
+        assign('comfyuiWorkflow', 'comfyuiWorkflow', 'hexart_comfyui_workflow');
 
         assign('ttsModel', 'ttsModel', 'aisist_tts_model');
         assign('ttsVoice', 'ttsVoice', 'aisist_tts_voice');

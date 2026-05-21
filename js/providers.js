@@ -501,6 +501,479 @@
     }
 
     // =================================================================
+    // OpenAI Provider (native chat completions + image generation)
+    // =================================================================
+    //
+    // Supports:
+    //   • LLM: /v1/chat/completions (sync + SSE streaming)
+    //   • LLM listing: /v1/models — filter to chat-capable
+    //   • Image: /v1/images/generations (gpt-image-1, DALL·E 3, DALL·E 2)
+    //   • Image edits: /v1/images/edits (multipart; for inpainting with mask)
+    //
+    // The OpenAI chat-completions wire format is identical to OpenRouter's
+    // (which mimics OpenAI). We reuse OpenRouterProvider.geminiToOpenAI for
+    // history conversion to avoid duplication.
+    class OpenAIProvider extends BaseProvider {
+        get apiBase() {
+            const base = (this.cfg.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+            return base;
+        }
+
+        _headers(extra) {
+            const h = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + this.cfg.apiKey
+            };
+            if (this.cfg.org)     h['OpenAI-Organization'] = this.cfg.org;
+            if (this.cfg.project) h['OpenAI-Project'] = this.cfg.project;
+            return extra ? Object.assign(h, extra) : h;
+        }
+
+        async listLLMModels() {
+            if (!this.cfg.apiKey) throw new Error('Missing OpenAI API key.');
+            const url = this.apiBase + '/models';
+            const data = await httpJSON(url, { method: 'GET', headers: this._headers() }, { timeoutMs: 30000, retries: 1 });
+            const arr = (data.data || []).slice();
+            // Filter: chat-capable models. OpenAI doesn't expose a capability
+            // flag in /v1/models, so we infer from the id prefix family.
+            const isChatModel = id => /^(gpt-|chatgpt-|o[1-9]|o-mini|gpt5|gpt-5|gpt-4)/i.test(id)
+                                   && !/(embed|whisper|tts|moderation|davinci|babbage|audio|realtime|transcribe)/i.test(id);
+            const isImageModel = id => /^(dall-e|gpt-image|gpt-5-image|image)/i.test(id);
+            return arr
+                .filter(m => isChatModel(m.id || ''))
+                .map(m => ({
+                    id: m.id,
+                    name: m.id,
+                    provider: 'openai',
+                    contextLength: null,   // not exposed; UI will show "unknown"
+                    description: m.owned_by ? ('owned_by ' + m.owned_by) : '',
+                    features: {
+                        vision: /^(gpt-4o|gpt-4-vision|gpt-5)/i.test(m.id || ''),
+                        tools: /^(gpt-4|gpt-5|o[1-9])/i.test(m.id || ''),
+                        json: true,
+                        imageOutput: false
+                    },
+                    raw: m
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+        }
+
+        async listImageModels() {
+            if (!this.cfg.apiKey) {
+                // Hardcoded fallback list — OpenAI's image catalog is small
+                // and stable, so listing without a key still returns sensible
+                // options in the UI picker.
+                return [
+                    { id: 'gpt-image-1', name: 'gpt-image-1 (newest, supports edits + vision-aware prompts)', provider: 'openai' },
+                    { id: 'dall-e-3',    name: 'DALL·E 3 (legacy, 1024–1792 px)', provider: 'openai' },
+                    { id: 'dall-e-2',    name: 'DALL·E 2 (legacy, supports edits + variations)', provider: 'openai' }
+                ];
+            }
+            try {
+                const url = this.apiBase + '/models';
+                const data = await httpJSON(url, { method: 'GET', headers: this._headers() }, { timeoutMs: 30000, retries: 1 });
+                const arr = (data.data || []).filter(m => /^(dall-e|gpt-image)/i.test(m.id || ''));
+                if (arr.length === 0) {
+                    return [
+                        { id: 'gpt-image-1', name: 'gpt-image-1', provider: 'openai' },
+                        { id: 'dall-e-3',    name: 'DALL·E 3',    provider: 'openai' },
+                        { id: 'dall-e-2',    name: 'DALL·E 2',    provider: 'openai' }
+                    ];
+                }
+                return arr.map(m => ({ id: m.id, name: m.id, provider: 'openai', raw: m }));
+            } catch (_) {
+                return [
+                    { id: 'gpt-image-1', name: 'gpt-image-1', provider: 'openai' },
+                    { id: 'dall-e-3',    name: 'DALL·E 3',    provider: 'openai' }
+                ];
+            }
+        }
+
+        _buildOAIPayload(args, stream) {
+            const model = args.model || 'gpt-4o';
+            // o-series reasoning models reject `temperature` and use
+            // `max_completion_tokens` instead of `max_tokens`. Detect by id.
+            const isReasoning = /^o[1-9]|^o-mini|^gpt-5/i.test(model);
+            const cfg = args.generationConfig || {};
+            const payload = {
+                model: model,
+                messages: OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages)
+            };
+            if (isReasoning) {
+                if (cfg.maxOutputTokens) payload.max_completion_tokens = cfg.maxOutputTokens;
+            } else {
+                payload.temperature = (cfg.temperature != null) ? cfg.temperature : 0.2;
+                payload.max_tokens  = cfg.maxOutputTokens || 16384;
+            }
+            if (cfg.responseMimeType === 'application/json') {
+                payload.response_format = { type: 'json_object' };
+            }
+            if (stream) payload.stream = true;
+            return payload;
+        }
+
+        async chatCompletion(args) {
+            if (!this.cfg.apiKey) throw new Error('Missing OpenAI API key.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildOAIPayload(args, false);
+            const data = await httpJSON(url, {
+                method: 'POST',
+                headers: this._headers(),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            }, { timeoutMs: 180000, signal: args.signal, retries: 1 });
+            if (!data.choices || !data.choices[0]) {
+                throw new Error('OpenAI: empty response. ' + (data.error ? JSON.stringify(data.error) : ''));
+            }
+            const msg = data.choices[0].message || {};
+            const text = typeof msg.content === 'string'
+                ? msg.content
+                : (Array.isArray(msg.content) ? msg.content.map(c => c.text || '').join('') : '');
+            return { text: text, raw: data };
+        }
+
+        async streamChatCompletion(args, onChunk) {
+            if (!this.cfg.apiKey) throw new Error('Missing OpenAI API key.');
+            const url = this.apiBase + '/chat/completions';
+            const payload = this._buildOAIPayload(args, true);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: this._headers({ 'Accept': 'text/event-stream' }),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            });
+            if (!res.ok) {
+                const errTxt = await res.text();
+                throw new Error('OpenAI stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
+            }
+            const extract = (obj) => {
+                const choices = obj && obj.choices || [];
+                let s = '';
+                for (const c of choices) {
+                    const delta = c && c.delta;
+                    if (!delta) continue;
+                    if (typeof delta.content === 'string') s += delta.content;
+                    else if (Array.isArray(delta.content)) {
+                        for (const part of delta.content) if (part && part.text) s += part.text;
+                    }
+                }
+                return s;
+            };
+            const full = await consumeSSE(res, extract, onChunk, args.signal);
+            return { text: full, raw: { streamed: true } };
+        }
+
+        async generateImage(args) {
+            if (!this.cfg.apiKey) throw new Error('Missing OpenAI API key.');
+            const model = args.model || 'gpt-image-1';
+            // gpt-image-1 returns base64 by default; DALL·E variants return URL
+            // unless response_format is set to b64_json.
+            const isGptImage = /^gpt-image/i.test(model);
+            // Endpoint selection: edits when reference image is provided AND model supports it
+            const hasRef = !!(args.referenceImages && args.referenceImages.length);
+            if (hasRef && (isGptImage || /dall-e-2/i.test(model))) {
+                return await this._generateImageEdit(args);
+            }
+            const url = this.apiBase + '/images/generations';
+            const payload = {
+                model: model,
+                prompt: args.prompt,
+                n: 1,
+                size: args.size || (isGptImage ? '1024x1024' : '1024x1024')
+            };
+            if (!isGptImage) payload.response_format = 'b64_json';
+            // gpt-image-1 specific knobs
+            if (isGptImage) {
+                if (args.quality) payload.quality = args.quality;
+                if (args.background) payload.background = args.background;
+                if (args.outputFormat) payload.output_format = args.outputFormat;
+            }
+            const data = await httpJSON(url, {
+                method: 'POST',
+                headers: this._headers(),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            }, { timeoutMs: 240000, signal: args.signal, retries: 1 });
+            const first = data.data && data.data[0];
+            if (!first) throw new Error('OpenAI Image: no image in response.');
+            if (first.b64_json) {
+                return { mimeType: 'image/png', data: first.b64_json };
+            }
+            if (first.url) {
+                // Fetch the URL and convert to base64 — keeps the rest of the
+                // pipeline uniform (asset saving expects base64).
+                const r = await fetch(first.url);
+                const buf = await r.arrayBuffer();
+                const b64 = arrayBufferToBase64(buf);
+                const mt = r.headers.get('content-type') || 'image/png';
+                return { mimeType: mt, data: b64 };
+            }
+            throw new Error('OpenAI Image: response missing b64_json and url.');
+        }
+
+        async _generateImageEdit(args) {
+            // /v1/images/edits is multipart/form-data. fetch() supports FormData
+            // natively in modern Chromium (CEP 11 ships Chromium 88+).
+            const url = this.apiBase + '/images/edits';
+            const form = new FormData();
+            form.append('model', args.model || 'gpt-image-1');
+            form.append('prompt', args.prompt);
+            form.append('n', '1');
+            form.append('size', args.size || '1024x1024');
+            // Attach first reference image as the base
+            const ref = args.referenceImages[0];
+            const blob = base64ToBlob(ref.data, ref.mimeType || 'image/png');
+            form.append('image', blob, 'reference.png');
+            // Optional mask (for inpainting). Convention: second referenceImage
+            // is treated as mask when args.useMask === true.
+            if (args.useMask && args.referenceImages[1]) {
+                const m = args.referenceImages[1];
+                const mblob = base64ToBlob(m.data, m.mimeType || 'image/png');
+                form.append('mask', mblob, 'mask.png');
+            }
+            const headers = { 'Authorization': 'Bearer ' + this.cfg.apiKey };
+            if (this.cfg.org)     headers['OpenAI-Organization'] = this.cfg.org;
+            if (this.cfg.project) headers['OpenAI-Project'] = this.cfg.project;
+            const res = await fetch(url, { method: 'POST', headers: headers, body: form, signal: args.signal });
+            if (!res.ok) {
+                const t = await res.text();
+                throw new Error('OpenAI Image Edit HTTP ' + res.status + ': ' + t.substring(0, 300));
+            }
+            const data = await res.json();
+            const first = data.data && data.data[0];
+            if (!first) throw new Error('OpenAI Image Edit: empty response.');
+            if (first.b64_json) return { mimeType: 'image/png', data: first.b64_json };
+            if (first.url) {
+                const r = await fetch(first.url);
+                const buf = await r.arrayBuffer();
+                return { mimeType: r.headers.get('content-type') || 'image/png', data: arrayBufferToBase64(buf) };
+            }
+            throw new Error('OpenAI Image Edit: missing b64_json and url.');
+        }
+    }
+
+    // Helpers used by the OpenAI image edit path
+    function arrayBufferToBase64(buf) {
+        let binary = '';
+        const bytes = new Uint8Array(buf);
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+    }
+    function base64ToBlob(b64, mime) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: mime || 'application/octet-stream' });
+    }
+
+    // =================================================================
+    // ComfyUI Provider (local image generation via /prompt + /history)
+    // =================================================================
+    //
+    // ComfyUI is a node-graph image generator (FLUX, SDXL, SD3, …) that
+    // runs locally. The plugin posts a workflow JSON to /prompt and polls
+    // /history/{prompt_id} until the queue resolves, then downloads the
+    // output PNG via /view.
+    //
+    // Workflow template convention: any string field containing the literal
+    // placeholders below will be replaced before submitting:
+    //   __POSITIVE_PROMPT__   → args.prompt
+    //   __NEGATIVE_PROMPT__   → args.negativePrompt || ''
+    //   __SEED__              → random 32-bit integer (or args.seed if given)
+    //   __WIDTH__             → args.width  || 1024
+    //   __HEIGHT__            → args.height || 1024
+    //
+    // Out of the box we ship a minimal SDXL workflow that works if the
+    // user has sd_xl_base_1.0.safetensors in their /models/checkpoints
+    // folder. Users with custom setups will paste their own JSON.
+    class ComfyUIProvider extends BaseProvider {
+        get apiBase() {
+            const base = (this.cfg.baseUrl || 'http://127.0.0.1:8188').replace(/\/+$/, '');
+            return base;
+        }
+
+        async listLLMModels() {
+            throw new Error('ComfyUI is an image-only provider — pick a different provider for LLM tasks.');
+        }
+        async chatCompletion() {
+            throw new Error('ComfyUI is an image-only provider.');
+        }
+        async streamChatCompletion() {
+            throw new Error('ComfyUI is an image-only provider.');
+        }
+
+        async listImageModels() {
+            // Surface installed checkpoints so the UI can show a sensible picker.
+            // ComfyUI /object_info exposes the schema for every node — we walk
+            // CheckpointLoaderSimple → required → ckpt_name → enum values.
+            try {
+                const url = this.apiBase + '/object_info/CheckpointLoaderSimple';
+                const data = await httpJSON(url, { method: 'GET' }, { timeoutMs: 8000, retries: 0 });
+                const info = data && data.CheckpointLoaderSimple;
+                const ckpts = (info && info.input && info.input.required && info.input.required.ckpt_name) || [];
+                const names = Array.isArray(ckpts[0]) ? ckpts[0] : [];
+                return names.map(name => ({ id: name, name: name, provider: 'comfyui' }));
+            } catch (e) {
+                throw new Error('Could not reach ComfyUI at ' + this.apiBase + ' — start ComfyUI (python main.py --listen) first. Detail: ' + e.message);
+            }
+        }
+
+        // Replace placeholder tokens inside any string fields of the workflow.
+        _normalizeWorkflow(rawJson, args) {
+            const seed = (args.seed != null) ? args.seed : Math.floor(Math.random() * 2_147_483_647);
+            const subst = {
+                '__POSITIVE_PROMPT__': args.prompt || '',
+                '__NEGATIVE_PROMPT__': args.negativePrompt || '',
+                '__SEED__':            String(seed),
+                '__WIDTH__':           String(args.width  || 1024),
+                '__HEIGHT__':          String(args.height || 1024)
+            };
+            let workflowStr = (typeof rawJson === 'string') ? rawJson : JSON.stringify(rawJson);
+            Object.keys(subst).forEach(k => {
+                workflowStr = workflowStr.split(k).join(subst[k]);
+            });
+            let workflow;
+            try {
+                workflow = JSON.parse(workflowStr);
+            } catch (e) {
+                throw new Error('ComfyUI workflow JSON is invalid after substitution: ' + e.message);
+            }
+            return { workflow, seed };
+        }
+
+        // Minimal SDXL workflow as a sensible default. Users override via cfg.workflow.
+        _defaultWorkflow() {
+            return {
+                "3": {
+                    "inputs": {
+                        "seed": "__SEED__",
+                        "steps": 25,
+                        "cfg": 7.0,
+                        "sampler_name": "euler",
+                        "scheduler": "normal",
+                        "denoise": 1.0,
+                        "model":   ["4", 0],
+                        "positive":["6", 0],
+                        "negative":["7", 0],
+                        "latent_image":["5", 0]
+                    },
+                    "class_type": "KSampler"
+                },
+                "4": { "inputs": { "ckpt_name": "sd_xl_base_1.0.safetensors" }, "class_type": "CheckpointLoaderSimple" },
+                "5": { "inputs": { "width": "__WIDTH__", "height": "__HEIGHT__", "batch_size": 1 }, "class_type": "EmptyLatentImage" },
+                "6": { "inputs": { "text": "__POSITIVE_PROMPT__", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+                "7": { "inputs": { "text": "__NEGATIVE_PROMPT__", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+                "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
+                "9": { "inputs": { "filename_prefix": "AfterALL_", "images": ["8", 0] }, "class_type": "SaveImage" }
+            };
+        }
+
+        async generateImage(args) {
+            const base = this.apiBase;
+            // 1. Build the workflow
+            let raw;
+            if (this.cfg.workflow && this.cfg.workflow.length) {
+                raw = this.cfg.workflow;
+            } else {
+                raw = this._defaultWorkflow();
+            }
+            // Coerce numeric placeholders (seed/width/height) after JSON.parse —
+            // ComfyUI expects numbers, not strings, so we do a second pass.
+            const { workflow } = this._normalizeWorkflow(raw, args);
+            this._coerceNumericNodes(workflow);
+
+            // 2. Queue the prompt
+            const clientId = this.cfg.clientId || 'afterall';
+            const queueRes = await httpJSON(base + '/prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: workflow, client_id: clientId }),
+                signal: args.signal
+            }, { timeoutMs: 15000, retries: 0 });
+            const promptId = queueRes && queueRes.prompt_id;
+            if (!promptId) {
+                const errs = queueRes && (queueRes.node_errors || queueRes.error);
+                throw new Error('ComfyUI did not return prompt_id. Workflow error: ' + JSON.stringify(errs || queueRes).substring(0, 300));
+            }
+
+            // 3. Poll /history/{prompt_id} until the queue finishes
+            const start = Date.now();
+            const timeoutMs = args.timeoutMs || 240000; // 4 minutes default for big workflows
+            let history = null;
+            while (true) {
+                if (args.signal && args.signal.aborted) {
+                    throw new Error('ComfyUI generation aborted.');
+                }
+                if (Date.now() - start > timeoutMs) {
+                    throw new Error('ComfyUI generation timed out after ' + Math.round(timeoutMs / 1000) + 's.');
+                }
+                await new Promise(r => setTimeout(r, 700));
+                try {
+                    const hRes = await httpJSON(base + '/history/' + encodeURIComponent(promptId),
+                        { method: 'GET' }, { timeoutMs: 8000, retries: 0 });
+                    if (hRes && hRes[promptId]) {
+                        const status = hRes[promptId].status || {};
+                        if (status.completed === true || (hRes[promptId].outputs && Object.keys(hRes[promptId].outputs).length > 0)) {
+                            history = hRes[promptId];
+                            break;
+                        }
+                        if (status.status_str === 'error') {
+                            const msgs = (status.messages || []).map(m => JSON.stringify(m)).join(' · ');
+                            throw new Error('ComfyUI workflow error: ' + msgs.substring(0, 400));
+                        }
+                    }
+                } catch (e) {
+                    // transient polling errors are fine; rethrow user aborts
+                    if (e.name === 'AbortError') throw e;
+                }
+            }
+
+            // 4. Find the first image output across all nodes
+            const outputs = history.outputs || {};
+            let firstImage = null;
+            Object.keys(outputs).forEach(nodeId => {
+                if (firstImage) return;
+                const images = outputs[nodeId].images || [];
+                if (images.length > 0) firstImage = images[0];
+            });
+            if (!firstImage) throw new Error('ComfyUI completed but no image output found.');
+
+            // 5. Fetch the PNG via /view
+            const params = new URLSearchParams();
+            params.set('filename',  firstImage.filename);
+            if (firstImage.subfolder) params.set('subfolder', firstImage.subfolder);
+            params.set('type',      firstImage.type || 'output');
+            const viewUrl = base + '/view?' + params.toString();
+            const imgRes = await fetch(viewUrl, { signal: args.signal });
+            if (!imgRes.ok) throw new Error('ComfyUI /view HTTP ' + imgRes.status);
+            const buf = await imgRes.arrayBuffer();
+            return {
+                mimeType: imgRes.headers.get('content-type') || 'image/png',
+                data: arrayBufferToBase64(buf)
+            };
+        }
+
+        // ComfyUI accepts INT/FLOAT inputs as actual numbers. After string
+        // substitution our seed/width/height fields are strings — coerce
+        // anything that looks like a clean integer/decimal back to a number.
+        _coerceNumericNodes(workflow) {
+            Object.keys(workflow).forEach(nodeId => {
+                const node = workflow[nodeId];
+                if (!node || !node.inputs) return;
+                Object.keys(node.inputs).forEach(field => {
+                    const v = node.inputs[field];
+                    if (typeof v !== 'string') return;
+                    if (/^-?\d+$/.test(v))           node.inputs[field] = parseInt(v, 10);
+                    else if (/^-?\d*\.\d+$/.test(v)) node.inputs[field] = parseFloat(v);
+                });
+            });
+        }
+    }
+
+    // =================================================================
     // LM Studio Provider (local, OpenAI-compatible)
     // =================================================================
     class LMStudioProvider extends BaseProvider {
@@ -599,14 +1072,18 @@
         BaseProvider,
         GeminiProvider,
         OpenRouterProvider,
+        OpenAIProvider,
+        ComfyUIProvider,
         LMStudioProvider,
         // Factory
         create(name, cfg) {
             switch ((name || 'gemini').toLowerCase()) {
-                case 'gemini': return new GeminiProvider(cfg || {});
+                case 'gemini':     return new GeminiProvider(cfg || {});
                 case 'openrouter': return new OpenRouterProvider(cfg || {});
-                case 'lmstudio': return new LMStudioProvider(cfg || {});
-                default: throw new Error('Nieznany provider: ' + name);
+                case 'openai':     return new OpenAIProvider(cfg || {});
+                case 'comfyui':    return new ComfyUIProvider(cfg || {});
+                case 'lmstudio':   return new LMStudioProvider(cfg || {});
+                default: throw new Error('Unknown provider: ' + name);
             }
         },
         // Expose http helper for advanced use

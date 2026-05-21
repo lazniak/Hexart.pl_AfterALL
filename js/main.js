@@ -328,6 +328,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const openrouterImgModelInput = document.getElementById('openrouter-img-model');
     const lmstudioLLMModelSelect = document.getElementById('lmstudio-llm-model');
     const lmstudioBaseUrlInput = document.getElementById('lmstudio-base-url');
+    // OpenAI references
+    const openaiApiInput        = document.getElementById('openai-api');
+    const openaiLLMModelSelect  = document.getElementById('openai-llm-model');
+    const openaiImageModelSelect= document.getElementById('openai-image-model');
+    // ComfyUI references
+    const comfyuiBaseUrlInput   = document.getElementById('comfyui-base-url');
+    const comfyuiWorkflowInput  = document.getElementById('comfyui-workflow');
     const pythonSandboxPathInput = document.getElementById('python-sandbox-path');
     const toolsCachePathInput = document.getElementById('tools-cache-path');
     const sandboxCurrentPath = document.getElementById('sandbox-current-path');
@@ -501,6 +508,14 @@ const i18nDict = {
         // Settings - Providers
         'llm-section-title': '🤖 Główny Model (Logika / LLM)',
         'llm-provider-label': 'Dostawca LLM',
+        'provider-openrouter': 'OpenRouter (200+ modeli, dowolny dostawca)',
+        'provider-openai':     'OpenAI (GPT-5 · GPT-4o · seria o)',
+        'provider-gemini':     'Google Gemini',
+        'provider-lmstudio':   'LM Studio (lokalnie)',
+        'img-provider-gemini':     'Google Gemini (Nano Banana)',
+        'img-provider-openai':     'OpenAI (gpt-image-1 · DALL·E 3)',
+        'img-provider-openrouter': 'OpenRouter (modele image-capable)',
+        'img-provider-comfyui':    'ComfyUI (lokalnie · FLUX / SDXL / SD3)',
         'base-model-label': 'Model Gemini (Logika)',
         'gemini-hint': 'Lista pobierana z Google API · wymaga klucza Gemini',
         'openrouter-model-label': 'Model OpenRouter',
@@ -535,8 +550,32 @@ const i18nDict = {
         'sfx-provider-label': 'Dostawca SFX',
         // misc helpers
         'no-gemini-key-warn': '⚠ Brak klucza Gemini API',
+        'no-openai-key-warn': '⚠ Brak klucza OpenAI',
+        'no-openai-models': '(brak modeli zwróconych przez API)',
         'log-gemini-models-loaded': 'Pobrano {n} modeli Gemini ({llm} LLM, {img} obrazy, {tts} TTS).',
+        'log-fetching-openai-models': 'Pobieram listę modeli OpenAI...',
+        'log-openai-models-loaded': 'OpenAI: pobrano {n} modeli.',
+        'log-comfyui-connected': 'ComfyUI połączony — GPU: {dev}',
+        'log-comfyui-error': 'ComfyUI błąd: {msg}',
+        'log-comfyui-default-loaded': 'Załadowano domyślny szablon workflow SDXL.',
+        'amsg-comfyui-connected': '✓ Połączono z ComfyUI na <code>{base}</code>. Aktywne GPU: <b>{dev}</b>. Możesz teraz generować obrazy lokalnie.',
+        'amsg-comfyui-failed': '⚠ Nie udało się połączyć z ComfyUI na <code>{base}</code>. Sprawdź czy ComfyUI jest uruchomiony z flagą <code>--listen</code>. Detal: {msg}',
+        'amsg-comfyui-validate-empty': 'Pole workflow jest puste — wklej JSON wyeksportowany z ComfyUI lub kliknij „Load default SDXL template".',
+        'amsg-comfyui-validate-ok': '✓ Workflow JSON jest poprawny składniowo. Pamiętaj o placeholderach: <code>__POSITIVE_PROMPT__</code>, <code>__NEGATIVE_PROMPT__</code>, <code>__SEED__</code>.',
+        'amsg-comfyui-validate-fail': '✕ Workflow JSON jest niepoprawny: {msg}',
         'error-prefix': 'Błąd',
+        'press-reload-to-list': 'Naciśnij ↻ aby pobrać listę',
+        'openai-model-label': 'Model OpenAI',
+        'openai-hint': 'Wymaga klucza OpenAI API. Obejmuje rodziny GPT-5, GPT-4o oraz modele rozumowania serii o.',
+        'openai-image-model-label': 'Model obrazów OpenAI',
+        'openai-image-hint': 'gpt-image-1 obsługuje obrazy referencyjne (edycja / inpainting). DALL·E 3 ignoruje referencje.',
+        'api-key-openai': 'OpenAI API Key (GPT · DALL·E · gpt-image-1)',
+        'comfyui-url-label': 'URL serwera ComfyUI',
+        'comfyui-url-hint': 'Uruchom ComfyUI z flagą <code>python main.py --listen</code> (albo użyj ComfyUI Manager / Stability Matrix).',
+        'comfyui-workflow-label': 'Szablon workflow JSON (opcjonalny — pusty = domyślny SDXL)',
+        'comfyui-workflow-hint': 'W ComfyUI: <strong>Settings → Enable Dev mode Options</strong>, a następnie <strong>Save (API Format)</strong> aby wyeksportować workflow.',
+        'comfyui-load-default': '📋 Wczytaj domyślny szablon SDXL',
+        'comfyui-validate': '✓ Sprawdź JSON',
         // Settings - TTS / STT
         'tts-card-title': '🎙 Generator Lektora (TTS)',
         'tts-provider-label': 'Dostawca TTS',
@@ -867,6 +906,14 @@ const i18nDict = {
         'use-grounding-label': 'Enable Google Search Grounding (Gemini only)',
         'llm-section-title': '🤖 Main Model (Logic / LLM)',
         'llm-provider-label': 'LLM Provider',
+        'provider-openrouter': 'OpenRouter (200+ models, any vendor)',
+        'provider-openai':     'OpenAI (GPT-5 · GPT-4o · o-series)',
+        'provider-gemini':     'Google Gemini',
+        'provider-lmstudio':   'LM Studio (local)',
+        'img-provider-gemini':     'Google Gemini (Nano Banana)',
+        'img-provider-openai':     'OpenAI (gpt-image-1 · DALL·E 3)',
+        'img-provider-openrouter': 'OpenRouter (image-capable models)',
+        'img-provider-comfyui':    'ComfyUI (local · FLUX / SDXL / SD3)',
         'base-model-label': 'Gemini Model (Logic)',
         'gemini-hint': 'List fetched from Google API · requires Gemini key',
         'openrouter-model-label': 'OpenRouter Model',
@@ -897,8 +944,33 @@ const i18nDict = {
         'sfx-card-hint': 'SFX generation is currently provided only by ElevenLabs (up to 22s per clip).',
         'sfx-provider-label': 'SFX Provider',
         'no-gemini-key-warn': '⚠ Missing Gemini API key',
+        'no-openai-key-warn': '⚠ Missing OpenAI API key',
+        'no-openai-models': '(no models returned by API)',
         'log-gemini-models-loaded': 'Fetched {n} Gemini models ({llm} LLM, {img} image, {tts} TTS).',
+        'log-fetching-openai-models': 'Fetching OpenAI model list...',
+        'log-openai-models-loaded': 'OpenAI: {n} models fetched.',
+        'log-comfyui-connected': 'ComfyUI connected — GPU: {dev}',
+        'log-comfyui-error': 'ComfyUI error: {msg}',
+        'log-comfyui-default-loaded': 'Loaded default SDXL workflow template.',
+        'amsg-comfyui-connected': '✓ Connected to ComfyUI at <code>{base}</code>. Active GPU: <b>{dev}</b>. You can now generate images locally.',
+        'amsg-comfyui-failed': '⚠ Could not reach ComfyUI at <code>{base}</code>. Make sure ComfyUI is running with the <code>--listen</code> flag. Detail: {msg}',
+        'amsg-comfyui-validate-empty': 'Workflow field is empty — paste a JSON exported from ComfyUI or click "Load default SDXL template".',
+        'amsg-comfyui-validate-ok': '✓ Workflow JSON is syntactically valid. Remember to include placeholders: <code>__POSITIVE_PROMPT__</code>, <code>__NEGATIVE_PROMPT__</code>, <code>__SEED__</code>.',
+        'amsg-comfyui-validate-fail': '✕ Workflow JSON is invalid: {msg}',
         'error-prefix': 'Error',
+        'press-reload-to-list': 'Press ↻ to load list',
+        // Provider tabs / fields
+        'openai-model-label': 'OpenAI Model',
+        'openai-hint': 'Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.',
+        'openai-image-model-label': 'OpenAI image model',
+        'openai-image-hint': 'gpt-image-1 supports reference images for edits and inpainting. DALL·E 3 ignores reference images.',
+        'api-key-openai': 'OpenAI API Key (GPT · DALL·E · gpt-image-1)',
+        'comfyui-url-label': 'ComfyUI server URL',
+        'comfyui-url-hint': 'Start ComfyUI with <code>python main.py --listen</code> (or use ComfyUI Manager / Stability Matrix).',
+        'comfyui-workflow-label': 'Workflow JSON template (optional — leave empty for default SDXL)',
+        'comfyui-workflow-hint': 'In ComfyUI, click <strong>Settings → Enable Dev mode</strong>, then <strong>Save (API Format)</strong> to export a workflow that the plugin can submit.',
+        'comfyui-load-default': '📋 Load default SDXL template',
+        'comfyui-validate': '✓ Validate JSON',
         'tts-card-title': '🎙 Voice Generator (TTS)',
         'tts-provider-label': 'TTS Provider',
         'el-model-label': 'ElevenLabs Model',
@@ -1080,6 +1152,14 @@ const i18nDict = {
         'use-grounding-label': 'Google Search Grounding aktivieren (nur Gemini)',
         'llm-section-title': '🤖 Hauptmodell (Logik / LLM)',
         'llm-provider-label': 'LLM-Anbieter',
+        'provider-openrouter': 'OpenRouter (200+ Modelle)',
+        'provider-openai':     'OpenAI (GPT-5 · GPT-4o · o-Serie)',
+        'provider-gemini':     'Google Gemini',
+        'provider-lmstudio':   'LM Studio (lokal)',
+        'img-provider-gemini':     'Google Gemini (Nano Banana)',
+        'img-provider-openai':     'OpenAI (gpt-image-1 · DALL·E 3)',
+        'img-provider-openrouter': 'OpenRouter (bildfähige Modelle)',
+        'img-provider-comfyui':    'ComfyUI (lokal · FLUX / SDXL / SD3)',
         'base-model-label': 'Gemini-Modell (Logik)',
         'gemini-hint': 'Liste wird von Google-API geladen · Gemini-Schlüssel erforderlich',
         'openrouter-model-label': 'OpenRouter-Modell',
@@ -1708,12 +1788,18 @@ function t(key, fallback) {
     if (agent.openrouterApiKey && openrouterApiInput) openrouterApiInput.value = agent.openrouterApiKey;
     if (agent.replicateApiKey) replicateApiInput.value = agent.replicateApiKey;
     if (agent.elevenlabsApiKey) elevenlabsApiInput.value = agent.elevenlabsApiKey;
-    if (llmProviderSelect) llmProviderSelect.value = agent.llmProvider || 'gemini';
+    if (agent.openaiApiKey && openaiApiInput) openaiApiInput.value = agent.openaiApiKey;
+    if (llmProviderSelect) llmProviderSelect.value = agent.llmProvider || 'openrouter';
     if (imgProviderSelect) imgProviderSelect.value = agent.imgProvider || 'gemini';
     if (openrouterLLMModelInput) openrouterLLMModelInput.value = agent.openrouterLLMModel || '';
     if (openrouterGroundingModelInput) openrouterGroundingModelInput.value = agent.openrouterGroundingModel || '';
     if (openrouterImgModelInput) openrouterImgModelInput.value = agent.openrouterImageModel || '';
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
+    // OpenAI fields
+    if (openaiImageModelSelect) openaiImageModelSelect.value = agent.openaiImageModel || 'gpt-image-1';
+    // ComfyUI fields
+    if (comfyuiBaseUrlInput) comfyuiBaseUrlInput.value = agent.comfyuiBaseUrl || 'http://127.0.0.1:8188';
+    if (comfyuiWorkflowInput) comfyuiWorkflowInput.value = agent.comfyuiWorkflow || '';
     if (pythonSandboxPathInput) pythonSandboxPathInput.value = agent.pythonSandboxPath || '';
     if (toolsCachePathInput) toolsCachePathInput.value = agent.toolsCachePath || '';
 
@@ -2297,6 +2383,66 @@ function t(key, fallback) {
             troubleshoot: {
                 pl: ['<b>"Nie udało się połączyć"</b>: sprawdź czy serwer w LM Studio jest uruchomiony (status Running w Developer).', '<b>Bardzo wolny output</b>: model jest za duży dla Twojego GPU — wybierz mniejszy (7B-13B) lub kwantyzowany (Q4_K_M).', '<b>OutOfMemory</b>: zwolnij VRAM (zamknij inne apps GPU) lub użyj CPU offload w LM Studio.'],
                 en: ['<b>"Cannot connect"</b>: check LM Studio server is running (Developer → Status: Running).', '<b>Very slow output</b>: model too big for your GPU — pick smaller (7B-13B) or quantized (Q4_K_M).', '<b>OutOfMemory</b>: free VRAM (close other GPU apps) or enable CPU offload in LM Studio.']
+            }
+        },
+        openai: {
+            icon: '🟢',
+            title: { pl: 'OpenAI API', en: 'OpenAI API' },
+            intro: {
+                pl: 'OpenAI to bezpośredni dostawca modeli GPT-5 / GPT-4o / o-series (rozumowanie) oraz generatorów obrazu <code>gpt-image-1</code> i DALL·E. Klucz daje pełny dostęp do API (chat, embeddings, obrazy, audio).',
+                en: 'OpenAI is the direct vendor of GPT-5 / GPT-4o / o-series (reasoning) models plus the <code>gpt-image-1</code> and DALL·E image generators. The key grants full API access (chat, embeddings, images, audio).'
+            },
+            steps: [
+                { pl: 'Załóż konto na <a href="https://platform.openai.com/signup" target="_blank">platform.openai.com</a>.', en: 'Sign up at <a href="https://platform.openai.com/signup" target="_blank">platform.openai.com</a>.' },
+                { pl: 'Doładuj kredyty: <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank">Billing</a>. Minimalny prepaid: $5.', en: 'Top up credits: <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank">Billing</a>. Minimum prepaid: $5.' },
+                { pl: 'Wygeneruj klucz: <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a> → <b>"Create new secret key"</b>.', en: 'Generate a key: <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a> → <b>"Create new secret key"</b>.' },
+                { pl: '<b>"Owned by"</b> wybierz: <i>You</i> dla konta osobistego (najprościej) lub <i>Service account</i> dla projektu. <b>"Project":</b> "Default" jest OK, ale możesz utworzyć osobny projekt "afterALL" by śledzić koszty.', en: '<b>"Owned by"</b>: pick <i>You</i> for a personal account (simplest) or <i>Service account</i> for a project. <b>"Project":</b> "Default" works, but you can create a dedicated "afterALL" project to track costs.' },
+                { pl: '<b>"Permissions"</b>: <b>All</b> (najprościej) lub <b>Restricted</b> z TYMI scope\'ami: <code>Model capabilities → Models (read)</code>, <code>Model capabilities → Model responses (write)</code>, <code>Image generation → Images (write)</code>. Bez scope\'a Models nie zadziała ↻ pobranie listy.', en: '<b>"Permissions"</b>: <b>All</b> (simplest) or <b>Restricted</b> with THESE scopes: <code>Model capabilities → Models (read)</code>, <code>Model capabilities → Model responses (write)</code>, <code>Image generation → Images (write)</code>. Without the Models scope the ↻ button cannot fetch the list.' },
+                { pl: 'Skopiuj klucz (<code>sk-...</code> lub <code>sk-proj-...</code>) — pokazany TYLKO RAZ.', en: 'Copy the key (<code>sk-...</code> or <code>sk-proj-...</code>) — shown ONLY ONCE.' },
+                { pl: 'Wklej go w polu <b>"OpenAI API Key"</b> w zakładce Klucze API, zapisz, i w zakładce Dostawcy LLM kliknij ↻ aby pobrać listę modeli.', en: 'Paste it into the <b>"OpenAI API Key"</b> field in the API Keys tab, save, and in the LLM Providers tab click ↻ to fetch the model list.' }
+            ],
+            link: 'https://platform.openai.com/api-keys',
+            pricing: {
+                pl: 'Przykładowe ceny: GPT-4o ~$5/1M input + $15/1M output. GPT-4o-mini ~$0,15/1M input. o1-preview (rozumowanie) ~$15/1M input. gpt-image-1 ~$0,04-0,17 za obraz (HD).',
+                en: 'Examples: GPT-4o ~$5/1M input + $15/1M output. GPT-4o-mini ~$0.15/1M input. o1-preview (reasoning) ~$15/1M input. gpt-image-1 ~$0.04-0.17 per image (HD).'
+            },
+            usage: {
+                pl: ['Główna logika agenta (GPT-5, GPT-4o, o-series)', 'Generowanie obrazów (gpt-image-1, DALL·E 3, DALL·E 2)', 'Edycja obrazów z maską (inpainting) — wymaga modelu gpt-image-1'],
+                en: ['Main agent logic (GPT-5, GPT-4o, o-series)', 'Image generation (gpt-image-1, DALL·E 3, DALL·E 2)', 'Image edit with mask (inpainting) — requires gpt-image-1 model']
+            },
+            troubleshoot: {
+                pl: ['<b>401 Incorrect API key</b>: klucz wygasł lub źle przepisany.', '<b>429 insufficient_quota</b>: doładuj prepaid.', '<b>403 model not accessible</b>: model wymaga wyższego tieru — sprawdź <a href="https://platform.openai.com/docs/guides/rate-limits" target="_blank">rate-limit tiers</a>. Tier 1 zwykle wystarcza dla GPT-4o.'],
+                en: ['<b>401 Incorrect API key</b>: key expired or mistyped.', '<b>429 insufficient_quota</b>: top up prepaid.', '<b>403 model not accessible</b>: model needs a higher tier — see <a href="https://platform.openai.com/docs/guides/rate-limits" target="_blank">rate-limit tiers</a>. Tier 1 usually suffices for GPT-4o.']
+            }
+        },
+        comfyui: {
+            icon: '🎛',
+            title: { pl: 'ComfyUI (lokalnie)', en: 'ComfyUI (local)' },
+            intro: {
+                pl: 'ComfyUI to darmowy, lokalny generator obrazów z grafem węzłów — uruchamia modele FLUX, SDXL, SD3, Pony itd. na Twoim GPU. Brak API key — wystarczy uruchomić ComfyUI z flagą sieciową i podać adres serwera.',
+                en: 'ComfyUI is a free, local node-graph image generator — runs FLUX, SDXL, SD3, Pony etc. on your GPU. No API key — just start ComfyUI with a network flag and point the plugin at the server.'
+            },
+            steps: [
+                { pl: 'Zainstaluj ComfyUI: <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank">github.com/comfyanonymous/ComfyUI</a> (Windows: portable .zip lub <a href="https://github.com/LykosAI/StabilityMatrix" target="_blank">Stability Matrix</a> · macOS / Linux: <code>git clone</code> + <code>pip install -r requirements.txt</code>).', en: 'Install ComfyUI: <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank">github.com/comfyanonymous/ComfyUI</a> (Windows: portable .zip or <a href="https://github.com/LykosAI/StabilityMatrix" target="_blank">Stability Matrix</a> · macOS / Linux: <code>git clone</code> + <code>pip install -r requirements.txt</code>).' },
+                { pl: 'Pobierz checkpoint (np. <code>sd_xl_base_1.0.safetensors</code> z HuggingFace) i wrzuć do <code>ComfyUI/models/checkpoints/</code>.', en: 'Download a checkpoint (e.g. <code>sd_xl_base_1.0.safetensors</code> from HuggingFace) and drop it into <code>ComfyUI/models/checkpoints/</code>.' },
+                { pl: 'Uruchom ComfyUI z flagą sieciową: <code>python main.py --listen</code> (Linux/macOS) lub w portable kliknij <code>run_nvidia_gpu.bat</code>. Domyślny port: <b>8188</b>.', en: 'Start ComfyUI with the network flag: <code>python main.py --listen</code> (Linux/macOS) or run <code>run_nvidia_gpu.bat</code> in the portable build. Default port: <b>8188</b>.' },
+                { pl: 'Sprawdź czy działa: otwórz w przeglądarce <a href="http://127.0.0.1:8188" target="_blank">http://127.0.0.1:8188</a>. Powinien się załadować edytor węzłów.', en: 'Verify it works: open <a href="http://127.0.0.1:8188" target="_blank">http://127.0.0.1:8188</a> in a browser. The node editor should load.' },
+                { pl: 'W ComfyUI: <b>Settings → Enable Dev mode Options</b>. Następnie ułóż workflow w edytorze, kliknij <b>"Save (API Format)"</b> i wklej JSON w polu „Workflow JSON template" wtyczki.', en: 'In ComfyUI: <b>Settings → Enable Dev mode Options</b>. Then arrange your workflow in the editor, click <b>"Save (API Format)"</b>, and paste the JSON into the plugin\'s "Workflow JSON template" field.' },
+                { pl: 'W workflow użyj placeholderów: <code>__POSITIVE_PROMPT__</code>, <code>__NEGATIVE_PROMPT__</code>, <code>__SEED__</code>, <code>__WIDTH__</code>, <code>__HEIGHT__</code> — wtyczka podstawi wartości przed wysłaniem.', en: 'In the workflow use placeholders: <code>__POSITIVE_PROMPT__</code>, <code>__NEGATIVE_PROMPT__</code>, <code>__SEED__</code>, <code>__WIDTH__</code>, <code>__HEIGHT__</code> — the plugin substitutes them before submitting.' },
+                { pl: 'Brak własnego workflow? Kliknij <b>"Load default SDXL template"</b> — zadziała od razu jeśli masz <code>sd_xl_base_1.0.safetensors</code>.', en: 'No workflow yet? Click <b>"Load default SDXL template"</b> — works out of the box if you have <code>sd_xl_base_1.0.safetensors</code>.' }
+            ],
+            link: 'https://github.com/comfyanonymous/ComfyUI',
+            pricing: {
+                pl: 'BEZPŁATNE w 100%. Koszt: prąd + sprzęt (NVIDIA GPU z 12+ GB VRAM zalecane dla SDXL/FLUX).',
+                en: '100% FREE. Cost: electricity + hardware (NVIDIA GPU with 12+ GB VRAM recommended for SDXL/FLUX).'
+            },
+            usage: {
+                pl: ['Lokalne generowanie obrazów (FLUX, SDXL, SD3, Pony, custom)', 'Pełna kontrola nad pipeline (LoRA, ControlNet, IPAdapter)', 'Zero opłat per-obraz · zero cenzury'],
+                en: ['Local image generation (FLUX, SDXL, SD3, Pony, custom)', 'Full pipeline control (LoRA, ControlNet, IPAdapter)', 'Zero per-image fees · zero content filtering']
+            },
+            troubleshoot: {
+                pl: ['<b>"Could not reach ComfyUI"</b>: ComfyUI nie wystartował lub działa bez <code>--listen</code> — restart z poprawną flagą.', '<b>"Workflow error: ckpt_name not found"</b>: domyślny template wymaga <code>sd_xl_base_1.0.safetensors</code> w <code>models/checkpoints</code>. Pobierz model lub zmień ckpt_name w workflow.', '<b>Timeout po 4 min</b>: złożone workflow (FLUX, multi-LoRA) mogą trwać dłużej — zwiększ moc GPU albo uprość workflow.'],
+                en: ['<b>"Could not reach ComfyUI"</b>: ComfyUI did not start or runs without <code>--listen</code> — restart with the correct flag.', '<b>"Workflow error: ckpt_name not found"</b>: the default template needs <code>sd_xl_base_1.0.safetensors</code> in <code>models/checkpoints</code>. Download the model or change ckpt_name in the workflow.', '<b>4-minute timeout</b>: complex workflows (FLUX, multi-LoRA) may run longer — upgrade your GPU or simplify the workflow.']
             }
         },
         custom: {
@@ -3682,7 +3828,18 @@ function t(key, fallback) {
             div.classList.toggle('hidden', div.getAttribute('data-img-provider') !== imgActive);
         });
     }
-    if (llmProviderSelect) llmProviderSelect.addEventListener('change', updateProviderConfigVisibility);
+    if (llmProviderSelect) llmProviderSelect.addEventListener('change', () => {
+        updateProviderConfigVisibility();
+        // Lazy-load the model list when the user switches to a provider that
+        // needs one. Avoids hammering APIs when the user just opens settings.
+        const v = llmProviderSelect.value;
+        if (v === 'openai' && agent.openaiApiKey && openaiLLMModelSelect && openaiLLMModelSelect.options.length <= 1) {
+            loadOpenAIModels(false);
+        }
+        if (v === 'lmstudio' && lmstudioLLMModelSelect && lmstudioLLMModelSelect.options.length <= 1) {
+            loadLMStudioModels(false);
+        }
+    });
     if (imgProviderSelect) imgProviderSelect.addEventListener('change', updateProviderConfigVisibility);
     updateProviderConfigVisibility();
 
@@ -3793,6 +3950,92 @@ function t(key, fallback) {
     if (refreshGeminiImgBtn) refreshGeminiImgBtn.addEventListener('click', () => loadGeminiModels(true));
     const refreshLMStudioBtn = document.getElementById('refresh-lmstudio-models');
     if (refreshLMStudioBtn) refreshLMStudioBtn.addEventListener('click', () => loadLMStudioModels(true));
+
+    // ---- OpenAI dynamic model list ------------------------------------
+    async function loadOpenAIModels(force) {
+        if (!openaiLLMModelSelect) return;
+        // Push the (possibly-edited) API key into agent before fetching so
+        // it shows up in the next call even before the user clicks Save.
+        if (openaiApiInput && openaiApiInput.value.trim()) {
+            agent.openaiApiKey = openaiApiInput.value.trim();
+        }
+        if (!agent.openaiApiKey) {
+            openaiLLMModelSelect.innerHTML = '<option value="">' + tr('no-openai-key-warn') + '</option>';
+            return;
+        }
+        try {
+            addLog(tr('log-fetching-openai-models'), 'info');
+            const list = await agent.fetchModels('openai', !!force);
+            openaiLLMModelSelect.innerHTML = '';
+            if (list.length === 0) {
+                openaiLLMModelSelect.innerHTML = '<option value="">' + tr('no-openai-models') + '</option>';
+                return;
+            }
+            list.forEach(m => {
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = m.id.length > 40 ? (m.id.substring(0, 38) + '…') : m.id;
+                o.title = m.id + (m.description ? ' — ' + m.description : '');
+                openaiLLMModelSelect.appendChild(o);
+            });
+            if (agent.openaiLLMModel && list.find(m => m.id === agent.openaiLLMModel)) {
+                openaiLLMModelSelect.value = agent.openaiLLMModel;
+            }
+            addLog(tr('log-openai-models-loaded').replace('{n}', String(list.length)), 'success');
+        } catch (e) {
+            addLog('OpenAI models error: ' + e.message, 'error');
+            openaiLLMModelSelect.innerHTML = '<option value="">' + tr('error-prefix') + ': ' + e.message.substring(0, 60) + '</option>';
+        }
+    }
+    const refreshOpenAIBtn = document.getElementById('refresh-openai-models');
+    if (refreshOpenAIBtn) refreshOpenAIBtn.addEventListener('click', () => loadOpenAIModels(true));
+
+    // ---- ComfyUI test connection + workflow helpers -------------------
+    const comfyuiTestBtn       = document.getElementById('comfyui-test-connection');
+    const comfyuiLoadDefaultBtn= document.getElementById('comfyui-load-default');
+    const comfyuiValidateBtn   = document.getElementById('comfyui-validate');
+
+    async function comfyuiTestConnection() {
+        const base = (comfyuiBaseUrlInput && comfyuiBaseUrlInput.value.trim()) || 'http://127.0.0.1:8188';
+        try {
+            const res = await fetch(base.replace(/\/+$/, '') + '/system_stats', { method: 'GET' });
+            if (res.ok) {
+                const data = await res.json();
+                const dev = (data && data.devices && data.devices[0]) ? data.devices[0].name : 'unknown';
+                addLog(tr('log-comfyui-connected').replace('{dev}', dev), 'success');
+                appendMessage('system', tr('amsg-comfyui-connected').replace('{base}', base).replace('{dev}', dev));
+            } else {
+                throw new Error('HTTP ' + res.status);
+            }
+        } catch (e) {
+            addLog(tr('log-comfyui-error').replace('{msg}', e.message), 'error');
+            appendMessage('system', tr('amsg-comfyui-failed').replace('{base}', base).replace('{msg}', e.message));
+        }
+    }
+    if (comfyuiTestBtn) comfyuiTestBtn.addEventListener('click', comfyuiTestConnection);
+
+    if (comfyuiLoadDefaultBtn) comfyuiLoadDefaultBtn.addEventListener('click', () => {
+        // Pull the in-memory default from ComfyUIProvider.
+        const P = window.AfterAllProviders;
+        if (!P || !P.ComfyUIProvider) return;
+        const tmp = new P.ComfyUIProvider({});
+        const def = tmp._defaultWorkflow();
+        comfyuiWorkflowInput.value = JSON.stringify(def, null, 2);
+        addLog(tr('log-comfyui-default-loaded'), 'info');
+    });
+    if (comfyuiValidateBtn) comfyuiValidateBtn.addEventListener('click', () => {
+        const txt = comfyuiWorkflowInput.value.trim();
+        if (!txt) {
+            appendMessage('system', tr('amsg-comfyui-validate-empty'));
+            return;
+        }
+        try {
+            JSON.parse(txt);
+            appendMessage('system', tr('amsg-comfyui-validate-ok'));
+        } catch (e) {
+            appendMessage('system', tr('amsg-comfyui-validate-fail').replace('{msg}', e.message));
+        }
+    });
 
     // Update sandbox info display
     function refreshSandboxInfo() {
@@ -4000,6 +4243,10 @@ function t(key, fallback) {
             if (agent.llmProvider === 'lmstudio' && lmstudioLLMModelSelect && lmstudioLLMModelSelect.options.length <= 1) {
                 loadLMStudioModels(false);
             }
+            // For OpenAI: auto-fetch if it's the active LLM provider and key exists
+            if (agent.llmProvider === 'openai' && agent.openaiApiKey && openaiLLMModelSelect && openaiLLMModelSelect.options.length <= 1) {
+                loadOpenAIModels(false);
+            }
             // For ElevenLabs: load models if provider active
             if (agent.ttsProvider === 'elevenlabs' && agent.elevenlabsApiKey && elModelSelect && elModelSelect.options.length <= 1) {
                 loadElevenLabsModels(false);
@@ -4011,8 +4258,9 @@ function t(key, fallback) {
     setTimeout(() => {
         const lang = (uiLangSelect.value === 'auto' && navigator.language.startsWith('pl')) ? 'pl' : (i18nDict[uiLangSelect.value] ? uiLangSelect.value : 'en');
         appendMessage('assistant', i18nDict[lang]['greeting'] || tr('greeting'));
-        // First-run hint when no key is configured
-        if (!agent.apiKey && !agent.openrouterApiKey && agent.llmProvider !== 'lmstudio') {
+        // First-run hint when no usable LLM key is configured.
+        // LM Studio runs locally so it doesn't need a key.
+        if (!agent.apiKey && !agent.openrouterApiKey && !agent.openaiApiKey && agent.llmProvider !== 'lmstudio') {
             setTimeout(() => {
                 appendMessage('system', tr('first-run-hint'));
             }, 800);
@@ -4565,6 +4813,11 @@ function t(key, fallback) {
             openrouterImageModel: openrouterImgModelInput ? openrouterImgModelInput.value.trim() : '',
             lmstudioLLMModel: lmstudioLLMModelSelect ? lmstudioLLMModelSelect.value : '',
             lmstudioBaseUrl: lmstudioBaseUrlInput ? lmstudioBaseUrlInput.value.trim() : 'http://localhost:1234',
+            openaiApiKey:    openaiApiInput        ? openaiApiInput.value.trim()        : '',
+            openaiLLMModel:  openaiLLMModelSelect  ? openaiLLMModelSelect.value         : '',
+            openaiImageModel:openaiImageModelSelect? openaiImageModelSelect.value       : '',
+            comfyuiBaseUrl:  comfyuiBaseUrlInput   ? comfyuiBaseUrlInput.value.trim()   : 'http://127.0.0.1:8188',
+            comfyuiWorkflow: comfyuiWorkflowInput  ? comfyuiWorkflowInput.value         : '',
             ttsModel: effTtsModel,
             ttsVoice: ttsVoiceSelect.value,
             uiLang: uiLangSelect.value,

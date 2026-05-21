@@ -183,9 +183,10 @@
                         <h3 data-i18n="llm-section-title">🤖 Główny Model (Logika / LLM)</h3>
                         <label for="llm-provider-select" data-i18n="llm-provider-label">Dostawca LLM</label>
                         <select id="llm-provider-select">
-                            <option value="gemini">Google Gemini</option>
-                            <option value="openrouter">OpenRouter (200+ modeli)</option>
-                            <option value="lmstudio">LM Studio (Lokalnie)</option>
+                            <option value="openrouter" data-i18n="provider-openrouter">OpenRouter (200+ models)</option>
+                            <option value="openai" data-i18n="provider-openai">OpenAI (GPT-5 · GPT-4o · o-series)</option>
+                            <option value="gemini" data-i18n="provider-gemini">Google Gemini</option>
+                            <option value="lmstudio" data-i18n="provider-lmstudio">LM Studio (Local)</option>
                         </select>
 
                         <!-- Gemini LLM -->
@@ -223,21 +224,36 @@
                             <span class="hint" data-i18n="openrouter-grounding-hint">Używany tylko gdy „Google Search Grounding" jest włączony. Polecane: Perplexity Sonar Online · GPT-4o z web · DeepSeek Reasoner z search.</span>
                         </div>
 
+                        <!-- OpenAI LLM -->
+                        <div class="provider-config hidden" data-provider="openai">
+                            <div class="api-key-row">
+                                <label for="openai-llm-model" data-i18n="openai-model-label">OpenAI Model</label>
+                                <button type="button" class="help-icon" data-api-help="openai" title="How to configure?">?</button>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <select id="openai-llm-model" style="flex:1;">
+                                    <option value="">Press ↻ to load</option>
+                                </select>
+                                <button type="button" id="refresh-openai-models" class="mini-btn" title="Fetch OpenAI models">↻</button>
+                            </div>
+                            <span class="hint" data-i18n="openai-hint">Requires an OpenAI API key. Includes GPT-5 family, GPT-4o, and o-series reasoning models.</span>
+                        </div>
+
                         <!-- LMStudio LLM -->
                         <div class="provider-config hidden" data-provider="lmstudio">
                             <div class="api-key-row">
-                                <label for="lmstudio-llm-model" data-i18n="lmstudio-model-label">Model LM Studio</label>
-                                <button type="button" class="help-icon" data-api-help="lmstudio" title="Jak skonfigurować?">?</button>
+                                <label for="lmstudio-llm-model" data-i18n="lmstudio-model-label">LM Studio Model</label>
+                                <button type="button" class="help-icon" data-api-help="lmstudio" title="How to configure?">?</button>
                             </div>
                             <div style="display:flex; gap:6px;">
                                 <select id="lmstudio-llm-model" style="flex:1;">
-                                    <option value="">Naciśnij ↻ aby pobrać listę</option>
+                                    <option value="" data-i18n="press-reload-to-list">Press ↻ to load list</option>
                                 </select>
-                                <button type="button" id="refresh-lmstudio-models" class="mini-btn" title="Pobierz modele z lokalnego serwera LM Studio">↻</button>
+                                <button type="button" id="refresh-lmstudio-models" class="mini-btn" title="Fetch models from local LM Studio server">↻</button>
                             </div>
-                            <label for="lmstudio-base-url" data-i18n="lmstudio-url-label">URL serwera LM Studio</label>
+                            <label for="lmstudio-base-url" data-i18n="lmstudio-url-label">LM Studio server URL</label>
                             <input type="text" id="lmstudio-base-url" placeholder="http://localhost:1234" value="http://localhost:1234">
-                            <span class="hint" data-i18n="lmstudio-hint">Lokalne modele · wymagany uruchomiony serwer LM Studio (Server Mode)</span>
+                            <span class="hint" data-i18n="lmstudio-hint">Local models · requires a running LM Studio server (Server Mode)</span>
                         </div>
                     </div>
 
@@ -245,8 +261,10 @@
                         <h3 data-i18n="img-section-title">🎨 Generator Obrazów</h3>
                         <label for="image-provider-select" data-i18n="img-provider-label">Dostawca obrazów</label>
                         <select id="image-provider-select">
-                            <option value="gemini">Google Gemini (Nano Banana)</option>
-                            <option value="openrouter">OpenRouter (Image-capable)</option>
+                            <option value="gemini" data-i18n="img-provider-gemini">Google Gemini (Nano Banana)</option>
+                            <option value="openai" data-i18n="img-provider-openai">OpenAI (gpt-image-1 · DALL·E 3)</option>
+                            <option value="openrouter" data-i18n="img-provider-openrouter">OpenRouter (Image-capable)</option>
+                            <option value="comfyui" data-i18n="img-provider-comfyui">ComfyUI (local · FLUX / SDXL / SD3)</option>
                         </select>
 
                         <div class="provider-config" data-img-provider="gemini">
@@ -260,11 +278,46 @@
                         </div>
 
                         <div class="provider-config hidden" data-img-provider="openrouter">
-                            <label for="openrouter-img-model" data-i18n="or-image-model-label">Model obrazów OpenRouter</label>
+                            <label for="openrouter-img-model" data-i18n="or-image-model-label">OpenRouter image model</label>
                             <div style="display:flex; gap:6px;">
-                                <input type="text" id="openrouter-img-model" placeholder="np. google/gemini-2.5-flash-image-preview" style="flex:1;">
+                                <input type="text" id="openrouter-img-model" placeholder="e.g. google/gemini-2.5-flash-image-preview" style="flex:1;">
                                 <button type="button" id="pick-openrouter-img" class="mini-btn">📋</button>
                             </div>
+                        </div>
+
+                        <!-- OpenAI Image -->
+                        <div class="provider-config hidden" data-img-provider="openai">
+                            <div class="api-key-row">
+                                <label for="openai-image-model" data-i18n="openai-image-model-label">OpenAI image model</label>
+                                <button type="button" class="help-icon" data-api-help="openai" title="How to configure?">?</button>
+                            </div>
+                            <select id="openai-image-model">
+                                <option value="gpt-image-1">gpt-image-1 (newest · edits + vision)</option>
+                                <option value="dall-e-3">DALL·E 3 (legacy · up to 1792 px)</option>
+                                <option value="dall-e-2">DALL·E 2 (legacy · edits + variations)</option>
+                            </select>
+                            <span class="hint" data-i18n="openai-image-hint">gpt-image-1 supports reference images for edits and inpainting. DALL·E 3 ignores reference images. Pricing varies — see platform.openai.com/docs/guides/images.</span>
+                        </div>
+
+                        <!-- ComfyUI Image -->
+                        <div class="provider-config hidden" data-img-provider="comfyui">
+                            <div class="api-key-row">
+                                <label for="comfyui-base-url" data-i18n="comfyui-url-label">ComfyUI server URL</label>
+                                <button type="button" class="help-icon" data-api-help="comfyui" title="How to configure?">?</button>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="comfyui-base-url" placeholder="http://127.0.0.1:8188" value="http://127.0.0.1:8188" style="flex:1;">
+                                <button type="button" id="comfyui-test-connection" class="mini-btn" title="Test connection">⚡</button>
+                            </div>
+                            <span class="hint" data-i18n="comfyui-url-hint">Start ComfyUI with <code>python main.py --listen</code> (or use ComfyUI Manager / Stability Matrix).</span>
+
+                            <label for="comfyui-workflow" data-i18n="comfyui-workflow-label" style="margin-top: 0.7rem;">Workflow JSON template (optional — leave empty for default SDXL)</label>
+                            <textarea id="comfyui-workflow" placeholder='Paste a workflow JSON exported from ComfyUI ("Save (API Format)"). Use __POSITIVE_PROMPT__, __NEGATIVE_PROMPT__, __SEED__, __WIDTH__, __HEIGHT__ placeholders.' style="min-height: 110px; font-family: monospace; font-size: 11px; line-height: 1.45; resize: vertical;"></textarea>
+                            <div style="display:flex; gap:6px; margin-top: 4px;">
+                                <button type="button" id="comfyui-load-default" class="mini-btn" data-i18n="comfyui-load-default">📋 Load default SDXL template</button>
+                                <button type="button" id="comfyui-validate" class="mini-btn" data-i18n="comfyui-validate">✓ Validate JSON</button>
+                            </div>
+                            <span class="hint" data-i18n="comfyui-workflow-hint">In ComfyUI, click <strong>Settings → Enable Dev mode</strong>, then <strong>Save (API Format)</strong> to export a workflow that the plugin can submit.</span>
                         </div>
                     </div>
 
@@ -588,9 +641,15 @@
 
                     <div class="api-key-row">
                         <label for="elevenlabs-api" data-i18n="api-key-elevenlabs">Klucz ElevenLabs API (TTS/STT)</label>
-                        <button type="button" class="help-icon" data-api-help="elevenlabs" title="Jak zdobyć klucz?">?</button>
+                        <button type="button" class="help-icon" data-api-help="elevenlabs" title="How to get a key?">?</button>
                     </div>
                     <input type="password" id="elevenlabs-api" placeholder="sk_...">
+
+                    <div class="api-key-row">
+                        <label for="openai-api" data-i18n="api-key-openai">OpenAI API Key (GPT · DALL·E · gpt-image-1)</label>
+                        <button type="button" class="help-icon" data-api-help="openai" title="How to get a key?">?</button>
+                    </div>
+                    <input type="password" id="openai-api" placeholder="sk-...">
 
                     <div style="border-top: 1px solid var(--panel-border); margin-top: 0.8rem; padding-top: 0.8rem;">
                         <div class="api-key-row" style="margin-bottom: 0.4rem;">
