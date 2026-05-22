@@ -9,6 +9,35 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.3] — 2026-05-22
+
+### Added
+- **Tool palette gate at top of system prompt.** New
+  `getToolPaletteSummary()` produces a structured block listing every
+  parallel_tasks-eligible tool (imageGen, imageEdit, videoGen, ttsGen,
+  sttGen, musicGen, sfxGen, svgGen, grounding, renderPreview, pythonTools)
+  with a per-row ✅ ON / ⛔ OFF marker, the corresponding
+  `parallel_tasks.<key>` reference, the credential it depends on, and a
+  one-line reason if disabled (`auto-OFF: required API key missing` vs
+  `manually disabled in Settings → Funkcje`). Custom Python skills the
+  user saved are appended at the end so the orchestrator can reference
+  them by name. Injected immediately after the ★ LANGUAGE DIRECTIVE so
+  it sits in the LLM's most-attended region.
+- **PALETTE-FIRST hard gate** prepended to "Rules and Warnings:" — a
+  short paragraph that forces the model to verify every intended tool
+  against the palette BEFORE composing current_plan / parallel_tasks /
+  ExtendScript. Spells out the two acceptable responses to a ⛔ tool:
+  substitute an enabled alternative, or defer + ask the user to add
+  the missing key. NEVER write a parallel_tasks entry for a disabled
+  tool — the runtime rejects it.
+
+### Changed
+- The legacy "⚠ DISABLED FEATURES" line is preserved as a terse
+  reminder next to the provider stack but now points back to the
+  palette block for the full reasoning ("see palette above for reasons").
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.2] — 2026-05-21
 
 ### Fixed
@@ -341,7 +370,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...HEAD
+[2.2.0.3]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...v2.2.0.3
 [2.2.0.2]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...v2.2.0.2
 [2.2.0.1]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...v2.2.0.1
 [2.2.0]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.1.0...v2.2.0

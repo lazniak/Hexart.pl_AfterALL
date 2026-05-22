@@ -1659,6 +1659,68 @@ except Exception as e:
         return this._sysInstrCache;
     }
 
+    // ---------------------------------------------------------------
+    // Tool palette summary — surfaced at the top of every system prompt
+    // ---------------------------------------------------------------
+    // The orchestrator MUST know its palette before it tries to plan.
+    // This produces a structured block listing every tool we expose
+    // via parallel_tasks (or as an internal capability), each marked
+    // ✅ ON / ⛔ OFF with a one-line reason if disabled. Custom Python
+    // skills the user has saved are appended at the end (only when
+    // pythonTools is on). Cached via the same fingerprint as the rest
+    // of the system instruction — see _systemInstructionFingerprint.
+    getToolPaletteSummary() {
+        const auto = (this._autoDisabledFlags instanceof Set)
+            ? this._autoDisabledFlags
+            : new Set();
+        const ff = this.featureFlags || {};
+
+        // Each row: { flag, parallelKey, req, purpose }.
+        // `flag` MUST match the featureFlags key so the on/off state
+        // and the auto-disabled tag line up correctly.
+        const TOOLS = [
+            { flag: 'imageGen',      pk: 'images',                            req: 'Gemini OR OpenRouter OR OpenAI OR ComfyUI URL', purpose: 'Generate still images (any image provider)' },
+            { flag: 'imageEdit',     pk: 'edit_images',                       req: 'Gemini OR OpenRouter OR OpenAI',                purpose: 'Edit / inpaint / fix existing images' },
+            { flag: 'videoGen',      pk: 'video_grok',                        req: 'Replicate API key',                              purpose: 'Image-to-video via Replicate Grok' },
+            { flag: 'ttsGen',        pk: 'tts',                               req: 'Gemini OR ElevenLabs',                           purpose: 'Voice synthesis (narration)' },
+            { flag: 'sttGen',        pk: 'transcribe_audio + whisperx',       req: 'ElevenLabs',                                     purpose: 'Speech-to-text transcription' },
+            { flag: 'musicGen',      pk: 'music',                             req: 'Gemini Lyria OR ElevenLabs Music',               purpose: 'Background music generation' },
+            { flag: 'sfxGen',        pk: 'sfx',                               req: 'ElevenLabs',                                     purpose: 'Sound effects (text-to-SFX, 0.5–22 s)' },
+            { flag: 'svgGen',        pk: 'svg',                               req: 'Any LLM',                                        purpose: 'SVG vector graphics generation' },
+            { flag: 'grounding',     pk: '(internal — web search context)',   req: 'Gemini OR OpenAI search-preview model',          purpose: 'Live Google Search grounding for facts / current events' },
+            { flag: 'renderPreview', pk: '(internal — composition screenshot)', req: '(none, AE-only)',                              purpose: 'Capture comp frames as Vision context' },
+            { flag: 'pythonTools',   pk: 'python',                            req: '(none, local Python)',                           purpose: 'Run venv tasks, install pip packages, clone repos, persistent background processes' }
+        ];
+
+        let block = '\n### ☰ YOUR TOOL PALETTE — KNOW IT BEFORE YOU PLAN (CRITICAL):\n';
+        block += 'Before composing any current_plan, parallel_tasks or ExtendScript, CONFIRM every tool you intend to call is ✅ ON in the palette below.\n';
+        block += 'A ⛔ tool MUST NOT be called — instead either (a) substitute an enabled alternative when one exists, or (b) ask the user via questions_for_user to add the missing key in Settings → Klucze API. The runtime hard-rejects calls to disabled tools.\n';
+        block += '\n';
+
+        for (const t of TOOLS) {
+            const enabled = ff[t.flag] !== false;
+            const status  = enabled ? '✅' : '⛔';
+            let reason = '';
+            if (!enabled) {
+                if (auto.has(t.flag)) reason = ' [auto-OFF: required API key missing]';
+                else                  reason = ' [manually disabled in Settings → Funkcje]';
+            }
+            block += `- ${status} ${t.flag} → parallel_tasks.${t.pk} · requires: ${t.req} · ${t.purpose}${reason}\n`;
+        }
+
+        // Custom Python skills — only worth listing if pythonTools is alive.
+        if (ff.pythonTools !== false && Array.isArray(this.skills) && this.skills.length > 0) {
+            block += '\n☰ Your saved Python skills (reusable via parallel_tasks.python — reference by name, or use "save_as_skill" to persist new ones):\n';
+            for (const s of this.skills) {
+                const name = (s && s.name) ? s.name : '(unnamed)';
+                const desc = (s && s.description) ? s.description : '(no description)';
+                block += `- ${name}: ${desc}\n`;
+            }
+        }
+
+        return block;
+    }
+
     _buildSystemInstruction() {
         // Project language directive — controls AE content language (layer names, on-screen text, voiceover)
         const langRule = this.projectLanguage === 'auto'
@@ -1677,11 +1739,16 @@ except Exception as e:
             + '\n- SFX: ElevenLabs Text-to-Sound-Effects (parallel_tasks.sfx)'
             + (this.llmProvider !== 'gemini' ? '\n- NOTE: Active LLM is NOT Gemini — some features (Google Search Grounding, native vision for SVG) may be limited. Generate ExtendScript as usual; the sandbox works identically.' : '');
 
-        // Surface feature flags so the agent doesn't request disabled features
+        // The full tool palette (with ✅/⛔ per row) is surfaced separately
+        // via getToolPaletteSummary() and injected near the top of the
+        // prompt. We keep `featureNote` as a redundant, terse reminder
+        // right next to the provider stack so the constraint is repeated
+        // in the LLM's most-attended region — but no longer the only place.
         const disabled = Object.keys(this.featureFlags).filter(k => !this.featureFlags[k]);
         const featureNote = disabled.length > 0
-            ? '\n### ⚠ DISABLED FEATURES (DO NOT USE): ' + disabled.join(', ') + '. If the task needs one of these, ask the user to enable it in Settings.'
+            ? '\n### ⚠ DISABLED FEATURES (DO NOT USE — see palette above for reasons): ' + disabled.join(', ')
             : '';
+        const paletteNote = this.getToolPaletteSummary();
 
         // Surface ElevenLabs voice config for the agent
         const elevenNote = (this.ttsProvider === 'elevenlabs') ?
@@ -1720,6 +1787,7 @@ You operate in TWO independent languages:
 2. **PROJECT CONTENT LANGUAGE**: ${langRule}
 
 Treat these two as SEPARATE. A user might write in Polish but want English voiceover, or vice versa. Use the rules above for each channel independently.
+${paletteNote}
 ${providerNote}${featureNote}${elevenNote}${assetNote}
 
 ### YOUR ROLE AS ORCHESTRATOR — THINK LIKE A REAL CONDUCTOR (CRITICAL):
@@ -1906,6 +1974,19 @@ Your response format MUST be exclusively a JSON object. Do not add markdown outs
 }
 
 Rules and Warnings:
+
+★ PALETTE-FIRST PRINCIPLE (HARD GATE, READ BEFORE RULE 0):
+Your work is BOUNDED by the ☰ YOUR TOOL PALETTE block at the top of this
+prompt. Before composing current_plan or parallel_tasks, walk the palette
+mentally and CONFIRM every tool you intend to use is ✅ ON. If a tool is
+⛔ OFF, do ONE of:
+  (a) substitute an enabled alternative (e.g. if videoGen is OFF but
+      imageGen is ON, ship images + suggest the user enables Replicate);
+  (b) defer that part of the task and ask the user via questions_for_user
+      to enable the missing key in Settings → Klucze API.
+NEVER write a parallel_tasks entry for a ⛔ tool — the runtime rejects it
+and the user wastes a turn. NEVER write an ExtendScript that imports an
+asset which a ⛔ tool would need to produce.
 
 0. TWO-STAGE GENERATION (CRITICAL — read this first, applies to every task):
    The user message is a BRIEF — your INSTRUCTIONS for what to make. It is NOT
