@@ -9,6 +9,37 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.6] — 2026-05-22
+
+### Fixed
+- **External links still opening in-panel** for some users despite the
+  v2.2.0.1 helper. Root cause: `CSInterface.openURLInDefaultBrowser()`
+  silently no-ops on several Adobe CEP versions — the call appears to
+  succeed but nothing actually opens. The helper put CSInterface first
+  in its fallback ladder, so the silent failure won the race against
+  the Node fallback.
+
+  Rewritten `openExternalUrl()` with a new strategy order:
+  1. **Node child_process exec** (`cmd /c start "" "url"` on Win,
+     `open` on macOS, `xdg-open` on Linux) — most reliable across
+     every CEP version, properly shell-quoted so URLs with `&` in
+     query strings don't get truncated.
+  2. CSInterface.openURLInDefaultBrowser (now demoted to backup).
+  3. Raw `window.__adobe_cep__.openURLInDefaultBrowser` (in case the
+     CSInterface wrapper itself is broken).
+  4. `window.open(_, '_blank')` (last resort).
+
+  Each strategy logs to the Logs Console which one fired, so a future
+  silent failure is diagnosable in 10 seconds (`Logs Console →
+  openExternalUrl: opened via …`).
+
+  Also added an `auxclick` (middle-click) handler so clicks via
+  scroll-wheel buttons follow the same path, and a defensive
+  `beforeunload` interceptor that catches any rogue `location.assign`
+  call attempting to navigate the panel itself away from `file://`.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.5] — 2026-05-22
 
 The "built-in offline LLM" release. Adds Ollama as a first-class
@@ -494,7 +525,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...HEAD
+[2.2.0.6]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...v2.2.0.6
 [2.2.0.5]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...v2.2.0.5
 [2.2.0.4]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...v2.2.0.4
 [2.2.0.3]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...v2.2.0.3

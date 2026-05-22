@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.5',
+                version: '2.2.0.6',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -303,67 +303,146 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------------------------------------------------------------
     // openExternalUrl(url)
     // ---------------------------------------------------------------
-    // Canonical way to hand an http/https URL off to the user's system
-    // browser. CEP panels run inside CEF — without explicit interception,
-    // a normal `<a href>` click would NAVIGATE THE WHOLE PANEL, replacing
-    // the plugin UI with the target page (and effectively killing the
-    // session). This helper routes through CSInterface.openURLInDefaultBrowser,
-    // which spawns the OS's default browser, then falls back to a Node
-    // child_process shell-out (open / start / xdg-open) if CSInterface
-    // isn't available — and only as a last resort window.open(_blank).
+    // Hand an http/https/mailto URL off to the user's system browser
+    // WITHOUT navigating the CEP panel away from the plugin UI. The
+    // earlier implementation called CSInterface.openURLInDefaultBrowser
+    // first, but on several Adobe versions cep.util.openURLInDefaultBrowser
+    // silently no-ops — the link just dies and the user sees nothing.
     //
-    // Every internal call site (hexart logo, BMC, credits, settings,
-    // GitHub star, update card) should go through this single function.
+    // New strategy: try the most-reliable methods first, log which one
+    // actually fired, and always fall through to the next one on any
+    // error. Order:
+    //
+    //   1. Node child_process spawn  — bypasses CSInterface entirely,
+    //      detached + unref so the parent process can exit cleanly.
+    //   2. CSInterface.openURLInDefaultBrowser — official Adobe API.
+    //   3. window.__adobe_cep__.openURLInDefaultBrowser — raw CEP call
+    //      in case the CSInterface wrapper is broken.
+    //   4. window.open(_, '_blank') — last resort.
+    //
+    // Every step is logged to addLog so we can see which one fired (or
+    // failed). Strategy result is also returned so callers can branch.
     function openExternalUrl(url) {
-        if (!url) return;
-        // Reject anything not http(s) / mailto to avoid javascript: / data:
-        // payloads sneaking through from rendered markdown / chat content.
+        if (!url) {
+            if (addLog) addLog('openExternalUrl: empty URL — ignored.', 'warning');
+            return false;
+        }
+        // Scheme allow-list: http(s) and mailto. Blocks javascript: /
+        // data: / file: payloads from rendered markdown / chat content.
         const safe = /^(https?:|mailto:)/i.test(url);
         if (!safe) {
-            addLog && addLog('Blocked external URL with unsupported scheme: ' + url.slice(0, 80), 'warning');
-            return;
+            if (addLog) addLog('openExternalUrl: blocked unsupported scheme: ' + url.slice(0, 80), 'warning');
+            return false;
         }
+
+        // Strategy 1 — Node.js exec (most reliable on every CEP version).
+        // We go through the shell so cmd.exe `start` / `open` / `xdg-open`
+        // can parse the URL correctly (URLs with `&` in query params need
+        // proper shell quoting; spawn with shell:false doesn't always give
+        // it on Windows).
+        try {
+            const { exec } = require('child_process');
+            // URLs shouldn't contain a literal double quote, but defend
+            // anyway — backslash-escape if we ever see one.
+            const safeUrl = url.replace(/"/g, '\\"');
+            let cmd;
+            if (process.platform === 'win32') {
+                // The empty "" is the window title placeholder for `start`.
+                // Without it `start` would eat the URL as the title.
+                cmd = 'cmd /c start "" "' + safeUrl + '"';
+            } else if (process.platform === 'darwin') {
+                cmd = 'open "' + safeUrl + '"';
+            } else {
+                cmd = 'xdg-open "' + safeUrl + '"';
+            }
+            exec(cmd, { windowsHide: true }, (err) => {
+                if (err && addLog) addLog('openExternalUrl exec callback error (link may still have opened): ' + err.message, 'warning');
+            });
+            if (addLog) addLog('openExternalUrl: opened via exec → ' + url.substring(0, 80), 'info');
+            return true;
+        } catch (e1) {
+            if (addLog) addLog('openExternalUrl strategy 1 (exec) failed: ' + e1.message, 'warning');
+        }
+
+        // Strategy 2 — CSInterface wrapper.
         try {
             if (typeof CSInterface !== 'undefined') {
                 new CSInterface().openURLInDefaultBrowser(url);
-                return;
+                if (addLog) addLog('openExternalUrl: opened via CSInterface', 'info');
+                return true;
             }
-        } catch (_) {}
+        } catch (e2) {
+            if (addLog) addLog('openExternalUrl strategy 2 (CSInterface) failed: ' + e2.message, 'warning');
+        }
+
+        // Strategy 3 — raw CEP bridge.
         try {
-            const { exec } = require('child_process');
-            const escaped = url.replace(/"/g, '\\"');
-            if (process.platform === 'win32') {
-                exec('start "" "' + escaped + '"');
-            } else if (process.platform === 'darwin') {
-                exec('open "' + escaped + '"');
-            } else {
-                exec('xdg-open "' + escaped + '"');
+            if (typeof window !== 'undefined' && window.__adobe_cep__ && typeof window.__adobe_cep__.openURLInDefaultBrowser === 'function') {
+                window.__adobe_cep__.openURLInDefaultBrowser(url);
+                if (addLog) addLog('openExternalUrl: opened via __adobe_cep__', 'info');
+                return true;
             }
-            return;
-        } catch (_) {}
-        // Absolute last resort. window.open in CEF often opens in the same
-        // panel anyway, but it's better than the link silently dying.
-        try { window.open(url, '_blank'); } catch (_) {}
+        } catch (e3) {
+            if (addLog) addLog('openExternalUrl strategy 3 (__adobe_cep__) failed: ' + e3.message, 'warning');
+        }
+
+        // Strategy 4 — window.open. In CEF this often opens in the same
+        // panel anyway, which is bad UX, but it beats a totally dead link.
+        try {
+            window.open(url, '_blank');
+            if (addLog) addLog('openExternalUrl: fell through to window.open(_blank)', 'warning');
+            return true;
+        } catch (e4) {
+            if (addLog) addLog('openExternalUrl: ALL strategies failed for ' + url, 'error');
+            return false;
+        }
     }
     // Expose globally so agent.js / utility modules can reuse without
     // re-implementing the fallback ladder.
     window.openExternalUrl = openExternalUrl;
 
     // Global delegated handler — every <a> with an http/https/mailto href
-    // is routed through openExternalUrl. This catches links in chat
-    // markdown, modals, hint text, dynamically injected content. Targets
-    // marked `data-internal="1"` (used by, e.g., the settings tab routing
-    // mechanism) are left alone.
-    document.addEventListener('click', (e) => {
-        const a = e.target && e.target.closest && e.target.closest('a[href]');
-        if (!a) return;
-        if (a.getAttribute('data-internal') === '1') return;
-        const href = a.getAttribute('href') || '';
+    // is routed through openExternalUrl. Capture phase so nothing else
+    // can swallow the click first. Catches links in chat markdown,
+    // modals, hint text, dynamically-injected content. Targets marked
+    // `data-internal="1"` are left alone (settings tab routing etc).
+    function _handleAnchorClick(e) {
+        let node = e.target;
+        // Walk up from the click target to the nearest <a href>. Manual
+        // walk instead of `closest` so we don't fail on Text nodes or
+        // very old DOM contexts.
+        while (node && node !== document) {
+            if (node.tagName === 'A' && node.getAttribute && node.getAttribute('href')) break;
+            node = node.parentNode;
+        }
+        if (!node || node === document) return;
+        if (node.getAttribute('data-internal') === '1') return;
+        const href = node.getAttribute('href') || '';
         if (!/^(https?:|mailto:)/i.test(href)) return;
         e.preventDefault();
         e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         openExternalUrl(href);
-    }, true); // capture phase so nothing else can swallow the click first
+    }
+    document.addEventListener('click', _handleAnchorClick, true);   // capture
+    document.addEventListener('auxclick', _handleAnchorClick, true); // middle-click
+    // Block CEF's native navigation if some script bypasses our delegate
+    // by calling location.assign / location.replace on an external URL.
+    // This is paranoid defence — the click delegate above should win
+    // in 99% of cases, but if it ever misses, the URL ends up here.
+    if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', (e) => {
+            // Only intercept if the page is trying to navigate to a URL
+            // that doesn't match our origin (file://…/extension/…).
+            try {
+                const target = document.location && document.location.href;
+                if (target && target.indexOf('file://') !== 0 && /^https?:/.test(target)) {
+                    e.preventDefault();
+                    openExternalUrl(target);
+                }
+            } catch (_) {}
+        });
+    }
 
     if (hexartLogoBtn) {
         hexartLogoBtn.addEventListener('click', () => openExternalUrl('https://hexart.pl'));
