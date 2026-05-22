@@ -9,6 +9,23 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.9] — 2026-05-22
+
+### Fixed
+- **Links opened the URL in a minimised background browser tab on
+  Windows** — `explorer.exe URL` invokes the default protocol handler
+  in whatever window state the browser happens to be in. If the user
+  had minimised their browser, the new tab landed in the same hidden
+  window with no focus change, looking like nothing happened.
+  Now uses `powershell.exe Start-Process URL` on Windows, which
+  routes through ShellExecute with `SW_SHOWNORMAL` — that flag
+  RESTORES a minimised window and brings it to the foreground (the
+  same UX as clicking a link from Outlook / Word / Explorer).
+  macOS still uses `open URL` (Cocoa brings the launched app forward
+  by default).
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.8] — 2026-05-22
 
 ### Fixed
@@ -596,7 +613,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...HEAD
+[2.2.0.9]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...v2.2.0.9
 [2.2.0.8]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...v2.2.0.8
 [2.2.0.7]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...v2.2.0.7
 [2.2.0.6]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...v2.2.0.6

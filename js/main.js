@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.8',
+                version: '2.2.0.9',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -342,17 +342,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tries = [];
 
-        // Strategy 1 — spawn explorer.exe / open / xdg-open with the URL
-        // as a single argv slot. No shell, no nested cmd, no quote-parsing
-        // gymnastics — Windows Explorer's URL handler is the most
-        // bullet-proof default-browser opener you can ask the OS for.
+        // Strategy 1 — PowerShell `Start-Process` (Windows) / `open -j` (mac) /
+        // `xdg-open` (Linux). PowerShell's Start-Process uses ShellExecute
+        // under the hood with `SW_SHOWNORMAL`, which RESTORES a minimised
+        // browser window and brings it to the foreground — exactly what
+        // happens when you click a URL from Outlook / Word / Explorer.
+        // `explorer.exe URL` alone (our old approach) opens the URL in
+        // whatever state the browser happened to be in (minimised stays
+        // minimised), which felt to the user like "link didn't open".
         try {
             const { spawn } = require('child_process');
             let bin, args;
             if (process.platform === 'win32') {
-                bin = 'explorer.exe';
-                args = [url];
+                bin = 'powershell.exe';
+                // -NoProfile / -NonInteractive for speed and predictability.
+                // -WindowStyle Hidden so the PowerShell host itself is
+                // invisible — only the launched browser shows.
+                // Start-Process with no extra flags = SW_SHOWNORMAL.
+                args = [
+                    '-NoProfile', '-NonInteractive',
+                    '-WindowStyle', 'Hidden',
+                    '-ExecutionPolicy', 'Bypass',
+                    '-Command', 'Start-Process ' + JSON.stringify(url)
+                ];
             } else if (process.platform === 'darwin') {
+                // `-j` keeps the launched app from being hidden after it
+                // gains focus, ensuring the new tab is visible. macOS
+                // brings the foreground app forward by default.
                 bin = 'open';
                 args = [url];
             } else {
