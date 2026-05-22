@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.10',
+                version: '2.2.0.11',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -366,20 +366,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 // flag (Firefox uses `-new-window`, every Chromium-based
                 // browser uses `--new-window`), and spawns it. Falls back
                 // to Start-Process if any step fails.
+                //
+                // NB: do NOT name the variable `$pid` — PowerShell reserves
+                // that for the current process ID; assignment is a
+                // terminating error that kills the whole script and was
+                // the v2.2.0.10 regression that broke link opening entirely.
                 const ps = [
-                    '$ErrorActionPreference = "SilentlyContinue"',
                     '$u = ' + JSON.stringify(url),
-                    '$pid = (Get-ItemProperty "HKCU:\\SOFTWARE\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice").ProgId',
-                    '$cmd = (Get-ItemProperty ("HKCR:\\" + $pid + "\\shell\\open\\command"))."(default)"',
-                    '$exe = $null',
-                    'if ($cmd -match \'"([^"]+\\.exe)"\') { $exe = $Matches[1] }',
-                    'elseif ($cmd -match \'([^\\s]+\\.exe)\') { $exe = $Matches[1] }',
-                    'if ($exe) {',
-                    '  $flag = if ($exe -match "firefox") { "-new-window" } else { "--new-window" }',
-                    '  Start-Process -FilePath $exe -ArgumentList $flag, $u',
-                    '} else {',
-                    '  Start-Process $u',
-                    '}'
+                    '$ok = $false',
+                    'try {',
+                    '  $progId = (Get-ItemProperty "HKCU:\\SOFTWARE\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice" -ErrorAction Stop).ProgId',
+                    '  $cmd = (Get-Item -LiteralPath ("Registry::HKEY_CLASSES_ROOT\\" + $progId + "\\shell\\open\\command") -ErrorAction Stop).GetValue("")',
+                    '  $exe = $null',
+                    '  if ($cmd -match \'"([^"]+\\.exe)"\') { $exe = $Matches[1] } elseif ($cmd -match \'([^\\s]+\\.exe)\') { $exe = $Matches[1] }',
+                    '  if ($exe -and (Test-Path -LiteralPath $exe)) {',
+                    '    $flag = if ($exe -match "firefox") { "-new-window" } else { "--new-window" }',
+                    '    Start-Process -FilePath $exe -ArgumentList $flag, $u',
+                    '    $ok = $true',
+                    '  }',
+                    '} catch {}',
+                    'if (-not $ok) { Start-Process $u }'
                 ].join('; ');
                 args = [
                     '-NoProfile', '-NonInteractive',

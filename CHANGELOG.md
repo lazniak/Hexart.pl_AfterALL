@@ -9,6 +9,22 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.11] — 2026-05-22
+
+### Fixed
+- **v2.2.0.10 broke link opening entirely (regression).**
+  My PowerShell one-liner used `$pid` as a variable name to hold the
+  default-browser ProgID — but `$pid` is a PowerShell automatic
+  variable that holds the current process ID and is **read-only**.
+  Assigning to it raises a TERMINATING error that kills the whole
+  script before the fallback `Start-Process` line runs. Result:
+  zero links opened. Renamed to `$progId` and wrapped the registry
+  lookup in `try { … } catch { }` so even if the probe fails for
+  any reason (missing UserChoice key, unusual setup, etc) the
+  fallback `Start-Process $u` always fires.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.10] — 2026-05-22
 
 ### Fixed
@@ -643,7 +659,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.10...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.11...HEAD
+[2.2.0.11]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.10...v2.2.0.11
 [2.2.0.10]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...v2.2.0.10
 [2.2.0.9]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...v2.2.0.9
 [2.2.0.8]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...v2.2.0.8
