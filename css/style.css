@@ -1554,6 +1554,103 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 
 /* =================================================================== */
+/* Orchestration plan ("Aktualny Plan") — status-coded step list       */
+/* =================================================================== */
+/* The agent's response.current_plan is rendered as a vertical list of
+   steps inside every assistant message that includes a plan. Each step
+   gets classified into one of four status buckets by keyword sniff:
+   READY (done), ACTIVE (running now), PLANNED (queued), UNKNOWN. We
+   colour-code each row so a glance at the panel says "we're on step
+   2 of 4" without reading every line. */
+.orchestration-plan {
+    margin-bottom: 10px;
+    border-left: 3px solid rgba(var(--accent-rgb), 0.55);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.04), rgba(96, 165, 250, 0.02));
+    padding: 8px 10px 6px;
+    border-radius: 8px;
+}
+.orchestration-plan .op-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+}
+.orchestration-plan .op-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.orchestration-plan .op-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    font-size: 12.5px;
+    line-height: 1.4;
+    transition: background 0.18s, border-color 0.18s;
+}
+.orchestration-plan .op-step-icon {
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+    line-height: 1.2;
+    margin-top: 1px;
+}
+.orchestration-plan .op-step-text {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+}
+/* READY — muted green, struck through to communicate "done & set aside" */
+.orchestration-plan .op-step-ready {
+    background: rgba(var(--success-rgb), 0.07);
+    border-left-color: rgba(var(--success-rgb), 0.65);
+}
+.orchestration-plan .op-step-ready .op-step-text {
+    color: var(--text-secondary);
+    text-decoration: line-through;
+    text-decoration-color: rgba(var(--success-rgb), 0.45);
+}
+/* ACTIVE — bright gold, animated spinner icon for the eye-catch. */
+.orchestration-plan .op-step-active {
+    background: rgba(var(--accent-rgb), 0.13);
+    border-left-color: var(--accent);
+}
+.orchestration-plan .op-step-active .op-step-text {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.orchestration-plan .op-spinner {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border: 2px solid rgba(var(--accent-rgb), 0.30);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: op-spin 0.9s linear infinite;
+    vertical-align: -1px;
+}
+@keyframes op-spin {
+    to { transform: rotate(360deg); }
+}
+/* PLANNED — neutral grey, deliberately low-contrast. */
+.orchestration-plan .op-step-planned {
+    background: rgba(255, 255, 255, 0.02);
+    border-left-color: rgba(255, 255, 255, 0.10);
+}
+.orchestration-plan .op-step-planned .op-step-text {
+    color: var(--text-secondary);
+    opacity: 0.78;
+}
+
+/* =================================================================== */
 /* Ollama provider card (Settings → LLM Providers → Ollama)            */
 /* =================================================================== */
 .ollama-status {

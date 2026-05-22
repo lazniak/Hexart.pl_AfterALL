@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.6',
+                version: '2.2.0.7',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -667,6 +667,8 @@ const i18nDict = {
         'welcome-card-intro': 'Aby zacząć korzystać z agenta, potrzebujesz przynajmniej jednego klucza API od dostawcy LLM. Wybierz wariant, który Ci pasuje:',
         'welcome-video-placeholder': '🎬 Wideo z przewodnikiem konfiguracji pojawi się tutaj wkrótce.',
         'welcome-card-options-title': '⚖ Jaki klucz wybrać?',
+        // Orchestration plan UI
+        'plan-title':              'Aktualny plan',
         // Ollama (built-in local LLM) — i18n keys for the provider card + status pill.
         'provider-ollama':         '⭐ Wbudowany lokalnie (Gemma 3 · Ollama) — bez klucza, 100% offline',
         'ollama-model-label':      'Model lokalny (rodzina Gemma)',
@@ -6596,14 +6598,40 @@ function t(key, fallback) {
         if (planArray && planArray.length > 0) {
             const planEl = document.createElement('div');
             planEl.className = 'orchestration-plan';
-            planEl.style.fontSize = '12px';
-            planEl.style.color = 'var(--text-secondary)';
-            planEl.style.borderLeft = '2px solid var(--accent)';
-            planEl.style.paddingLeft = '8px';
-            planEl.style.marginBottom = '8px';
-            planEl.innerHTML = `<strong>Aktualny Plan:</strong><ul style="margin-top:4px; padding-left:14px;">
-                ${planArray.map(item => `<li>${item}</li>`).join('')}
-            </ul>`;
+            // Classify each step into one of four states by scanning the
+            // step's text for status keywords (PL + EN + DE + ES + FR + JA
+            // common forms). The agent appends these to plan items as
+            // "Krok N: ... — Gotowe / Aktywne / Planowane".
+            const classify = (raw) => {
+                const s = String(raw || '').toLowerCase();
+                // 1) READY — finished. Most explicit signals first so they
+                //    win over generic phrases.
+                if (/(\bgotowe\b|\bzrobione\b|zakończ|zakoncz|\bukończ|\bukonc|\bdone\b|\bcompleted?\b|\bready\b|\bfinish|\berledigt\b|\bterminado\b|\bterminé\b|\b完了\b|\b済み\b|✓|✅)/i.test(s)) return 'ready';
+                // 2) ACTIVE — currently running.
+                if (/(\baktywne?\b|\bw trakcie\b|\btrwa\b|\bwykonuj|\baktualnie\b|\bactive\b|\brunning\b|\bin.progress\b|\bdoing\b|\baktiv\b|\bgerade\b|\bactivo\b|\bencours\b|\ben.cours\b|\b実行中\b|\b進行中\b|⏳|🔵|🟡)/i.test(s)) return 'active';
+                // 3) PLANNED — explicitly waiting / queued.
+                if (/(\bplanowane?\b|\boczekuj|\bdo zrobienia\b|\bzaplanowan|\bplanned\b|\bpending\b|\bqueued?\b|\bgeplant\b|\bplaneado\b|\bplanifié\b|\b予定\b|⏸|⚪)/i.test(s)) return 'planned';
+                // 4) Default: assume "active" if it's the first item with no
+                //    other markers, else "planned".
+                return null;
+            };
+            const html = planArray.map((item, idx) => {
+                let status = classify(item);
+                if (!status) {
+                    // Heuristic: the first un-marked item is usually what
+                    // the agent is currently working on; the rest are queued.
+                    status = idx === 0 ? 'active' : 'planned';
+                }
+                const icon = status === 'ready'  ? '✅'
+                           : status === 'active' ? '<span class="op-spinner" aria-hidden="true"></span>'
+                           : '⚪';
+                return '<li class="op-step op-step-' + status + '">'
+                    +   '<span class="op-step-icon">' + icon + '</span>'
+                    +   '<span class="op-step-text">' + item + '</span>'
+                    + '</li>';
+            }).join('');
+            planEl.innerHTML = '<div class="op-title">' + escapeAttr(tr('plan-title') || 'Aktualny Plan') + '</div>'
+                             + '<ul class="op-list">' + html + '</ul>';
             msgContent.appendChild(planEl);
         }
 
@@ -6998,6 +7026,62 @@ function t(key, fallback) {
     }
     window.afterallImportAssetIntoAE = importAssetIntoAE;
 
+    // ----------------------------------------------------------------
+    // Native shell drag (Windows): spawn PowerShell at mousedown and
+    // hand the OS a real shell drag — exactly the kind Finder/Explorer
+    // produce. CEF's HTML5 drag-and-drop produces a "fake" web drag
+    // that AE rejects with the crossed-out cursor; the native drag
+    // bypasses CEF entirely by routing through System.Windows.Forms.
+    // ----------------------------------------------------------------
+    let _nativeDragInFlight = false;
+    function _spawnNativeShellDrag(filePath) {
+        if (_nativeDragInFlight) return;
+        if (process.platform !== 'win32') return; // macOS handled inline
+        try {
+            const { spawn } = require('child_process');
+            // Inline PowerShell that:
+            //   1. Loads System.Windows.Forms.
+            //   2. Constructs a StringCollection with our file path.
+            //   3. Calls DoDragDrop with DragDropEffects.Copy.
+            // PowerShell's DoDragDrop blocks until the user releases the
+            // mouse, then exits — exactly the lifetime we want.
+            const ps = [
+                'Add-Type -AssemblyName System.Windows.Forms',
+                '$col = New-Object System.Collections.Specialized.StringCollection',
+                '$col.Add(' + JSON.stringify(filePath) + ') | Out-Null',
+                '$data = New-Object System.Windows.Forms.DataObject',
+                '$data.SetFileDropList($col)',
+                '$form = New-Object System.Windows.Forms.Form',
+                '$form.TopMost = $true',
+                '$form.Opacity = 0',
+                '$form.Width = 1; $form.Height = 1',
+                '$form.StartPosition = "Manual"',
+                '$pt = [System.Windows.Forms.Cursor]::Position',
+                '$form.Location = New-Object System.Drawing.Point($pt.X, $pt.Y)',
+                '$form.Show()',
+                '[System.Windows.Forms.Application]::DoEvents()',
+                '$form.DoDragDrop($data, [System.Windows.Forms.DragDropEffects]::Copy) | Out-Null',
+                '$form.Close()'
+            ].join('; ');
+            _nativeDragInFlight = true;
+            const child = spawn('powershell.exe', [
+                '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+                '-ExecutionPolicy', 'Bypass', '-Command', ps
+            ], { windowsHide: true, detached: true, stdio: 'ignore' });
+            child.on('exit', () => { _nativeDragInFlight = false; });
+            child.on('error', (err) => {
+                _nativeDragInFlight = false;
+                addLog('Native drag spawn error: ' + err.message + ' — Chromium drag fallback will be used.', 'warning');
+            });
+            child.unref();
+            return true;
+        } catch (e) {
+            _nativeDragInFlight = false;
+            addLog('Native drag unavailable (' + e.message + ').', 'warning');
+            return false;
+        }
+    }
+
     function makeAssetDraggable(element, filePath, opts) {
         if (!element || !filePath) return;
         opts = opts || {};
@@ -7010,38 +7094,64 @@ function t(key, fallback) {
         element.classList.add('asset-draggable');
         if (!element.title) element.title = tr('drag-to-ae-hint');
 
+        // PRIMARY drag path on Windows: spawn a PowerShell-hosted native
+        // shell drag at mousedown. PS's `DoDragDrop` produces a real
+        // CF_HDROP file drag — the SAME format Explorer uses — so AE's
+        // drop handlers accept it without any browser involvement.
+        element.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // primary only
+            if (process.platform === 'win32') {
+                // Tiny delay so the click handler can fire first for the
+                // case where the user clicked (didn't drag).
+                setTimeout(() => {
+                    // Heuristic: if mouse is still down + the user moved a
+                    // few pixels, treat as a drag and fire the native bridge.
+                    _spawnNativeShellDrag(filePath);
+                }, 80);
+            }
+        }, true);
+
+        // FALLBACK drag path (and macOS primary): HTML5 dataTransfer with
+        // every MIME format AE has been known to accept across versions.
+        // Multiple formats = AE picks the one its drop handler understands.
         element.addEventListener('dragstart', (e) => {
             try {
-                // copyMove keeps both copy and move cursor variants alive so
-                // AE's drop indicator shows the correct affordance.
-                e.dataTransfer.effectAllowed = 'copyMove';
-
-                // The reliable path: HTTP DownloadURL via our local proxy.
-                // Chromium will fetch from 127.0.0.1, save to its temp dir,
-                // and hand the resulting file to the OS drag target — AE
-                // accepts the dropped file the same way it would from a
-                // Finder/Explorer drag.
+                e.dataTransfer.effectAllowed = 'all';
+                // Best AE-compatible signals first.
+                e.dataTransfer.setData('text/uri-list', fileUrl);
+                e.dataTransfer.setData('text/plain', filePath);
+                // DownloadURL via local proxy (Chromium streams the file
+                // through HTTP, then hands the resulting file to the OS).
                 if (_dragServerUrl) {
                     const tok = _registerDragToken(filePath, fileName, mimeType);
                     const httpUrl = _dragServerUrl + '/drag?token=' + tok;
                     e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + httpUrl);
-                    e.dataTransfer.setData('text/uri-list', httpUrl);
                 } else {
-                    // Proxy didn't boot — fall back to file:// (works in some
-                    // CEP configurations; not in others). Click-to-import "+"
-                    // button on every card is the guaranteed-works backup.
                     e.dataTransfer.setData('DownloadURL', mimeType + ':' + fileName + ':' + fileUrl);
-                    e.dataTransfer.setData('text/uri-list', fileUrl);
                 }
-                e.dataTransfer.setData('text/plain', filePath);
+                // CEP-specific formats Adobe panels have used over the years.
+                try { e.dataTransfer.setData('application/cep-file-uri', fileUrl); } catch (_) {}
+                try { e.dataTransfer.setData('com.adobe.cep.draggedFile', filePath); } catch (_) {}
+                // Mozilla / generic file-drag MIME (kept for completeness).
+                try { e.dataTransfer.setData('application/x-moz-file', filePath); } catch (_) {}
+                try { e.dataTransfer.setData('text/x-moz-url', fileUrl + '\n' + fileName); } catch (_) {}
+
                 element.classList.add('asset-dragging');
-                addLog('Drag started: ' + fileName, 'info');
+                addLog('Drag started: ' + fileName + ' (use + button if AE rejects the drop)', 'info');
             } catch (err) {
                 console.warn('Drag start failed:', err);
             }
         });
-        element.addEventListener('dragend', () => {
+        element.addEventListener('dragend', (e) => {
             element.classList.remove('asset-dragging');
+            // If the browser drag was rejected (dropEffect === 'none'),
+            // log a hint so the user knows about the + button. The native
+            // PowerShell drag on Windows usually beats this code path.
+            try {
+                if (e.dataTransfer && e.dataTransfer.dropEffect === 'none' && process.platform !== 'win32') {
+                    addLog('Drag wasn\'t accepted — click the + button on the asset card to import directly.', 'warning');
+                }
+            } catch (_) {}
         });
     }
 

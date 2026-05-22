@@ -9,6 +9,44 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.7] — 2026-05-22
+
+### Added
+- **Status-coded "Aktualny plan" card.** Each plan step is now
+  classified into READY / ACTIVE / PLANNED by keyword sniff (PL + EN +
+  DE + ES + FR + JA forms), rendered as a vertical list with:
+    - ✅ green strikethrough for done steps,
+    - gold spinner + bold text for the active step,
+    - greyed-out neutral row for queued / planned steps,
+  plus a coloured left border bar that mirrors the step state. A
+  glance at the panel now answers "where are we?" without reading
+  every line.
+- **Native PowerShell shell-drag bridge (Windows).** Chat asset cards
+  now spawn a hidden PowerShell host at mousedown that calls
+  `System.Windows.Forms.Form.DoDragDrop` with a populated
+  `StringCollection` — the SAME `CF_HDROP` drag format Explorer
+  produces. AE accepts that exactly like a Finder/Explorer drag, no
+  crossed-cursor. macOS still falls through to the multi-MIME
+  Chromium drag (Cocoa's NSFilenamesPboardType handles it natively).
+- **Multi-MIME dataTransfer fallback** for the cases where the
+  PowerShell bridge can't spawn (corp PS lockdown etc): now writes
+  `text/uri-list`, `text/plain`, `DownloadURL`,
+  `application/cep-file-uri`, `com.adobe.cep.draggedFile`,
+  `application/x-moz-file`, `text/x-moz-url` — whichever one AE's
+  drop handler reaches for, it'll find a valid payload.
+
+### Changed
+- `CSXS/manifest.xml` CEFCommandLine extended with
+  `--disable-features=BrowserDragFix` and
+  `--enable-blink-features=DocumentDOM`. Chromium's modern
+  "BrowserDragFix" feature gimps HTML5 drag for embedded contexts;
+  disabling it restores the older / saner drag behaviour. The
+  PowerShell native bridge is the primary path regardless.
+- `effectAllowed` on chat asset drags switched from `'copyMove'` to
+  `'all'` so every drop handler in AE accepts the cursor variant.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.6] — 2026-05-22
 
 ### Fixed
@@ -525,7 +563,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...HEAD
+[2.2.0.7]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...v2.2.0.7
 [2.2.0.6]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...v2.2.0.6
 [2.2.0.5]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...v2.2.0.5
 [2.2.0.4]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...v2.2.0.4
