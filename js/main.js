@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.7',
+                version: '2.2.0.8',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -335,20 +335,54 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
 
-        // Strategy 1 — Node.js exec (most reliable on every CEP version).
-        // We go through the shell so cmd.exe `start` / `open` / `xdg-open`
-        // can parse the URL correctly (URLs with `&` in query params need
-        // proper shell quoting; spawn with shell:false doesn't always give
-        // it on Windows).
+        // Visible diagnostics. The user can paste this back so we know
+        // which strategy actually fired — and if none did, we'll see why.
+        if (addLog) addLog('openExternalUrl START → ' + url, 'info');
+        try { console.log('[openExternalUrl] attempting', url); } catch (_) {}
+
+        const tries = [];
+
+        // Strategy 1 — spawn explorer.exe / open / xdg-open with the URL
+        // as a single argv slot. No shell, no nested cmd, no quote-parsing
+        // gymnastics — Windows Explorer's URL handler is the most
+        // bullet-proof default-browser opener you can ask the OS for.
+        try {
+            const { spawn } = require('child_process');
+            let bin, args;
+            if (process.platform === 'win32') {
+                bin = 'explorer.exe';
+                args = [url];
+            } else if (process.platform === 'darwin') {
+                bin = 'open';
+                args = [url];
+            } else {
+                bin = 'xdg-open';
+                args = [url];
+            }
+            const child = spawn(bin, args, {
+                detached: true,
+                stdio: 'ignore',
+                windowsHide: true
+            });
+            child.on('error', (err) => {
+                if (addLog) addLog('  ✗ strategy 1 spawn error: ' + err.message, 'warning');
+            });
+            child.unref();
+            tries.push('spawn(' + bin + ')');
+            if (addLog) addLog('  ✓ via strategy 1 spawn ' + bin, 'success');
+            return true;
+        } catch (e1) {
+            tries.push('spawn failed: ' + e1.message);
+            if (addLog) addLog('  ✗ strategy 1 (spawn) failed: ' + e1.message, 'warning');
+        }
+
+        // Strategy 1b — Node exec with cmd /c start, in case spawn was
+        // blocked by some sandbox flag. Different code path from strategy 1.
         try {
             const { exec } = require('child_process');
-            // URLs shouldn't contain a literal double quote, but defend
-            // anyway — backslash-escape if we ever see one.
             const safeUrl = url.replace(/"/g, '\\"');
             let cmd;
             if (process.platform === 'win32') {
-                // The empty "" is the window title placeholder for `start`.
-                // Without it `start` would eat the URL as the title.
                 cmd = 'cmd /c start "" "' + safeUrl + '"';
             } else if (process.platform === 'darwin') {
                 cmd = 'open "' + safeUrl + '"';
@@ -356,44 +390,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 cmd = 'xdg-open "' + safeUrl + '"';
             }
             exec(cmd, { windowsHide: true }, (err) => {
-                if (err && addLog) addLog('openExternalUrl exec callback error (link may still have opened): ' + err.message, 'warning');
+                if (err && addLog) addLog('  ⚠ strategy 1b exec callback: ' + err.message, 'warning');
             });
-            if (addLog) addLog('openExternalUrl: opened via exec → ' + url.substring(0, 80), 'info');
+            tries.push('exec(cmd)');
+            if (addLog) addLog('  ✓ via strategy 1b exec', 'success');
             return true;
-        } catch (e1) {
-            if (addLog) addLog('openExternalUrl strategy 1 (exec) failed: ' + e1.message, 'warning');
+        } catch (e1b) {
+            tries.push('exec failed: ' + e1b.message);
+            if (addLog) addLog('  ✗ strategy 1b (exec) failed: ' + e1b.message, 'warning');
         }
 
-        // Strategy 2 — CSInterface wrapper.
+        // Strategy 2 — CEP's documented createProcess API.
         try {
-            if (typeof CSInterface !== 'undefined') {
-                new CSInterface().openURLInDefaultBrowser(url);
-                if (addLog) addLog('openExternalUrl: opened via CSInterface', 'info');
+            if (typeof cep !== 'undefined' && cep.process && typeof cep.process.createProcess === 'function') {
+                if (process.platform === 'win32') {
+                    cep.process.createProcess('C:\\Windows\\explorer.exe', url);
+                } else if (process.platform === 'darwin') {
+                    cep.process.createProcess('/usr/bin/open', url);
+                } else {
+                    cep.process.createProcess('/usr/bin/xdg-open', url);
+                }
+                tries.push('cep.process.createProcess');
+                if (addLog) addLog('  ✓ via strategy 2 cep.process.createProcess', 'success');
                 return true;
             }
         } catch (e2) {
-            if (addLog) addLog('openExternalUrl strategy 2 (CSInterface) failed: ' + e2.message, 'warning');
+            tries.push('cep.process failed: ' + e2.message);
+            if (addLog) addLog('  ✗ strategy 2 (cep.process) failed: ' + e2.message, 'warning');
         }
 
-        // Strategy 3 — raw CEP bridge.
+        // Strategy 3 — CSInterface wrapper.
         try {
-            if (typeof window !== 'undefined' && window.__adobe_cep__ && typeof window.__adobe_cep__.openURLInDefaultBrowser === 'function') {
-                window.__adobe_cep__.openURLInDefaultBrowser(url);
-                if (addLog) addLog('openExternalUrl: opened via __adobe_cep__', 'info');
+            if (typeof CSInterface !== 'undefined') {
+                new CSInterface().openURLInDefaultBrowser(url);
+                tries.push('CSInterface');
+                if (addLog) addLog('  ✓ via strategy 3 CSInterface', 'success');
                 return true;
             }
         } catch (e3) {
-            if (addLog) addLog('openExternalUrl strategy 3 (__adobe_cep__) failed: ' + e3.message, 'warning');
+            tries.push('CSInterface failed: ' + e3.message);
+            if (addLog) addLog('  ✗ strategy 3 (CSInterface) failed: ' + e3.message, 'warning');
         }
 
-        // Strategy 4 — window.open. In CEF this often opens in the same
+        // Strategy 4 — raw CEP bridge.
+        try {
+            if (typeof window !== 'undefined' && window.__adobe_cep__ && typeof window.__adobe_cep__.openURLInDefaultBrowser === 'function') {
+                window.__adobe_cep__.openURLInDefaultBrowser(url);
+                tries.push('__adobe_cep__');
+                if (addLog) addLog('  ✓ via strategy 4 __adobe_cep__', 'success');
+                return true;
+            }
+        } catch (e4) {
+            tries.push('__adobe_cep__ failed: ' + e4.message);
+            if (addLog) addLog('  ✗ strategy 4 (__adobe_cep__) failed: ' + e4.message, 'warning');
+        }
+
+        // Strategy 5 — window.open. In CEF this often opens in the same
         // panel anyway, which is bad UX, but it beats a totally dead link.
         try {
             window.open(url, '_blank');
-            if (addLog) addLog('openExternalUrl: fell through to window.open(_blank)', 'warning');
+            tries.push('window.open');
+            if (addLog) addLog('  ⚠ via strategy 5 window.open (may open in-panel)', 'warning');
             return true;
-        } catch (e4) {
-            if (addLog) addLog('openExternalUrl: ALL strategies failed for ' + url, 'error');
+        } catch (e5) {
+            tries.push('window.open failed: ' + e5.message);
+            if (addLog) addLog('openExternalUrl: ALL strategies failed for ' + url + ' — tried: ' + tries.join(', '), 'error');
             return false;
         }
     }

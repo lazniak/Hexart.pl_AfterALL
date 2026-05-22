@@ -18,7 +18,7 @@ import { BridgeClient } from './bridge.js';
 import { tools as toolList } from './tools.js';
 
 const PKG_NAME = '@hexart/afterall-mcp';
-const PKG_VERSION = '2.2.0.7';
+const PKG_VERSION = '2.2.0.8';
 
 // CLI flag / env parsing
 const argv = process.argv.slice(2);

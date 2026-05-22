@@ -9,6 +9,39 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.8] — 2026-05-22
+
+### Fixed
+- **External links STILL not opening** in the system default browser
+  after v2.2.0.6. Root cause this time: the `cmd /c start "" "url"`
+  invocation went through Node's `exec`, which itself wraps the
+  command in another `cmd.exe /d /s /c "…"`. The nested-cmd quote
+  parsing eats the inner empty `""` placeholder in some Windows
+  builds, so `start` interprets the URL as the window title and
+  never opens it.
+
+  Rewritten `openExternalUrl` again — 5 strategies in order, each
+  logged to the Logs Console with a checkmark / cross marker so the
+  user can see exactly which one fired:
+    1. **spawn explorer.exe URL** (Windows) / `open URL` (macOS) /
+       `xdg-open URL` (Linux). spawn with argv array — no shell,
+       no quote nesting. `explorer.exe URL` is Microsoft's most
+       reliable way to ask Windows "open this URL in the user's
+       chosen default browser".
+    2. **exec via shell** (`cmd /c start ""`) as a backup.
+    3. **`cep.process.createProcess`** (documented CEP API).
+    4. **CSInterface.openURLInDefaultBrowser** (known to silently
+       no-op on some Adobe versions, so demoted further).
+    5. **`window.__adobe_cep__.openURLInDefaultBrowser`** raw bridge.
+    6. **`window.open(_, '_blank')`** last resort.
+
+  The Logs Console now prints `openExternalUrl START → URL` followed
+  by `✓` for the strategy that succeeded or `✗` for each one that
+  failed. If a future silent failure occurs, the log tells you in
+  one line which strategy is broken on the user's machine.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.7] — 2026-05-22
 
 ### Added
@@ -563,7 +596,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...HEAD
+[2.2.0.8]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...v2.2.0.8
 [2.2.0.7]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...v2.2.0.7
 [2.2.0.6]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...v2.2.0.6
 [2.2.0.5]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...v2.2.0.5
