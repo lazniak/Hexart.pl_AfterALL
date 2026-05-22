@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.9',
+                version: '2.2.0.10',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -342,35 +342,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tries = [];
 
-        // Strategy 1 — PowerShell `Start-Process` (Windows) / `open -j` (mac) /
-        // `xdg-open` (Linux). PowerShell's Start-Process uses ShellExecute
-        // under the hood with `SW_SHOWNORMAL`, which RESTORES a minimised
-        // browser window and brings it to the foreground — exactly what
-        // happens when you click a URL from Outlook / Word / Explorer.
-        // `explorer.exe URL` alone (our old approach) opens the URL in
-        // whatever state the browser happened to be in (minimised stays
-        // minimised), which felt to the user like "link didn't open".
+        // Strategy 1 — open in a NEW BROWSER WINDOW. The user's actual
+        // problem with v2.2.0.6 / 7 / 8 was that the URL landed in an
+        // existing minimised browser as a background tab. The simplest
+        // fix is to ASK the browser to spawn a new window — that
+        // guarantees a fresh OS-level window appears in the foreground,
+        // even if the existing browser instance is hidden.
+        //
+        // We resolve the user's default browser via the Windows registry
+        // (HKCU \UrlAssociations\http\UserChoice), then invoke its exe
+        // directly with `--new-window <URL>` (Chrome / Edge / Brave /
+        // Opera / Vivaldi all accept that flag; Firefox uses `-new-window`).
+        // If anything goes wrong, we fall through to `Start-Process URL`
+        // which still uses ShellExecute SW_SHOWNORMAL.
         try {
             const { spawn } = require('child_process');
             let bin, args;
             if (process.platform === 'win32') {
                 bin = 'powershell.exe';
-                // -NoProfile / -NonInteractive for speed and predictability.
-                // -WindowStyle Hidden so the PowerShell host itself is
-                // invisible — only the launched browser shows.
-                // Start-Process with no extra flags = SW_SHOWNORMAL.
+                // PowerShell one-liner. Reads the default-browser ProgID
+                // from HKCU, dereferences it through HKCR to the open
+                // command, extracts the .exe path, picks the new-window
+                // flag (Firefox uses `-new-window`, every Chromium-based
+                // browser uses `--new-window`), and spawns it. Falls back
+                // to Start-Process if any step fails.
+                const ps = [
+                    '$ErrorActionPreference = "SilentlyContinue"',
+                    '$u = ' + JSON.stringify(url),
+                    '$pid = (Get-ItemProperty "HKCU:\\SOFTWARE\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice").ProgId',
+                    '$cmd = (Get-ItemProperty ("HKCR:\\" + $pid + "\\shell\\open\\command"))."(default)"',
+                    '$exe = $null',
+                    'if ($cmd -match \'"([^"]+\\.exe)"\') { $exe = $Matches[1] }',
+                    'elseif ($cmd -match \'([^\\s]+\\.exe)\') { $exe = $Matches[1] }',
+                    'if ($exe) {',
+                    '  $flag = if ($exe -match "firefox") { "-new-window" } else { "--new-window" }',
+                    '  Start-Process -FilePath $exe -ArgumentList $flag, $u',
+                    '} else {',
+                    '  Start-Process $u',
+                    '}'
+                ].join('; ');
                 args = [
                     '-NoProfile', '-NonInteractive',
                     '-WindowStyle', 'Hidden',
                     '-ExecutionPolicy', 'Bypass',
-                    '-Command', 'Start-Process ' + JSON.stringify(url)
+                    '-Command', ps
                 ];
             } else if (process.platform === 'darwin') {
-                // `-j` keeps the launched app from being hidden after it
-                // gains focus, ensuring the new tab is visible. macOS
-                // brings the foreground app forward by default.
+                // macOS `open -n` forces a NEW instance of the default
+                // app — so a minimised Safari/Chrome/Firefox is replaced
+                // by a fresh window in the foreground.
                 bin = 'open';
-                args = [url];
+                args = ['-n', url];
             } else {
                 bin = 'xdg-open';
                 args = [url];
@@ -385,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             child.unref();
             tries.push('spawn(' + bin + ')');
-            if (addLog) addLog('  ✓ via strategy 1 spawn ' + bin, 'success');
+            if (addLog) addLog('  ✓ via strategy 1 new-window spawn (' + bin + ')', 'success');
             return true;
         } catch (e1) {
             tries.push('spawn failed: ' + e1.message);

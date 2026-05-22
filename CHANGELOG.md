@@ -9,6 +9,36 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.10] — 2026-05-22
+
+### Fixed
+- **Links opened in a background tab of a minimised browser** even
+  after v2.2.0.9. SW_SHOWNORMAL restores a minimised window, but on
+  some Windows builds the new tab landed in the existing window
+  without forcing it forward. User's simpler insight wins: open in
+  a NEW BROWSER WINDOW, not a new tab — a fresh OS-level window
+  always paints in the foreground regardless of the browser's prior
+  state.
+
+  Windows: PowerShell one-liner now reads the default-browser ProgID
+  from `HKCU:\Software\Microsoft\Windows\Shell\Associations\
+  UrlAssociations\http\UserChoice`, dereferences it through HKCR to
+  the open-command, extracts the .exe path, then spawns:
+    chrome.exe   --new-window URL
+    msedge.exe   --new-window URL
+    brave.exe    --new-window URL
+    opera.exe    --new-window URL
+    vivaldi.exe  --new-window URL
+    firefox.exe  -new-window URL   (Mozilla uses single-dash)
+  Falls back to `Start-Process URL` if the registry probe fails for
+  any reason.
+
+  macOS: switched `open URL` → `open -n URL` so the launched app
+  ALWAYS opens a fresh instance (a minimised Safari/Chrome gets a
+  visible new window rather than wake-up-into-the-Dock).
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.9] — 2026-05-22
 
 ### Fixed
@@ -613,7 +643,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.10...HEAD
+[2.2.0.10]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...v2.2.0.10
 [2.2.0.9]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...v2.2.0.9
 [2.2.0.8]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.7...v2.2.0.8
 [2.2.0.7]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.6...v2.2.0.7
