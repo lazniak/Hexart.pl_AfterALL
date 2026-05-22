@@ -1213,6 +1213,299 @@
     // =================================================================
     // Provider Registry
     // =================================================================
+    // Ollama (built-in local LLM)
+    // =================================================================
+    // Cross-platform local LLM backend powered by Ollama. Same OpenAI-
+    // compatible chat completions endpoint that LM Studio exposes
+    // (so we re-use the streaming + non-streaming helpers from
+    // BaseProvider), plus Ollama-specific endpoints for installing
+    // and managing models on-device:
+    //
+    //   GET  /api/version         — health check
+    //   GET  /api/tags            — locally installed models
+    //   POST /api/pull            — stream download a model
+    //   DELETE /api/delete        — uninstall a model
+    //   POST /v1/chat/completions — OpenAI-compatible chat
+    //
+    // Ollama auto-detects GPU at runtime (CUDA on Win/Linux, Metal on
+    // macOS, ROCm on AMD), so the heavy lifting is delegated. We just
+    // detect what hardware is around so the UI can show the user what
+    // they're running on.
+    class OllamaProvider extends BaseProvider {
+        get apiBase() {
+            const base = (this.cfg.baseUrl || 'http://localhost:11434').replace(/\/+$/, '');
+            return base;
+        }
+        get apiV1() { return this.apiBase + '/v1'; }
+
+        _headers(extra) {
+            const h = { 'Content-Type': 'application/json' };
+            if (this.cfg.apiKey) h['Authorization'] = 'Bearer ' + this.cfg.apiKey;
+            return extra ? Object.assign(h, extra) : h;
+        }
+
+        // Is the local Ollama daemon up? Cheap probe via /api/version.
+        // Returns { running, version, error? } so the UI can decide whether
+        // to surface the "Install Ollama" prompt.
+        async checkRunning() {
+            try {
+                const data = await httpJSON(this.apiBase + '/api/version', { method: 'GET' }, { timeoutMs: 2500, retries: 0 });
+                return { running: true, version: (data && data.version) || 'unknown' };
+            } catch (e) {
+                return { running: false, error: e.message };
+            }
+        }
+
+        // Locally installed models — what's already downloaded and ready.
+        async listLLMModels() {
+            let data;
+            try {
+                data = await httpJSON(this.apiBase + '/api/tags', { method: 'GET', headers: this._headers() }, { timeoutMs: 5000, retries: 0 });
+            } catch (e) {
+                throw new Error('Could not reach Ollama at ' + this.apiBase + ' — start the Ollama service (ollama serve) or install from https://ollama.com/download.');
+            }
+            const models = Array.isArray(data && data.models) ? data.models : [];
+            // Merge in the curated catalog as "available but not pulled".
+            const installedIds = new Set(models.map(m => m.name || m.model));
+            const installed = models.map(m => ({
+                id: m.name || m.model,
+                name: m.name || m.model,
+                provider: 'ollama',
+                contextLength: (m.details && m.details.context_length) || null,
+                installed: true,
+                sizeBytes: m.size || 0,
+                family: (m.details && m.details.family) || 'unknown',
+                quantization: (m.details && m.details.quantization_level) || null,
+                features: { vision: /vision|llava|mini.cpm|llama3.2-vision/i.test(m.name || ''), tools: true, json: true },
+                raw: m
+            }));
+            // Show curated Gemma models even when not yet pulled, so the user
+            // can pick one from the catalog and trigger a download.
+            const curated = OllamaProvider.curatedCatalog()
+                .filter(c => !installedIds.has(c.id))
+                .map(c => ({ ...c, installed: false, provider: 'ollama' }));
+            return installed.concat(curated);
+        }
+
+        // Curated download catalog. Add more entries as new Gemma / other
+        // model families ship through Ollama — Ollama users still get the
+        // long tail via `ollama pull <whatever>` from a terminal.
+        static curatedCatalog() {
+            return [
+                // Gemma 3 (current flagship; auto-fallback to Gemma 4 names once Google ships)
+                { id: 'gemma3:1b',   name: 'gemma3:1b',   description: 'Gemma 3 1B — tiny, CPU-friendly (~0.8 GB)',                  sizeGB: 0.8,  family: 'gemma3', recommended: true,  features: { vision: false, tools: true, json: true } },
+                { id: 'gemma3:4b',   name: 'gemma3:4b',   description: 'Gemma 3 4B — balanced default for most tasks (~2.6 GB)',     sizeGB: 2.6,  family: 'gemma3', recommended: true,  features: { vision: false, tools: true, json: true } },
+                { id: 'gemma3:12b',  name: 'gemma3:12b',  description: 'Gemma 3 12B — needs ≥ 12 GB VRAM or 16 GB unified mem (~7.5 GB)', sizeGB: 7.5,  family: 'gemma3', recommended: false, features: { vision: false, tools: true, json: true } },
+                { id: 'gemma3:27b',  name: 'gemma3:27b',  description: 'Gemma 3 27B — needs ≥ 24 GB VRAM, top quality (~17 GB)',     sizeGB: 17.0, family: 'gemma3', recommended: false, features: { vision: false, tools: true, json: true } },
+                // Gemma 2 (older, still good)
+                { id: 'gemma2:2b',   name: 'gemma2:2b',   description: 'Gemma 2 2B — older small (~1.6 GB)',                          sizeGB: 1.6,  family: 'gemma2', recommended: false, features: { vision: false, tools: true, json: true } },
+                { id: 'gemma2:9b',   name: 'gemma2:9b',   description: 'Gemma 2 9B — older balanced (~5.4 GB)',                       sizeGB: 5.4,  family: 'gemma2', recommended: false, features: { vision: false, tools: true, json: true } }
+            ];
+        }
+
+        // Download a model on demand. onProgress receives
+        // { status, total, completed, percent } updates from Ollama's
+        // streaming pull endpoint. Cancellation: AbortSignal works.
+        async pullModel(modelId, onProgress, signal) {
+            const url = this.apiBase + '/api/pull';
+            const body = JSON.stringify({ name: modelId, stream: true });
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: this._headers(),
+                body: body,
+                signal: signal
+            });
+            if (!res.ok) {
+                const t = await res.text();
+                throw new Error('Ollama pull failed (HTTP ' + res.status + '): ' + t.substring(0, 300));
+            }
+            if (!res.body || !res.body.getReader) {
+                // No streaming support — fall through to a single status check.
+                if (onProgress) onProgress({ status: 'completed', completed: 1, total: 1, percent: 100 });
+                return { success: true, model: modelId };
+            }
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let lastStatus = '';
+            while (true) {
+                if (signal && signal.aborted) { try { reader.cancel(); } catch (_) {} break; }
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const evt = JSON.parse(line);
+                        lastStatus = evt.status || lastStatus;
+                        const total = evt.total || 0;
+                        const completed = evt.completed || 0;
+                        const percent = total > 0 ? Math.round((completed / total) * 100) : null;
+                        if (onProgress) {
+                            try { onProgress({ status: lastStatus, total, completed, percent, raw: evt }); } catch (_) {}
+                        }
+                        if (evt.error) {
+                            throw new Error('Ollama pull error: ' + evt.error);
+                        }
+                    } catch (e) {
+                        if (e && e.message && e.message.startsWith('Ollama pull error:')) throw e;
+                        // Partial / non-JSON chunk — skip quietly.
+                    }
+                }
+            }
+            return { success: true, model: modelId };
+        }
+
+        // Remove a locally-installed model (the only way to free disk
+        // space without going to the terminal).
+        async deleteModel(modelId) {
+            const url = this.apiBase + '/api/delete';
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: this._headers(),
+                body: JSON.stringify({ name: modelId })
+            });
+            if (!res.ok && res.status !== 404) {
+                const t = await res.text();
+                throw new Error('Ollama delete failed: ' + t.substring(0, 200));
+            }
+            return { success: true };
+        }
+
+        _buildPayload(args, stream) {
+            const payload = {
+                model: args.model,
+                messages: OpenRouterProvider.geminiToOpenAI(args.systemInstruction, args.messages),
+                temperature: (args.generationConfig && args.generationConfig.temperature != null)
+                    ? args.generationConfig.temperature : 0.2,
+                stream: !!stream
+            };
+            if (args.generationConfig && args.generationConfig.maxOutputTokens) {
+                payload.max_tokens = args.generationConfig.maxOutputTokens;
+            }
+            if (!stream && args.generationConfig && args.generationConfig.responseMimeType === 'application/json') {
+                payload.response_format = { type: 'json_object' };
+            }
+            return payload;
+        }
+
+        async chatCompletion(args) {
+            if (!args.model) throw new Error('Wybierz model Ollama (lub kliknij Pobierz, aby zainstalować Gemma).');
+            const url = this.apiV1 + '/chat/completions';
+            const payload = this._buildPayload(args, false);
+            const data = await httpJSON(url, {
+                method: 'POST',
+                headers: this._headers(),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            }, { timeoutMs: 300000, signal: args.signal, retries: 0 });
+            if (!data.choices || !data.choices[0]) {
+                throw new Error('Ollama: pusta odpowiedz. Sprawdź czy model "' + args.model + '" jest zainstalowany (Pobierz w Ustawieniach).');
+            }
+            return { text: BaseProvider._extractOAIText(data), raw: data };
+        }
+
+        async streamChatCompletion(args, onChunk) {
+            if (!args.model) throw new Error('Wybierz model Ollama (lub kliknij Pobierz).');
+            const url = this.apiV1 + '/chat/completions';
+            const payload = this._buildPayload(args, true);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: this._headers({ 'Accept': 'text/event-stream' }),
+                body: JSON.stringify(payload),
+                signal: args.signal
+            });
+            if (!res.ok) {
+                const errTxt = await res.text();
+                throw new Error('Ollama stream HTTP ' + res.status + ': ' + errTxt.substring(0, 300));
+            }
+            const full = await consumeSSE(res, BaseProvider._oaiDeltaExtract, onChunk, args.signal);
+            return { text: full, raw: { streamed: true } };
+        }
+
+        async generateImage() {
+            throw new Error('Ollama nie obsługuje generowania obrazów — wybierz Gemini, OpenAI lub ComfyUI dla obrazów.');
+        }
+
+        // System GPU detection — best-effort, runs the platform-native
+        // probe and returns { vendor, name, vram_mb?, driver?, platform }.
+        // Useful for the UI to show "Running on RTX 4090 (CUDA)" /
+        // "Apple M2 Pro (Metal)" / "CPU only".
+        static async detectGPU() {
+            const { exec } = require('child_process');
+            const isWin = process.platform === 'win32';
+            const isMac = process.platform === 'darwin';
+            const runOnce = (cmd, timeoutMs) => new Promise((resolve) => {
+                try {
+                    exec(cmd, { timeout: timeoutMs || 4000, windowsHide: true, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+                        resolve(err ? null : (stdout || '').trim());
+                    });
+                } catch (_) { resolve(null); }
+            });
+            // NVIDIA — works on both Windows and Linux when CUDA is set up.
+            const nvidia = await runOnce('nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits');
+            if (nvidia) {
+                const line = nvidia.split('\n')[0];
+                const parts = line.split(',').map(s => s.trim());
+                return {
+                    vendor: 'NVIDIA',
+                    name: parts[0] || 'NVIDIA GPU',
+                    vram_mb: parseInt(parts[1] || '0', 10) || null,
+                    driver: parts[2] || null,
+                    accel: 'CUDA',
+                    platform: process.platform
+                };
+            }
+            // Apple Silicon / Intel Mac
+            if (isMac) {
+                const machine = await runOnce('uname -m');
+                if (machine && machine.indexOf('arm64') >= 0) {
+                    // Apple Silicon — Metal is native, no extra detection needed.
+                    const model = await runOnce("sysctl -n machdep.cpu.brand_string");
+                    return {
+                        vendor: 'Apple',
+                        name: model || 'Apple Silicon',
+                        accel: 'Metal',
+                        platform: 'darwin'
+                    };
+                }
+                // Intel Mac — try system_profiler for the discrete or integrated GPU.
+                const sp = await runOnce("system_profiler SPDisplaysDataType | awk -F': ' '/Chipset Model/ {print $2; exit}'");
+                if (sp) {
+                    return {
+                        vendor: /apple/i.test(sp) ? 'Apple' : (/amd|radeon/i.test(sp) ? 'AMD' : (/intel/i.test(sp) ? 'Intel' : 'Unknown')),
+                        name: sp,
+                        accel: 'Metal',
+                        platform: 'darwin'
+                    };
+                }
+            }
+            // Windows fallback: WMIC for the primary video controller name.
+            if (isWin) {
+                const wmic = await runOnce('wmic path win32_VideoController get name,AdapterRAM /format:value');
+                if (wmic) {
+                    const nameMatch = wmic.match(/Name=([^\r\n]+)/);
+                    const ramMatch = wmic.match(/AdapterRAM=(\d+)/);
+                    if (nameMatch) {
+                        const name = nameMatch[1].trim();
+                        const ram_mb = ramMatch ? Math.round(parseInt(ramMatch[1], 10) / 1024 / 1024) : null;
+                        return {
+                            vendor: /nvidia/i.test(name) ? 'NVIDIA' : (/amd|radeon/i.test(name) ? 'AMD' : (/intel/i.test(name) ? 'Intel' : 'Unknown')),
+                            name: name,
+                            vram_mb: ram_mb,
+                            accel: /nvidia/i.test(name) ? 'CUDA?' : (/amd|radeon/i.test(name) ? 'ROCm?' : 'CPU'),
+                            platform: 'win32'
+                        };
+                    }
+                }
+            }
+            return { vendor: 'Unknown', name: 'CPU only', accel: 'CPU', platform: process.platform };
+        }
+    }
+
+    // =================================================================
     const Providers = {
         BaseProvider,
         GeminiProvider,
@@ -1220,6 +1513,7 @@
         OpenAIProvider,
         ComfyUIProvider,
         LMStudioProvider,
+        OllamaProvider,
         // Factory
         create(name, cfg) {
             switch ((name || 'gemini').toLowerCase()) {
@@ -1228,6 +1522,7 @@
                 case 'openai':     return new OpenAIProvider(cfg || {});
                 case 'comfyui':    return new ComfyUIProvider(cfg || {});
                 case 'lmstudio':   return new LMStudioProvider(cfg || {});
+                case 'ollama':     return new OllamaProvider(cfg || {});
                 default: throw new Error('Unknown provider: ' + name);
             }
         },

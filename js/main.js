@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.4',
+                version: '2.2.0.5',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -470,6 +470,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const lmstudioLLMModelSelect = document.getElementById('lmstudio-llm-model');
     const lmstudioBaseUrlInput = document.getElementById('lmstudio-base-url');
     const lmstudioApiInput      = document.getElementById('lmstudio-api');
+    // Ollama (built-in local LLM)
+    const ollamaLLMModelInput   = document.getElementById('ollama-llm-model');
+    const ollamaBaseUrlInput    = document.getElementById('ollama-base-url');
+    const ollamaStatusBanner    = document.getElementById('ollama-status-banner');
+    const ollamaStatusText      = document.getElementById('ollama-status-text');
+    const ollamaInstallLink     = document.getElementById('ollama-install-link');
+    const ollamaGpuBadge        = document.getElementById('ollama-gpu-badge');
+    const ollamaGpuNameEl       = document.getElementById('ollama-gpu-name');
+    const ollamaPullProgress    = document.getElementById('ollama-pull-progress');
+    const ollamaPullBarFill     = document.getElementById('ollama-pull-bar-fill');
+    const ollamaPullStatus      = document.getElementById('ollama-pull-status');
     // OpenAI references
     const openaiApiInput        = document.getElementById('openai-api');
     const openaiLLMModelSelect  = document.getElementById('openai-llm-model');
@@ -577,6 +588,18 @@ const i18nDict = {
         'welcome-card-intro': 'Aby zacząć korzystać z agenta, potrzebujesz przynajmniej jednego klucza API od dostawcy LLM. Wybierz wariant, który Ci pasuje:',
         'welcome-video-placeholder': '🎬 Wideo z przewodnikiem konfiguracji pojawi się tutaj wkrótce.',
         'welcome-card-options-title': '⚖ Jaki klucz wybrać?',
+        // Ollama (built-in local LLM) — i18n keys for the provider card + status pill.
+        'provider-ollama':         '⭐ Wbudowany lokalnie (Gemma 3 · Ollama) — bez klucza, 100% offline',
+        'ollama-model-label':      'Model lokalny (rodzina Gemma)',
+        'ollama-url-label':        'Adres serwera Ollama',
+        'ollama-status-checking':  'Sprawdzam usługę Ollama…',
+        'ollama-status-running':   'Ollama działa',
+        'ollama-status-missing':   'Nie wykryto Ollama — kliknij link, aby zainstalować.',
+        'ollama-install-link':     '↗ Zainstaluj Ollama (darmowe)',
+        'ollama-gpu-label':        'GPU:',
+        'ollama-hint':             'Wbudowany lokalny LLM przez <a href="https://ollama.com/download" data-internal="0">Ollama</a> — bez klucza, bez chmury, bez kosztów użycia. Kliknij 📋, by przeglądać modele Gemma, ⬇ by pobrać. Ollama wykrywa GPU automatycznie (CUDA na Win, Metal na Mac).',
+        'ollama-pull-done':        'Pobrano',
+        'mp-title-ollama-llm':     'Katalog modeli Ollama (lokalna Gemma)',
         'welcome-card-opt-openrouter': 'Jeden klucz daje dostęp do <strong>Claude 4.7, GPT-5, Gemini Pro</strong> i dziesiątek innych modeli. <em>Polecane na start</em> — dłuższe zadania mogą być kosztowne, ale jakość jest najwyższa. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
         'welcome-card-opt-gemini': 'Czat + generowanie obrazów (Nano Banana / Imagen), TTS, muzyki (Lyria) — wszystko w jednym koncie Google. Darmowy poziom ~15 zapytań/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
         'welcome-card-opt-openai': 'Bezpośredni dostęp do <strong>GPT-5, GPT-4o, o-series</strong> + generatorów obrazów (gpt-image-1, DALL·E 3). Najdroższa opcja chmurowa. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
@@ -1119,6 +1142,18 @@ const i18nDict = {
         'welcome-card-intro': 'To start using the agent, you need at least one LLM provider\'s API key. Pick the option that fits you best:',
         'welcome-video-placeholder': '🎬 Setup walkthrough video will appear here shortly.',
         'welcome-card-options-title': '⚖ Which key should I get?',
+        // Ollama (built-in local LLM)
+        'provider-ollama':         '⭐ Built-in Local (Gemma 3 · Ollama) — no key, 100% offline',
+        'ollama-model-label':      'Local model (Gemma family)',
+        'ollama-url-label':        'Ollama server URL',
+        'ollama-status-checking':  'Checking Ollama service…',
+        'ollama-status-running':   'Ollama running',
+        'ollama-status-missing':   'Ollama not detected — click the link to install.',
+        'ollama-install-link':     '↗ Install Ollama (free)',
+        'ollama-gpu-label':        'GPU:',
+        'ollama-hint':             'Built-in local LLM via <a href="https://ollama.com/download" data-internal="0">Ollama</a> — no API key, no cloud, no usage cost. Click 📋 to browse Gemma models, ⬇ to download. Ollama auto-detects GPU (CUDA on Win, Metal on Mac).',
+        'ollama-pull-done':        'Downloaded',
+        'mp-title-ollama-llm':     'Ollama model catalog (local Gemma)',
         'welcome-card-opt-openrouter': 'One key gives you access to <strong>Claude 4.7, GPT-5, Gemini Pro</strong>, and dozens more. <em>Recommended starting point</em> — long tasks can get pricey, but quality is top-tier. <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>',
         'welcome-card-opt-gemini': 'Chat + image generation (Nano Banana / Imagen), TTS, music (Lyria) — all on one Google account. Free tier ~15 req/min. <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>',
         'welcome-card-opt-openai': 'Direct access to <strong>GPT-5, GPT-4o, o-series</strong> + image generators (gpt-image-1, DALL·E 3). The priciest cloud option. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>',
@@ -2422,6 +2457,8 @@ function t(key, fallback) {
     if (openrouterGroundingModelInput) openrouterGroundingModelInput.value = agent.openrouterGroundingModel || '';
     if (openrouterImgModelInput) openrouterImgModelInput.value = agent.openrouterImageModel || '';
     if (lmstudioBaseUrlInput) lmstudioBaseUrlInput.value = agent.lmstudioBaseUrl || 'http://localhost:1234';
+    if (ollamaBaseUrlInput)   ollamaBaseUrlInput.value   = agent.ollamaBaseUrl   || 'http://localhost:11434';
+    if (ollamaLLMModelInput)  ollamaLLMModelInput.value  = agent.ollamaLLMModel  || 'gemma3:4b';
     // Model fields are now plain text inputs (OpenRouter pattern). Load the
     // stored value straight in — the picker (📋) writes back into them too.
     // Note: `ttsModelSelect2` is const-declared later in the IIFE so we
@@ -4881,6 +4918,9 @@ function t(key, fallback) {
                     baseUrl: agent.lmstudioBaseUrl,
                     apiKey:  agent.lmstudioApiKey
                 });
+            } else if (opts.provider === 'ollama') {
+                // Built-in Ollama (local Gemma). LLM-only.
+                instance = P.create('ollama', { baseUrl: agent.ollamaBaseUrl });
             } else if (opts.provider === 'comfyui') {
                 instance = P.create('comfyui', { baseUrl: agent.comfyuiBaseUrl });
             } else {
@@ -5132,6 +5172,97 @@ function t(key, fallback) {
             title: tr('mp-title-lmstudio-llm')
         });
     });
+    // -----------------------------------------------------------------
+    // Built-in Ollama wiring — picker, model pull, daemon status probe,
+    // and GPU detection badge.
+    // -----------------------------------------------------------------
+    function setOllamaStatus(state, text, opts) {
+        // state: 'unknown' | 'running' | 'missing'
+        if (!ollamaStatusBanner) return;
+        ollamaStatusBanner.classList.remove('ollama-status-unknown', 'ollama-status-running', 'ollama-status-missing');
+        ollamaStatusBanner.classList.add('ollama-status-' + state);
+        if (ollamaStatusText) ollamaStatusText.textContent = text || '';
+        if (ollamaInstallLink) {
+            const showLink = state === 'missing';
+            ollamaInstallLink.classList.toggle('hidden', !showLink);
+            if (showLink) {
+                ollamaInstallLink.setAttribute('href', 'https://ollama.com/download');
+                ollamaInstallLink.onclick = (e) => { e.preventDefault(); openExternalUrl('https://ollama.com/download'); };
+            }
+        }
+    }
+    async function refreshOllamaStatus() {
+        if (!ollamaStatusBanner) return;
+        const url = (ollamaBaseUrlInput && ollamaBaseUrlInput.value.trim()) || agent.ollamaBaseUrl || 'http://localhost:11434';
+        setOllamaStatus('unknown', tr('ollama-status-checking') || 'Checking Ollama service…');
+        try {
+            const P = window.AfterAllProviders;
+            const probe = P.create('ollama', { baseUrl: url });
+            const res = await probe.checkRunning();
+            if (res.running) {
+                setOllamaStatus('running', (tr('ollama-status-running') || 'Ollama running') + ' (v' + (res.version || '?') + ')');
+            } else {
+                setOllamaStatus('missing', tr('ollama-status-missing') || 'Ollama not detected — click the link to install.');
+            }
+        } catch (e) {
+            setOllamaStatus('missing', tr('ollama-status-missing') || 'Ollama not detected.');
+        }
+    }
+    async function refreshOllamaGpuBadge() {
+        if (!ollamaGpuBadge || !ollamaGpuNameEl) return;
+        try {
+            const P = window.AfterAllProviders;
+            const gpu = await P.OllamaProvider.detectGPU();
+            const label = (gpu.name || 'unknown')
+                + (gpu.vram_mb ? ' · ' + Math.round(gpu.vram_mb / 1024 * 10) / 10 + ' GB' : '')
+                + ' (' + (gpu.accel || 'CPU') + ')';
+            ollamaGpuNameEl.textContent = label;
+            ollamaGpuBadge.classList.remove('hidden');
+        } catch (_) {
+            ollamaGpuBadge.classList.add('hidden');
+        }
+    }
+    if (ollamaBaseUrlInput) {
+        ollamaBaseUrlInput.addEventListener('change', () => {
+            agent.ollamaBaseUrl = ollamaBaseUrlInput.value.trim() || 'http://localhost:11434';
+            refreshOllamaStatus();
+        });
+    }
+    const pickOllamaLLMBtn = document.getElementById('pick-ollama-llm');
+    if (pickOllamaLLMBtn) pickOllamaLLMBtn.addEventListener('click', () => {
+        if (ollamaBaseUrlInput) agent.ollamaBaseUrl = ollamaBaseUrlInput.value.trim() || 'http://localhost:11434';
+        openModelPicker({
+            provider: 'ollama', kind: 'llm', target: ollamaLLMModelInput,
+            title: tr('mp-title-ollama-llm') || 'Ollama model catalog (local Gemma)'
+        });
+    });
+    const pullOllamaBtn = document.getElementById('pull-ollama-model');
+    if (pullOllamaBtn) pullOllamaBtn.addEventListener('click', async () => {
+        const modelId = (ollamaLLMModelInput && ollamaLLMModelInput.value.trim()) || 'gemma3:4b';
+        if (!modelId) return;
+        if (ollamaBaseUrlInput) agent.ollamaBaseUrl = ollamaBaseUrlInput.value.trim() || 'http://localhost:11434';
+        const P = window.AfterAllProviders;
+        const provider = P.create('ollama', { baseUrl: agent.ollamaBaseUrl });
+        pullOllamaBtn.disabled = true;
+        if (ollamaPullProgress) ollamaPullProgress.classList.remove('hidden');
+        try {
+            await provider.pullModel(modelId, (p) => {
+                if (ollamaPullBarFill && p.percent != null) ollamaPullBarFill.style.width = p.percent + '%';
+                if (ollamaPullStatus) {
+                    const human = p.percent != null ? (p.percent + '% · ') : '';
+                    ollamaPullStatus.textContent = human + (p.status || '…');
+                }
+            });
+            if (ollamaPullStatus) ollamaPullStatus.textContent = '✓ ' + (tr('ollama-pull-done') || 'Downloaded') + ': ' + modelId;
+            addLog('Ollama: downloaded ' + modelId, 'success');
+        } catch (e) {
+            if (ollamaPullStatus) ollamaPullStatus.textContent = '✕ ' + e.message;
+            addLog('Ollama pull failed: ' + e.message, 'error');
+        } finally {
+            pullOllamaBtn.disabled = false;
+        }
+    });
+
     const pickLmStudioGroundingBtn = document.getElementById('pick-lmstudio-grounding');
     if (pickLmStudioGroundingBtn) pickLmStudioGroundingBtn.addEventListener('click', () => {
         if (lmstudioBaseUrlInput) agent.lmstudioBaseUrl = lmstudioBaseUrlInput.value.trim() || 'http://localhost:1234';
@@ -5156,6 +5287,10 @@ function t(key, fallback) {
             renderPermissionRules();
             updateMcpUI();
             renderCustomSecrets();
+            // Warm Ollama status + GPU badge so the panel paints them
+            // immediately when the user clicks the LLM Providers tab.
+            try { refreshOllamaStatus(); } catch (_) {}
+            try { refreshOllamaGpuBadge(); } catch (_) {}
             // Pre-warm the agent's 15-min model cache in the background so
             // the first 📋 picker click feels instant. Failures are silent —
             // the picker handles missing-key / unreachable-server cases on
@@ -5418,7 +5553,11 @@ function t(key, fallback) {
             agent.apiKey
             || agent.openrouterApiKey
             || agent.openaiApiKey
+            // Both LM Studio and built-in Ollama are local-only and don't
+            // require a key to operate, so picking either as the active
+            // provider counts as "configured".
             || (agent.llmProvider === 'lmstudio')
+            || (agent.llmProvider === 'ollama')
         );
     }
     // When any LLM key gets configured, the persistent welcome card that
@@ -6098,6 +6237,8 @@ function t(key, fallback) {
             openrouterImageModel: openrouterImgModelInput ? openrouterImgModelInput.value.trim() : '',
             lmstudioLLMModel: lmstudioLLMModelSelect ? lmstudioLLMModelSelect.value : '',
             lmstudioBaseUrl: lmstudioBaseUrlInput ? lmstudioBaseUrlInput.value.trim() : 'http://localhost:1234',
+            ollamaLLMModel:  ollamaLLMModelInput  ? ollamaLLMModelInput.value.trim()  : 'gemma3:4b',
+            ollamaBaseUrl:   ollamaBaseUrlInput   ? ollamaBaseUrlInput.value.trim()   : 'http://localhost:11434',
             lmstudioApiKey:  lmstudioApiInput     ? lmstudioApiInput.value.trim()     : '',
             openaiApiKey:    openaiApiInput        ? openaiApiInput.value.trim()        : '',
             openaiLLMModel:  openaiLLMModelSelect  ? openaiLLMModelSelect.value         : '',

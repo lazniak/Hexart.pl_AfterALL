@@ -88,6 +88,8 @@ const STORAGE_KEYS = Object.freeze({
     lmstudioBaseUrl:       'hexart_lmstudio_url',
     lmstudioApiKey:        'hexart_lmstudio_api_key',
     lmstudioLLMModel:      'hexart_lmstudio_llm_model',
+    ollamaBaseUrl:         'hexart_ollama_url',
+    ollamaLLMModel:        'hexart_ollama_llm_model',
     lmstudioGroundingModel:'hexart_lmstudio_grounding_model',
     comfyuiBaseUrl:        'hexart_comfyui_url',
     comfyuiWorkflow:       'hexart_comfyui_workflow',
@@ -191,6 +193,13 @@ class AisistAgent {
         // behind a reverse proxy or a remote LAN endpoint with Bearer auth.
         // Optional — leave empty to disable.
         this.lmstudioApiKey = getStr('hexart_lmstudio_api_key', '');
+
+        // ---- Ollama (built-in local LLM, default for fresh installs) ----
+        // Ollama listens on 11434 by default. Default model is the small
+        // Gemma 3 4B — small enough to pull in a couple of minutes, big
+        // enough to drive the agent at usable quality on CPU + integrated GPU.
+        this.ollamaBaseUrl  = getStr('hexart_ollama_url', 'http://localhost:11434');
+        this.ollamaLLMModel = getStr('hexart_ollama_llm_model', 'gemma3:4b');
 
         // ---- OpenAI (LLM + Image) ---------------------------------------
         this.openaiApiKey      = getStr('hexart_openai_key');
@@ -364,6 +373,7 @@ class AisistAgent {
             case 'openrouter': return P.create('openrouter', { apiKey: this.openrouterApiKey });
             case 'openai':     return P.create('openai',     { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
             case 'lmstudio':   return P.create('lmstudio',   { baseUrl: this.lmstudioBaseUrl, apiKey: this.lmstudioApiKey });
+            case 'ollama':     return P.create('ollama',     { baseUrl: this.ollamaBaseUrl });
             case 'comfyui':    return P.create('comfyui',    {
                                   baseUrl: this.comfyuiBaseUrl,
                                   clientId: this.comfyuiClientId,
@@ -378,6 +388,7 @@ class AisistAgent {
             case 'openrouter': return this.openrouterLLMModel;
             case 'openai':     return this.openaiLLMModel;
             case 'lmstudio':   return this.lmstudioLLMModel;
+            case 'ollama':     return this.ollamaLLMModel;
             default:           return this.geminiModel;
         }
     }
@@ -484,6 +495,7 @@ class AisistAgent {
         else if (providerName === 'openrouter') providerInstance = P.create('openrouter', { apiKey: this.openrouterApiKey });
         else if (providerName === 'openai') providerInstance = P.create('openai', { apiKey: this.openaiApiKey, baseUrl: this.openaiBaseUrl });
         else if (providerName === 'lmstudio') providerInstance = P.create('lmstudio', { baseUrl: this.lmstudioBaseUrl, apiKey: this.lmstudioApiKey });
+        else if (providerName === 'ollama')   providerInstance = P.create('ollama',   { baseUrl: this.ollamaBaseUrl });
         else if (providerName === 'comfyui') providerInstance = P.create('comfyui', { baseUrl: this.comfyuiBaseUrl, clientId: this.comfyuiClientId });
         else throw new Error('Unknown provider: ' + providerName);
         const list = await providerInstance.listLLMModels();
@@ -533,7 +545,7 @@ class AisistAgent {
     syncFeatureFlagsToKeys() {
         // Truthy if any LLM key is configured OR LM Studio is the active
         // provider (LM Studio is local and doesn't require a key).
-        const hasAnyLLM = !!(this.apiKey || this.openrouterApiKey || this.openaiApiKey || this.llmProvider === 'lmstudio');
+        const hasAnyLLM = !!(this.apiKey || this.openrouterApiKey || this.openaiApiKey || this.llmProvider === 'lmstudio' || this.llmProvider === 'ollama');
 
         // Per-feature availability — at least one path satisfied = available.
         const checks = {
@@ -2610,6 +2622,8 @@ ${this.getSkillsSummary()}
         assign('lmstudioLLMModel', 'lmstudioLLMModel', 'hexart_lmstudio_llm_model');
         assign('lmstudioBaseUrl', 'lmstudioBaseUrl', 'hexart_lmstudio_url');
         assign('lmstudioApiKey', 'lmstudioApiKey', 'hexart_lmstudio_api_key');
+        assign('ollamaBaseUrl',   'ollamaBaseUrl',   'hexart_ollama_url');
+        assign('ollamaLLMModel',  'ollamaLLMModel',  'hexart_ollama_llm_model');
         assign('geminiImageModel', 'geminiImageModel', 'hexart_gemini_img_model');
         assign('openrouterImageModel', 'openrouterImageModel', 'hexart_openrouter_img_model');
         assign('openaiLLMModel', 'openaiLLMModel', 'hexart_openai_llm_model');

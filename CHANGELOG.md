@@ -9,6 +9,55 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.5] — 2026-05-22
+
+The "built-in offline LLM" release. Adds Ollama as a first-class
+provider so users can run the agent end-to-end on their own machine
+without ever entering an API key, and ships a macOS installer that
+sets up every prerequisite automatically.
+
+### Added
+- **OllamaProvider** (`js/providers.js`) — full OAI-compatible chat +
+  Ollama-native `/api/tags` (list installed models), `/api/pull`
+  (streaming download with progress events), `/api/delete`,
+  `/api/version` (daemon health probe). Curated Gemma 3 / Gemma 2
+  catalog (1B / 2B / 4B / 9B / 12B / 27B) surfaced in the picker
+  with size, family, and recommendation badge.
+- **Built-in Local (Gemma 3 · Ollama)** as the first option in the
+  LLM provider dropdown. `hasAnyConfiguredLLM()` and the auto-disable
+  gate both treat Ollama as a satisfied LLM credential (it's local,
+  no key needed) — exactly like LM Studio.
+- **Provider config card** in Settings → LLM Providers with:
+    - Live status banner (running / not detected / install link)
+    - GPU detection badge (NVIDIA CUDA / Apple Metal / AMD / Intel /
+      CPU-only), reading `nvidia-smi`, `sysctl machdep.cpu`,
+      `system_profiler SPDisplaysDataType`, and WMIC respectively.
+    - Model picker that lists installed + curated-not-yet-pulled.
+    - **⬇ Pull button** with live progress bar (status text +
+      percent) streamed from `/api/pull`.
+    - Configurable Ollama base URL.
+- **`install-macos.command`** — double-click installer for macOS:
+  detects Xcode CLT, installs Homebrew (with consent), installs
+  git + Python 3.11 + Ollama via brew, pulls `gemma3:4b` (~2.6 GB)
+  on first run, copies the plugin into
+  `~/Library/Application Support/Adobe/CEP/extensions/`,
+  enables PlayerDebugMode for CEP versions 9–18. Idempotent — safe
+  to rerun.
+- **i18n keys** for the new card (PL + EN): `provider-ollama`,
+  `ollama-model-label`, `ollama-url-label`, `ollama-status-*`,
+  `ollama-install-link`, `ollama-gpu-label`, `ollama-hint`,
+  `ollama-pull-done`, `mp-title-ollama-llm`. DE/ES/FR/JA fall back
+  to EN via the `t()` helper.
+
+### Changed
+- LLM provider dropdown now defaults to the Built-in Local option,
+  reflecting the new no-config-needed onboarding path.
+- `STORAGE_KEYS` extended with `ollamaBaseUrl` /
+  `ollamaLLMModel` so the new fields persist alongside every other
+  provider's state.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.4] — 2026-05-22
 
 The "stop wasting 7 turns on the same broken Python env" release.
@@ -445,7 +494,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.5...HEAD
+[2.2.0.5]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...v2.2.0.5
 [2.2.0.4]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...v2.2.0.4
 [2.2.0.3]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...v2.2.0.3
 [2.2.0.2]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...v2.2.0.2

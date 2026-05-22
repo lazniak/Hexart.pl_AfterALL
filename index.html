@@ -89,6 +89,16 @@
                 <button id="remove-attachment-btn" title="Usuń załącznik">&times;</button>
             </div>
 
+            <!-- BuyMeACoffee teaser video (VP9 WebM with alpha). Hidden by
+                 default; auto-played after 3rd, 6th, 12th, then every 12th
+                 successful agent run (markSuccessfulAgentRun in main.js).
+                 Clicking opens the BMC page in the system default browser. -->
+            <div id="bmc-video-bubble" class="hidden" role="button" tabindex="0" aria-label="Buy Me a Coffee" title="Buy Me a Coffee">
+                <video id="bmc-video" muted playsinline preload="auto" disablepictureinpicture>
+                    <source src="assets/buymeacoffee.webm" type="video/webm">
+                </video>
+            </div>
+
             <!-- First-run fallback: replaces the chat input when no LLM
                  provider key is configured. Hidden by default; shown by
                  updateApiSetupVisibility() in main.js. -->
@@ -227,6 +237,7 @@
                         <h3 data-i18n="llm-section-title">🤖 Główny Model (Logika / LLM)</h3>
                         <label for="llm-provider-select" data-i18n="llm-provider-label">Dostawca LLM</label>
                         <select id="llm-provider-select">
+                            <option value="ollama" data-i18n="provider-ollama">⭐ Built-in Local (Gemma 3 · Ollama) — no key, 100% offline</option>
                             <option value="openrouter" data-i18n="provider-openrouter">OpenRouter (200+ models)</option>
                             <option value="openai" data-i18n="provider-openai">OpenAI (GPT-5 · GPT-4o · o-series)</option>
                             <option value="gemini" data-i18n="provider-gemini">Google Gemini</option>
@@ -284,6 +295,38 @@
                                 <button type="button" id="pick-openai-grounding" class="mini-btn" title="Pick a web-search-capable model">📋</button>
                             </div>
                             <span class="hint" data-i18n-html="openai-grounding-hint">Used only when "Google Search Grounding" is enabled. OpenAI's <code>gpt-4o-search-preview</code> and <code>gpt-5-search-preview</code> have native web search via the Chat Completions API.</span>
+                        </div>
+
+                        <!-- Built-in Ollama (local Gemma) -->
+                        <div class="provider-config hidden" data-provider="ollama">
+                            <div id="ollama-status-banner" class="ollama-status ollama-status-unknown">
+                                <span class="ollama-status-dot"></span>
+                                <span id="ollama-status-text" data-i18n="ollama-status-checking">Checking Ollama service…</span>
+                                <a href="#" id="ollama-install-link" class="ollama-install-link hidden" data-i18n="ollama-install-link">↗ Install Ollama (free)</a>
+                            </div>
+                            <div id="ollama-gpu-badge" class="ollama-gpu-badge hidden">
+                                <span data-i18n="ollama-gpu-label">GPU:</span>
+                                <span id="ollama-gpu-name">—</span>
+                            </div>
+
+                            <div class="api-key-row" style="margin-top:0.5rem;">
+                                <label for="ollama-llm-model" data-i18n="ollama-model-label">Local model (Gemma family)</label>
+                                <button type="button" class="help-icon" data-api-help="ollama" title="How does this work?">?</button>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="ollama-llm-model" placeholder="gemma3:4b" value="gemma3:4b" style="flex:1;">
+                                <button type="button" id="pick-ollama-llm" class="mini-btn" title="Browse Gemma catalog">📋</button>
+                                <button type="button" id="pull-ollama-model" class="mini-btn ollama-pull-btn" title="Download the model selected above">⬇</button>
+                            </div>
+
+                            <div id="ollama-pull-progress" class="ollama-pull-progress hidden">
+                                <div class="ollama-pull-bar"><div class="ollama-pull-bar-fill" id="ollama-pull-bar-fill"></div></div>
+                                <span id="ollama-pull-status">…</span>
+                            </div>
+
+                            <label for="ollama-base-url" data-i18n="ollama-url-label" style="margin-top:0.6rem;">Ollama server URL</label>
+                            <input type="text" id="ollama-base-url" placeholder="http://localhost:11434" value="http://localhost:11434">
+                            <span class="hint" data-i18n-html="ollama-hint">Built-in local LLM via <a href="https://ollama.com/download" data-internal="0">Ollama</a> — no API key, no cloud, no usage cost. Click 📋 to browse Gemma models, ⬇ to download. Ollama auto-detects GPU (CUDA on Win, Metal on Mac).</span>
                         </div>
 
                         <!-- LMStudio LLM -->

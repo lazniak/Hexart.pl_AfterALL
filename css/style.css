@@ -1554,6 +1554,92 @@ input[type="text"]:focus, input[type="password"]:focus, select:focus {
 }
 
 /* =================================================================== */
+/* Ollama provider card (Settings → LLM Providers → Ollama)            */
+/* =================================================================== */
+.ollama-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    margin-top: 0.4rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ollama-status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(var(--warning-rgb), 0.75);
+    box-shadow: 0 0 6px rgba(var(--warning-rgb), 0.5);
+    flex-shrink: 0;
+}
+.ollama-status-running .ollama-status-dot {
+    background: rgba(var(--success-rgb), 0.85);
+    box-shadow: 0 0 6px rgba(var(--success-rgb), 0.55);
+}
+.ollama-status-missing .ollama-status-dot {
+    background: rgba(var(--danger-rgb), 0.85);
+    box-shadow: 0 0 6px rgba(var(--danger-rgb), 0.55);
+}
+.ollama-status-running { background: rgba(var(--success-rgb), 0.08); border-color: rgba(var(--success-rgb), 0.25); }
+.ollama-status-missing { background: rgba(var(--danger-rgb),  0.08); border-color: rgba(var(--danger-rgb),  0.25); }
+.ollama-install-link {
+    margin-left: auto;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+}
+.ollama-install-link:hover { color: var(--accent-hover); }
+.ollama-gpu-badge {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 0.4rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(96, 165, 250, 0.08);
+    border: 1px solid rgba(96, 165, 250, 0.22);
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.ollama-gpu-badge #ollama-gpu-name {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.ollama-pull-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: white;
+    border-color: transparent;
+}
+.ollama-pull-btn:hover {
+    filter: brightness(1.07);
+}
+.ollama-pull-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 0.5rem;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 11px;
+}
+.ollama-pull-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.ollama-pull-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    transition: width 0.25s ease-out;
+}
+
+/* =================================================================== */
 /* Update card (Settings → General)                                    */
 /* =================================================================== */
 .update-card {
