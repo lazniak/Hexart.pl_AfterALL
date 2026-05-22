@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.11',
+                version: '2.2.0.12',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -323,182 +323,105 @@ document.addEventListener('DOMContentLoaded', () => {
     // Every step is logged to addLog so we can see which one fired (or
     // failed). Strategy result is also returned so callers can branch.
     function openExternalUrl(url) {
-        if (!url) {
-            if (addLog) addLog('openExternalUrl: empty URL — ignored.', 'warning');
+        if (!url) return false;
+        // Scheme allow-list — http(s) and mailto only.
+        if (!/^(https?:|mailto:)/i.test(url)) {
+            if (addLog) addLog('openExternalUrl: unsupported scheme — ' + url.slice(0, 80), 'warning');
             return false;
         }
-        // Scheme allow-list: http(s) and mailto. Blocks javascript: /
-        // data: / file: payloads from rendered markdown / chat content.
-        const safe = /^(https?:|mailto:)/i.test(url);
-        if (!safe) {
-            if (addLog) addLog('openExternalUrl: blocked unsupported scheme: ' + url.slice(0, 80), 'warning');
-            return false;
-        }
+        if (addLog) addLog('Open link → ' + url, 'info');
 
-        // Visible diagnostics. The user can paste this back so we know
-        // which strategy actually fired — and if none did, we'll see why.
-        if (addLog) addLog('openExternalUrl START → ' + url, 'info');
-        try { console.log('[openExternalUrl] attempting', url); } catch (_) {}
+        // Try EVERY mechanism in sequence. The first one that doesn't
+        // throw wins; that's it, no clever stuff, no PowerShell, no
+        // registry probes, no new-window flags. Just open the URL.
+        const platform = (typeof process !== 'undefined' && process.platform) || 'unknown';
 
-        const tries = [];
-
-        // Strategy 1 — open in a NEW BROWSER WINDOW. The user's actual
-        // problem with v2.2.0.6 / 7 / 8 was that the URL landed in an
-        // existing minimised browser as a background tab. The simplest
-        // fix is to ASK the browser to spawn a new window — that
-        // guarantees a fresh OS-level window appears in the foreground,
-        // even if the existing browser instance is hidden.
-        //
-        // We resolve the user's default browser via the Windows registry
-        // (HKCU \UrlAssociations\http\UserChoice), then invoke its exe
-        // directly with `--new-window <URL>` (Chrome / Edge / Brave /
-        // Opera / Vivaldi all accept that flag; Firefox uses `-new-window`).
-        // If anything goes wrong, we fall through to `Start-Process URL`
-        // which still uses ShellExecute SW_SHOWNORMAL.
+        // A — CEP's documented API. Most CEP versions wire this up to
+        // ShellExecute internally; some versions silently no-op so we
+        // can't trust it alone, but we try it first because it's the
+        // canonical Adobe-blessed way.
         try {
-            const { spawn } = require('child_process');
-            let bin, args;
-            if (process.platform === 'win32') {
-                bin = 'powershell.exe';
-                // PowerShell one-liner. Reads the default-browser ProgID
-                // from HKCU, dereferences it through HKCR to the open
-                // command, extracts the .exe path, picks the new-window
-                // flag (Firefox uses `-new-window`, every Chromium-based
-                // browser uses `--new-window`), and spawns it. Falls back
-                // to Start-Process if any step fails.
-                //
-                // NB: do NOT name the variable `$pid` — PowerShell reserves
-                // that for the current process ID; assignment is a
-                // terminating error that kills the whole script and was
-                // the v2.2.0.10 regression that broke link opening entirely.
-                const ps = [
-                    '$u = ' + JSON.stringify(url),
-                    '$ok = $false',
-                    'try {',
-                    '  $progId = (Get-ItemProperty "HKCU:\\SOFTWARE\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice" -ErrorAction Stop).ProgId',
-                    '  $cmd = (Get-Item -LiteralPath ("Registry::HKEY_CLASSES_ROOT\\" + $progId + "\\shell\\open\\command") -ErrorAction Stop).GetValue("")',
-                    '  $exe = $null',
-                    '  if ($cmd -match \'"([^"]+\\.exe)"\') { $exe = $Matches[1] } elseif ($cmd -match \'([^\\s]+\\.exe)\') { $exe = $Matches[1] }',
-                    '  if ($exe -and (Test-Path -LiteralPath $exe)) {',
-                    '    $flag = if ($exe -match "firefox") { "-new-window" } else { "--new-window" }',
-                    '    Start-Process -FilePath $exe -ArgumentList $flag, $u',
-                    '    $ok = $true',
-                    '  }',
-                    '} catch {}',
-                    'if (-not $ok) { Start-Process $u }'
-                ].join('; ');
-                args = [
-                    '-NoProfile', '-NonInteractive',
-                    '-WindowStyle', 'Hidden',
-                    '-ExecutionPolicy', 'Bypass',
-                    '-Command', ps
-                ];
-            } else if (process.platform === 'darwin') {
-                // macOS `open -n` forces a NEW instance of the default
-                // app — so a minimised Safari/Chrome/Firefox is replaced
-                // by a fresh window in the foreground.
-                bin = 'open';
-                args = ['-n', url];
-            } else {
-                bin = 'xdg-open';
-                args = [url];
+            if (typeof cep !== 'undefined' && cep.util && typeof cep.util.openURLInDefaultBrowser === 'function') {
+                cep.util.openURLInDefaultBrowser(url);
+                if (addLog) addLog('  ✓ cep.util.openURLInDefaultBrowser', 'success');
+                // Belt-and-braces: also fire the Node fallback below, in
+                // case cep.util silently no-op'd on this Adobe version.
             }
-            const child = spawn(bin, args, {
-                detached: true,
-                stdio: 'ignore',
-                windowsHide: true
-            });
-            child.on('error', (err) => {
-                if (addLog) addLog('  ✗ strategy 1 spawn error: ' + err.message, 'warning');
-            });
-            child.unref();
-            tries.push('spawn(' + bin + ')');
-            if (addLog) addLog('  ✓ via strategy 1 new-window spawn (' + bin + ')', 'success');
-            return true;
-        } catch (e1) {
-            tries.push('spawn failed: ' + e1.message);
-            if (addLog) addLog('  ✗ strategy 1 (spawn) failed: ' + e1.message, 'warning');
+        } catch (eA) {
+            if (addLog) addLog('  ✗ cep.util: ' + eA.message, 'warning');
         }
 
-        // Strategy 1b — Node exec with cmd /c start, in case spawn was
-        // blocked by some sandbox flag. Different code path from strategy 1.
-        try {
-            const { exec } = require('child_process');
-            const safeUrl = url.replace(/"/g, '\\"');
-            let cmd;
-            if (process.platform === 'win32') {
-                cmd = 'cmd /c start "" "' + safeUrl + '"';
-            } else if (process.platform === 'darwin') {
-                cmd = 'open "' + safeUrl + '"';
-            } else {
-                cmd = 'xdg-open "' + safeUrl + '"';
-            }
-            exec(cmd, { windowsHide: true }, (err) => {
-                if (err && addLog) addLog('  ⚠ strategy 1b exec callback: ' + err.message, 'warning');
-            });
-            tries.push('exec(cmd)');
-            if (addLog) addLog('  ✓ via strategy 1b exec', 'success');
-            return true;
-        } catch (e1b) {
-            tries.push('exec failed: ' + e1b.message);
-            if (addLog) addLog('  ✗ strategy 1b (exec) failed: ' + e1b.message, 'warning');
-        }
-
-        // Strategy 2 — CEP's documented createProcess API.
-        try {
-            if (typeof cep !== 'undefined' && cep.process && typeof cep.process.createProcess === 'function') {
-                if (process.platform === 'win32') {
-                    cep.process.createProcess('C:\\Windows\\explorer.exe', url);
-                } else if (process.platform === 'darwin') {
-                    cep.process.createProcess('/usr/bin/open', url);
-                } else {
-                    cep.process.createProcess('/usr/bin/xdg-open', url);
-                }
-                tries.push('cep.process.createProcess');
-                if (addLog) addLog('  ✓ via strategy 2 cep.process.createProcess', 'success');
-                return true;
-            }
-        } catch (e2) {
-            tries.push('cep.process failed: ' + e2.message);
-            if (addLog) addLog('  ✗ strategy 2 (cep.process) failed: ' + e2.message, 'warning');
-        }
-
-        // Strategy 3 — CSInterface wrapper.
+        // B — CSInterface wrapper.
         try {
             if (typeof CSInterface !== 'undefined') {
                 new CSInterface().openURLInDefaultBrowser(url);
-                tries.push('CSInterface');
-                if (addLog) addLog('  ✓ via strategy 3 CSInterface', 'success');
-                return true;
+                if (addLog) addLog('  ✓ CSInterface', 'success');
+                // Same belt-and-braces note as above.
             }
-        } catch (e3) {
-            tries.push('CSInterface failed: ' + e3.message);
-            if (addLog) addLog('  ✗ strategy 3 (CSInterface) failed: ' + e3.message, 'warning');
+        } catch (eB) {
+            if (addLog) addLog('  ✗ CSInterface: ' + eB.message, 'warning');
         }
 
-        // Strategy 4 — raw CEP bridge.
+        // C — Node child_process spawn. The dead-simplest possible form:
+        // ONE platform-specific binary, URL as the ONLY argument, no
+        // shell, no quoting tricks, no PowerShell. If A and B above
+        // silently no-op'd, this will open the URL the same way as
+        // double-clicking a .url shortcut from Explorer.
+        try {
+            const cp = require('child_process');
+            let proc;
+            if (platform === 'win32') {
+                // `cmd /c start "" "URL"` is the canonical Windows
+                // shell-execute incantation. We pass it through spawn
+                // with shell:false so Node hands the argv to cmd
+                // verbatim — no nested cmd, no quote-escape mangling.
+                proc = cp.spawn('cmd.exe', ['/c', 'start', '""', url], {
+                    detached: true,
+                    stdio: 'ignore',
+                    windowsHide: true
+                });
+            } else if (platform === 'darwin') {
+                proc = cp.spawn('open', [url], {
+                    detached: true,
+                    stdio: 'ignore'
+                });
+            } else {
+                proc = cp.spawn('xdg-open', [url], {
+                    detached: true,
+                    stdio: 'ignore'
+                });
+            }
+            if (proc) {
+                proc.on('error', (err) => {
+                    if (addLog) addLog('  ✗ spawn error: ' + err.message, 'warning');
+                });
+                if (typeof proc.unref === 'function') proc.unref();
+                if (addLog) addLog('  ✓ child_process.spawn (' + platform + ')', 'success');
+                return true;
+            }
+        } catch (eC) {
+            if (addLog) addLog('  ✗ child_process.spawn: ' + eC.message, 'warning');
+        }
+
+        // D — raw CEP bridge (in case CSInterface wrapper itself is missing).
         try {
             if (typeof window !== 'undefined' && window.__adobe_cep__ && typeof window.__adobe_cep__.openURLInDefaultBrowser === 'function') {
                 window.__adobe_cep__.openURLInDefaultBrowser(url);
-                tries.push('__adobe_cep__');
-                if (addLog) addLog('  ✓ via strategy 4 __adobe_cep__', 'success');
+                if (addLog) addLog('  ✓ __adobe_cep__', 'success');
                 return true;
             }
-        } catch (e4) {
-            tries.push('__adobe_cep__ failed: ' + e4.message);
-            if (addLog) addLog('  ✗ strategy 4 (__adobe_cep__) failed: ' + e4.message, 'warning');
+        } catch (eD) {
+            if (addLog) addLog('  ✗ __adobe_cep__: ' + eD.message, 'warning');
         }
 
-        // Strategy 5 — window.open. In CEF this often opens in the same
-        // panel anyway, which is bad UX, but it beats a totally dead link.
+        // E — last resort. window.open in CEF often opens in-panel which
+        // is bad UX, but it beats a dead link.
         try {
             window.open(url, '_blank');
-            tries.push('window.open');
-            if (addLog) addLog('  ⚠ via strategy 5 window.open (may open in-panel)', 'warning');
+            if (addLog) addLog('  ⚠ window.open (may open in-panel)', 'warning');
             return true;
-        } catch (e5) {
-            tries.push('window.open failed: ' + e5.message);
-            if (addLog) addLog('openExternalUrl: ALL strategies failed for ' + url + ' — tried: ' + tries.join(', '), 'error');
+        } catch (eE) {
+            if (addLog) addLog('  ✗ ALL strategies failed for ' + url, 'error');
             return false;
         }
     }

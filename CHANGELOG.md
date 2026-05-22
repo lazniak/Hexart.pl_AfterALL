@@ -9,6 +9,36 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.12] — 2026-05-22
+
+### Fixed
+- **Back-to-basics rewrite of `openExternalUrl()`** after four
+  iterations of clever-PowerShell / registry-probe / new-window
+  approaches landed in the dirt. No more PowerShell, no registry
+  walks, no `--new-window` flags, no `SW_SHOWNORMAL` tricks. Just
+  five dumb strategies tried in order:
+    A. `cep.util.openURLInDefaultBrowser` — documented CEP API.
+    B. `CSInterface().openURLInDefaultBrowser` — official Adobe wrapper.
+    C. `child_process.spawn` with the simplest possible shell-execute
+       per platform:
+         - Windows: `cmd /c start "" "URL"` (spawn argv array, no
+           nested cmd, no quote-escape mangling).
+         - macOS:   `open URL`
+         - Linux:   `xdg-open URL`
+    D. Raw `window.__adobe_cep__.openURLInDefaultBrowser` (in case
+       the CSInterface wrapper is missing).
+    E. `window.open(_, '_blank')` last-resort.
+  Strategies A and B don't `return` on success — they fall through
+  to C anyway. That's because some Adobe CEP versions accept those
+  API calls without throwing AND silently no-op. The Node spawn in C
+  guarantees the URL actually opens regardless.
+
+  Result: a link click always produces *something*. May open in the
+  current browser window (minimised stays minimised on Windows), but
+  it WILL open.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.11] — 2026-05-22
 
 ### Fixed
@@ -659,7 +689,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.11...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.12...HEAD
+[2.2.0.12]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.11...v2.2.0.12
 [2.2.0.11]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.10...v2.2.0.11
 [2.2.0.10]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...v2.2.0.10
 [2.2.0.9]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.8...v2.2.0.9
