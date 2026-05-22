@@ -752,6 +752,173 @@ class AisistAgent {
     }
 
     // --- Python Environment Tool ---
+    // ===================================================================
+    // Python env helpers — surfacing & auto-repair
+    // ===================================================================
+    // Smart head+tail truncation. The old code kept only the first N chars,
+    // which always sliced off the actual Python traceback at the END of
+    // stderr — exactly the part the orchestrator needed to plan a fix.
+    // Preserves the first `head` chars + the last `tail` chars with an
+    // elision marker in between (so the agent always sees BOTH the start
+    // and the end of the output, including the final exception line).
+    _smartTruncate(text, maxChars) {
+        if (text == null) return '';
+        const s = String(text);
+        if (s.length <= maxChars) return s;
+        const half = Math.floor((maxChars - 60) / 2);
+        const head = s.substring(0, half);
+        const tail = s.substring(s.length - half);
+        const elided = s.length - head.length - tail.length;
+        return head + '\n…[' + elided + ' chars elided — full log on disk]…\n' + tail;
+    }
+
+    // Classify a Python traceback / stderr so the orchestrator gets a
+    // concrete next-step hint instead of "something failed". Returns
+    // { cls, hint, missingModule? }. cls is one of:
+    //   no_error | missing_module | import_error | file_not_found |
+    //   permission_denied | out_of_memory | network | auth_error |
+    //   hf_space_error | python_exception | unknown
+    _classifyPythonError(stderr) {
+        if (!stderr || !stderr.trim()) return { cls: 'no_error', hint: null };
+        const text = String(stderr);
+        const lower = text.toLowerCase();
+
+        const mnm = text.match(/ModuleNotFoundError[\s\S]*?'([^']+)'/i);
+        if (mnm) {
+            return {
+                cls: 'missing_module',
+                missingModule: mnm[1],
+                hint: 'Add "' + mnm[1] + '" to parallel_tasks.python.packages and re-run. The system can also auto-install on retry.'
+            };
+        }
+        if (/ImportError/i.test(text)) {
+            return { cls: 'import_error', hint: 'Module imported but failed to load. Try pip install --force-reinstall <pkg>, or check Python version compatibility.' };
+        }
+        if (/FileNotFoundError|No such file or directory/i.test(text)) {
+            return { cls: 'file_not_found', hint: 'Verify the path is absolute (use os.path.abspath / r"...") and the file exists. The Python script runs in the venv dir, not the project dir.' };
+        }
+        if (/MemoryError/i.test(text)) {
+            return { cls: 'out_of_memory', hint: 'Process in smaller chunks or stream instead of loading the entire dataset.' };
+        }
+        if (/(ConnectionError|TimeoutError|ConnectionResetError|RemoteDisconnected|ReadTimeoutError|Max retries exceeded)/i.test(text)) {
+            return { cls: 'network', hint: 'Network / API endpoint issue. Retry once, then surface the failure to the user if it persists.' };
+        }
+        if (/PermissionError/i.test(text)) {
+            return { cls: 'permission_denied', hint: 'File or folder is locked. Close any apps using it, or write to a different path.' };
+        }
+        if (/(401\b|403\b|unauthorized|invalid[_ ]?api[_ ]?key|authentication failed)/i.test(text)) {
+            return { cls: 'auth_error', hint: 'API credentials missing or invalid. Ask the user to verify their key in Settings → Klucze API.' };
+        }
+        if (/(gradio_client|huggingface_hub).*?(error|exception|failed)|429\b|quota/i.test(lower)) {
+            return { cls: 'hf_space_error', hint: 'HuggingFace Space may be busy, rate-limited, or down. Retry once after a short wait, or pick a different model.' };
+        }
+        // Last-line heuristic for the standard Python `XError: message` form.
+        const lines = text.trim().split(/\r?\n/);
+        const lastLine = lines[lines.length - 1] || '';
+        const mEx = lastLine.match(/^([A-Z][A-Za-z]*Error):\s*(.*)$/);
+        if (mEx) {
+            return { cls: 'python_exception', hint: mEx[1] + ': ' + (mEx[2] || '(no message)').substring(0, 200) };
+        }
+        return { cls: 'unknown', hint: null };
+    }
+
+    // Quick stable hash for a Python task definition — used to detect when
+    // the orchestrator is stuck repeating the same task with no progress.
+    _hashPyTask(taskDef) {
+        try {
+            const norm = {
+                env: taskDef.env || 'default',
+                packages: (taskDef.packages || []).slice().sort(),
+                git_repos: (taskDef.git_repos || []).map(r => typeof r === 'string' ? r : (r && r.url) || '').sort(),
+                script: (taskDef.script || '').replace(/\s+/g, ' ').trim().substring(0, 4000),
+                command: taskDef.command || ''
+            };
+            const s = JSON.stringify(norm);
+            // FNV-1a 32-bit hash — small + collision-rare for our use.
+            let h = 0x811c9dc5;
+            for (let i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+            }
+            return h.toString(16);
+        } catch (_) { return 'unhashable'; }
+    }
+
+    // Persist the full run log to disk inside the env folder. Returns
+    // the absolute path so we can pass it back to the orchestrator (it
+    // can attach_files when it needs the unabridged trail).
+    _writeRunLog(envDir, payload) {
+        try {
+            const path = require('path');
+            const fsNode = require('fs');
+            const runsDir = path.join(envDir, '.runs');
+            if (!fsNode.existsSync(runsDir)) fsNode.mkdirSync(runsDir, { recursive: true });
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const file = path.join(runsDir, 'run_' + ts + '.log');
+            const text = ''
+                + '=== Run ' + ts + ' ===\n'
+                + 'success: ' + payload.success + '\n'
+                + 'return_code: ' + payload.code + '\n'
+                + 'duration_ms: ' + payload.dt + '\n'
+                + 'task: ' + JSON.stringify(payload.taskSummary) + '\n'
+                + '\n--- stdout ---\n' + (payload.stdout || '') + '\n'
+                + '\n--- stderr ---\n' + (payload.stderr || '') + '\n';
+            fsNode.writeFileSync(file, text, 'utf8');
+            // GC: keep only the most recent 20 logs per env.
+            try {
+                const all = fsNode.readdirSync(runsDir)
+                    .filter(n => /^run_.*\.log$/.test(n))
+                    .map(n => ({ n, t: fsNode.statSync(path.join(runsDir, n)).mtimeMs }))
+                    .sort((a, b) => b.t - a.t);
+                all.slice(20).forEach(e => { try { fsNode.unlinkSync(path.join(runsDir, e.n)); } catch (_) {} });
+            } catch (_) {}
+            return file;
+        } catch (_) { return null; }
+    }
+
+    // Delete stale temp scripts (`script_<ts>.py`) older than 1 hour so
+    // env folders don't accumulate junk over long sessions.
+    _pruneStaleScripts(envDir) {
+        try {
+            const path = require('path');
+            const fsNode = require('fs');
+            if (!fsNode.existsSync(envDir)) return;
+            const cutoff = Date.now() - 60 * 60 * 1000;
+            for (const name of fsNode.readdirSync(envDir)) {
+                if (!/^script_\d+\.py$/.test(name)) continue;
+                const p = path.join(envDir, name);
+                try {
+                    if (fsNode.statSync(p).mtimeMs < cutoff) fsNode.unlinkSync(p);
+                } catch (_) {}
+            }
+        } catch (_) {}
+    }
+
+    // Map common pip package names → Python import name. `pip install
+    // gradio_client` exposes `import gradio_client`, but Pillow → PIL
+    // etc. This list covers the most common mismatches; everything not
+    // listed is assumed to import under its own pip name (with `-` → `_`).
+    _pipToImportName(pkg) {
+        const cleaned = String(pkg || '').split(/[<>=!~\s]/)[0].toLowerCase().trim();
+        const MAP = {
+            'pillow': 'PIL',
+            'pyyaml': 'yaml',
+            'opencv-python': 'cv2',
+            'opencv-python-headless': 'cv2',
+            'beautifulsoup4': 'bs4',
+            'python-dotenv': 'dotenv',
+            'scikit-learn': 'sklearn',
+            'scikit-image': 'skimage',
+            'msgpack-python': 'msgpack',
+            'protobuf': 'google.protobuf',
+            'google-generativeai': 'google.generativeai',
+            'openai-whisper': 'whisper'
+        };
+        if (MAP[cleaned]) return MAP[cleaned];
+        // Default — replace dashes with underscores.
+        return cleaned.replace(/-/g, '_');
+    }
+
     async runPythonTask(taskDef, updateStatusCallback) {
         if (!this.isFeatureEnabled('pythonTools')) {
             return { error: 'Środowiska Python są wyłączone w ustawieniach (Ogólne → Funkcje).' };
@@ -790,8 +957,25 @@ class AisistAgent {
         try {
             // Ensure base directory exists
             if (!fsNode.existsSync(envsDir)) fsNode.mkdirSync(envsDir, { recursive: true });
-            
+
             let results = [];
+
+            // Loop detection — record this task's fingerprint and flag
+            // when the orchestrator has run the SAME task definition
+            // three or more times in a row. The result entry below is
+            // surfaced to the agent so it can break out of the loop.
+            const taskHash = this._hashPyTask(taskDef);
+            this._recentPyTaskHashes = (this._recentPyTaskHashes || []);
+            this._recentPyTaskHashes.unshift({ hash: taskHash, ts: Date.now() });
+            this._recentPyTaskHashes = this._recentPyTaskHashes.slice(0, 6);
+            const sameRuns = this._recentPyTaskHashes.filter(t => t.hash === taskHash).length;
+            if (sameRuns >= 3) {
+                results.push({
+                    step: 'loop_detected',
+                    same_task_runs: sameRuns,
+                    warning: 'This exact Python task (env, packages, script, command) has run ' + sameRuns + ' times in a row without observable progress. STOP repeating. Either pick a different approach OR call questions_for_user to explain the blockage and ask the user how to proceed.'
+                });
+            }
             
             // Step 1: Create venv if it doesn't exist
             if (!fsNode.existsSync(pythonBin)) {
@@ -805,14 +989,37 @@ class AisistAgent {
                 results.push({ step: 'venv_exists', status: 'ok', env: envName });
             }
             
-            // Step 2: Install packages
+            // Step 2: Install packages — with pre-flight import check.
+            // Previously every turn re-ran `pip install` even when every
+            // package was already installed, wasting 5–15s per turn. Now
+            // we first ask Python to `import` the required modules. If
+            // that succeeds, we skip pip entirely.
             if (taskDef.packages && taskDef.packages.length > 0) {
-                updateStatusCallback('Instalowanie pakietow: ' + taskDef.packages.join(', ') + '...');
-                const pkgList = taskDef.packages.join(' ');
-                const installResult = await runCmd('"' + pipBin + '" install ' + pkgList);
-                results.push({ step: 'pip_install', packages: taskDef.packages, success: installResult.success, output: installResult.stdout.substring(0, 500) });
-                if (!installResult.success) {
-                    results.push({ step: 'pip_error', stderr: installResult.stderr });
+                const importNames = taskDef.packages.map(p => this._pipToImportName(p));
+                // Quote-safe `python -c "import a; import b; ..."`.
+                const importStmt = importNames.map(n => 'import ' + n).join('; ');
+                const importTest = await runCmd('"' + pythonBin + '" -c "' + importStmt + '"');
+                if (importTest.success) {
+                    results.push({
+                        step: 'pip_skip',
+                        reason: 'All required packages already importable — pip install skipped.',
+                        packages: taskDef.packages
+                    });
+                    updateStatusCallback('Pakiety juz zainstalowane (' + taskDef.packages.length + ') - pomijam pip install.');
+                } else {
+                    updateStatusCallback('Instalowanie pakietow: ' + taskDef.packages.join(', ') + '...');
+                    const pkgList = taskDef.packages.join(' ');
+                    const installResult = await runCmd('"' + pipBin + '" install ' + pkgList);
+                    results.push({
+                        step: 'pip_install',
+                        packages: taskDef.packages,
+                        success: installResult.success,
+                        output: this._smartTruncate(installResult.stdout, 1500),
+                        stderr: this._smartTruncate(installResult.stderr, 1500)
+                    });
+                    if (!installResult.success) {
+                        results.push({ step: 'pip_error', stderr: this._smartTruncate(installResult.stderr, 2000) });
+                    }
                 }
             }
             
@@ -846,30 +1053,128 @@ class AisistAgent {
                 }
             }
             
-            // Step 4: Run script
+            // Step 4: Run script — with full output capture, error
+            // classification, on-disk persistence, and ONE auto-repair
+            // attempt for ModuleNotFoundError.
             if (taskDef.script) {
+                // GC any leftover script_*.py from previous runs that crashed
+                // before the unlink step (or were timed out). Keeps the env
+                // folder tidy over long sessions.
+                this._pruneStaleScripts(envDir);
+
                 updateStatusCallback('Uruchamiam skrypt Python...');
                 const scriptPath = path.join(envDir, 'script_' + Date.now() + '.py');
                 fsNode.writeFileSync(scriptPath, taskDef.script, 'utf8');
-                
-                let cwd = taskDef.cwd || envDir;
-                const scriptResult = await runCmd('"' + pythonBin + '" "' + scriptPath + '"', cwd);
-                results.push({ step: 'run_script', success: scriptResult.success, stdout: scriptResult.stdout, stderr: scriptResult.stderr });
-                
-                // Clean up temp script
-                try { fsNode.unlinkSync(scriptPath); } catch(e) {}
+
+                const cwd = taskDef.cwd || envDir;
+                const t0 = Date.now();
+                let scriptResult = await runCmd('"' + pythonBin + '" "' + scriptPath + '"', cwd);
+                let dt = Date.now() - t0;
+                let classified = this._classifyPythonError(scriptResult.stderr);
+                let autoRepairAttempted = false;
+                let autoRepairOutcome = null;
+
+                // Auto-repair: ModuleNotFoundError → pip install missing
+                // module → retry the script ONCE. Bounded so we never
+                // chain repairs into an infinite loop within a single turn.
+                if (!scriptResult.success && classified.cls === 'missing_module' && classified.missingModule) {
+                    updateStatusCallback('Brakuje modulu "' + classified.missingModule + '" - probuje pip install...');
+                    autoRepairAttempted = true;
+                    const repairInstall = await runCmd('"' + pipBin + '" install ' + classified.missingModule);
+                    if (repairInstall.success) {
+                        updateStatusCallback('Pakiet zainstalowany - ponawiam skrypt...');
+                        const t1 = Date.now();
+                        const retryRun = await runCmd('"' + pythonBin + '" "' + scriptPath + '"', cwd);
+                        dt = Date.now() - t1;
+                        scriptResult = retryRun;
+                        classified = this._classifyPythonError(retryRun.stderr);
+                        autoRepairOutcome = {
+                            installed: classified.missingModule || 'unknown',
+                            retry_success: retryRun.success
+                        };
+                    } else {
+                        autoRepairOutcome = {
+                            installed: false,
+                            install_stderr: this._smartTruncate(repairInstall.stderr, 800)
+                        };
+                    }
+                }
+
+                // Persist the full unabridged log to disk so the agent (or
+                // the user) can read it if the truncated copy in `results`
+                // turns out to be insufficient.
+                const logPath = this._writeRunLog(envDir, {
+                    success: scriptResult.success,
+                    code: scriptResult.code,
+                    dt: dt,
+                    stdout: scriptResult.stdout,
+                    stderr: scriptResult.stderr,
+                    taskSummary: {
+                        env: envName,
+                        packages: taskDef.packages,
+                        script_chars: (taskDef.script || '').length,
+                        cwd: cwd
+                    }
+                });
+
+                // Smart truncation keeps both the head and the tail of the
+                // output, including the final exception line — the only
+                // way the orchestrator can plan a real fix.
+                const stepEntry = {
+                    step: 'run_script',
+                    success: scriptResult.success,
+                    return_code: scriptResult.code,
+                    duration_ms: dt,
+                    stdout: this._smartTruncate(scriptResult.stdout, 5000),
+                    stderr: this._smartTruncate(scriptResult.stderr, 5000),
+                    error_class: classified.cls,
+                    error_hint: classified.hint || null,
+                    full_log_path: logPath
+                };
+                if (autoRepairAttempted) stepEntry.auto_repair = autoRepairOutcome;
+                results.push(stepEntry);
+
+                // Cleanup temp script — only on success. On failure we keep
+                // the file so the user can inspect it next to the log.
+                if (scriptResult.success) {
+                    try { fsNode.unlinkSync(scriptPath); } catch (e) {}
+                } else {
+                    stepEntry.script_path_on_failure = scriptPath;
+                }
             }
             
-            // Step 5: Run command directly
+            // Step 5: Run command directly — same diagnostic plumbing as
+            // the script step (smart-truncated stdout/stderr, classified
+            // error, on-disk full log, duration).
             if (taskDef.command) {
                 updateStatusCallback('Uruchamiam komende: ' + taskDef.command.substring(0, 50) + '...');
-                let cwd = taskDef.cwd || envDir;
-                // Activate venv prefix
-                const activatePrefix = isWin 
+                const cwd = taskDef.cwd || envDir;
+                const activatePrefix = isWin
                     ? '"' + path.join(envDir, 'Scripts', 'activate.bat') + '" && '
                     : 'source "' + path.join(envDir, 'bin', 'activate') + '" && ';
+                const tc0 = Date.now();
                 const cmdResult = await runCmd(activatePrefix + taskDef.command, cwd);
-                results.push({ step: 'run_command', success: cmdResult.success, stdout: cmdResult.stdout, stderr: cmdResult.stderr });
+                const cdt = Date.now() - tc0;
+                const ccl = this._classifyPythonError(cmdResult.stderr);
+                const cmdLog = this._writeRunLog(envDir, {
+                    success: cmdResult.success,
+                    code: cmdResult.code,
+                    dt: cdt,
+                    stdout: cmdResult.stdout,
+                    stderr: cmdResult.stderr,
+                    taskSummary: { env: envName, command: taskDef.command, cwd: cwd }
+                });
+                results.push({
+                    step: 'run_command',
+                    success: cmdResult.success,
+                    return_code: cmdResult.code,
+                    duration_ms: cdt,
+                    stdout: this._smartTruncate(cmdResult.stdout, 5000),
+                    stderr: this._smartTruncate(cmdResult.stderr, 5000),
+                    error_class: ccl.cls,
+                    error_hint: ccl.hint || null,
+                    full_log_path: cmdLog
+                });
             }
             
             // Step 6: Start background process (non-blocking)

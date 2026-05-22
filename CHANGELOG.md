@@ -9,6 +9,81 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.4] — 2026-05-22
+
+The "stop wasting 7 turns on the same broken Python env" release.
+
+Triggered by a user report: an AI-3D-generation task spun for ~10 min
+across 7 LLM round-trips. The orchestrator kept reinstalling the same
+packages (`trimesh, numpy, scipy, gradio_client`) every turn, the
+Python output was truncated at "Requirement already satisfied: n" so
+the orchestrator never saw the actual script error, and the JSON
+parser hit format-error → self-repair → format-error again until the
+user killed the task. Six independent failures stacked. Fixed:
+
+### Added
+- **Pre-flight import check before `pip install`.** Before kicking
+  off a full pip run, the runner asks Python to `import` every
+  requested package via `python -c "import a; import b; …"`. If that
+  succeeds we skip `pip install` entirely with a `pip_skip` result
+  step. Common pip→import name mismatches (Pillow→PIL, opencv-python
+  →cv2, beautifulsoup4→bs4, scikit-learn→sklearn, …) are mapped
+  through `_pipToImportName()` so the check actually works for the
+  packages users install in practice. **Saves 5–15 s per turn** on
+  repeat tasks.
+- **Smart head+tail truncation (`_smartTruncate`)** replaces the
+  old `substring(0, 500)` / `substring(0, 8000)` slices. The new
+  helper preserves the FIRST `N/2` chars + the LAST `N/2` chars
+  with an `…[K chars elided — full log on disk]…` marker in
+  between. The orchestrator now always sees the FINAL exception line
+  (the only line that matters for planning a fix), not just the boring
+  pip-install preamble.
+- **Full per-run log on disk** at `<envDir>/.runs/run_<ts>.log` —
+  unabridged stdout + stderr + return code + duration + task summary.
+  Path bubbled back to the agent as `full_log_path` so it can
+  `attach_files` for deeper inspection when the truncated copy isn't
+  enough. Capped at the most recent 20 logs per env (older ones GC'd).
+- **Python error classification (`_classifyPythonError`)** parses
+  stderr and returns a structured `{ cls, hint, missingModule? }`:
+    - `missing_module` — extracts the module name from
+      `ModuleNotFoundError: No module named 'X'`.
+    - `import_error` / `file_not_found` / `permission_denied` /
+      `out_of_memory` / `network` / `auth_error` /
+      `hf_space_error` / `python_exception` / `unknown`.
+  Each comes with a one-line `hint` the orchestrator can act on.
+- **Auto-repair: missing module → pip install → retry script ONCE.**
+  When the script's stderr contains `ModuleNotFoundError: 'X'` we
+  immediately run `pip install X` and re-run the script. Bounded to
+  a single auto-repair per turn so we never chain repairs into a
+  loop. The result step exposes `auto_repair: { installed, retry_success }`
+  so the orchestrator knows what happened.
+- **Loop detection.** A stable hash of the Python task definition
+  (env + packages + script + command) is recorded for the last six
+  invocations. When the same hash appears 3+ times in a row we add a
+  `loop_detected` result step warning the agent to STOP, change
+  approach, or call questions_for_user. The audit log surfaces this
+  earlier than the user would notice.
+- **Stale temp-script GC.** `script_<ts>.py` files older than an
+  hour (left behind by crashed / aborted runs) are unlinked at the
+  start of every Python step so env folders don't accumulate junk
+  over long sessions.
+- **Script file kept on failure** for post-mortem inspection (and
+  surfaced as `script_path_on_failure` in the result). On success
+  the temp script is cleaned up as before.
+
+### Changed
+- `run_script` and `run_command` result entries now include
+  `return_code`, `duration_ms`, `error_class`, `error_hint`, and
+  `full_log_path` alongside the (now smart-truncated) stdout/stderr.
+  Total payload per step roughly doubles, but eliminates 6+ wasted
+  turns trying to figure out what went wrong.
+- `pip_install` and `pip_error` step outputs widened from 500 chars
+  to 1 500–2 000 chars (still smart-truncated). The pip preamble
+  ("Requirement already satisfied") no longer eats the budget — the
+  important install errors land in the tail half.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.3] — 2026-05-22
 
 ### Added
@@ -370,7 +445,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.4...HEAD
+[2.2.0.4]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.3...v2.2.0.4
 [2.2.0.3]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.2...v2.2.0.3
 [2.2.0.2]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.1...v2.2.0.2
 [2.2.0.1]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0...v2.2.0.1
