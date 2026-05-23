@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 ok: true,
                 plugin: 'HEXART.PL/AfterALL',
-                version: '2.2.0.12',
+                version: '2.2.0.13',
                 bridge_port: bridge.port,
                 llm_provider: agent.llmProvider,
                 llm_model: agent.getActiveLLMModel(),
@@ -336,16 +336,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // registry probes, no new-window flags. Just open the URL.
         const platform = (typeof process !== 'undefined' && process.platform) || 'unknown';
 
-        // A — CEP's documented API. Most CEP versions wire this up to
-        // ShellExecute internally; some versions silently no-op so we
-        // can't trust it alone, but we try it first because it's the
-        // canonical Adobe-blessed way.
+        // A — CEP's documented API. Trust it: if it doesn't throw we
+        // assume the URL opened. (v2.2.0.12 chained A → B → C "for
+        // safety", which on a healthy CEP environment opened 3 tabs.)
         try {
             if (typeof cep !== 'undefined' && cep.util && typeof cep.util.openURLInDefaultBrowser === 'function') {
                 cep.util.openURLInDefaultBrowser(url);
                 if (addLog) addLog('  ✓ cep.util.openURLInDefaultBrowser', 'success');
-                // Belt-and-braces: also fire the Node fallback below, in
-                // case cep.util silently no-op'd on this Adobe version.
+                return true;
             }
         } catch (eA) {
             if (addLog) addLog('  ✗ cep.util: ' + eA.message, 'warning');
@@ -356,40 +354,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof CSInterface !== 'undefined') {
                 new CSInterface().openURLInDefaultBrowser(url);
                 if (addLog) addLog('  ✓ CSInterface', 'success');
-                // Same belt-and-braces note as above.
+                return true;
             }
         } catch (eB) {
             if (addLog) addLog('  ✗ CSInterface: ' + eB.message, 'warning');
         }
 
-        // C — Node child_process spawn. The dead-simplest possible form:
-        // ONE platform-specific binary, URL as the ONLY argument, no
-        // shell, no quoting tricks, no PowerShell. If A and B above
-        // silently no-op'd, this will open the URL the same way as
-        // double-clicking a .url shortcut from Explorer.
+        // C — Node child_process spawn. Last-tier portable fallback.
         try {
             const cp = require('child_process');
             let proc;
             if (platform === 'win32') {
-                // `cmd /c start "" "URL"` is the canonical Windows
-                // shell-execute incantation. We pass it through spawn
-                // with shell:false so Node hands the argv to cmd
-                // verbatim — no nested cmd, no quote-escape mangling.
                 proc = cp.spawn('cmd.exe', ['/c', 'start', '""', url], {
-                    detached: true,
-                    stdio: 'ignore',
-                    windowsHide: true
+                    detached: true, stdio: 'ignore', windowsHide: true
                 });
             } else if (platform === 'darwin') {
-                proc = cp.spawn('open', [url], {
-                    detached: true,
-                    stdio: 'ignore'
-                });
+                proc = cp.spawn('open', [url], { detached: true, stdio: 'ignore' });
             } else {
-                proc = cp.spawn('xdg-open', [url], {
-                    detached: true,
-                    stdio: 'ignore'
-                });
+                proc = cp.spawn('xdg-open', [url], { detached: true, stdio: 'ignore' });
             }
             if (proc) {
                 proc.on('error', (err) => {

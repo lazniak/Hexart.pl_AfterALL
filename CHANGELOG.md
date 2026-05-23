@@ -9,6 +9,24 @@ as described in [VERSIONING.md](./VERSIONING.md).
 
 (none yet — open work goes here before the next release)
 
+## [2.2.0.13] — 2026-05-22
+
+### Fixed
+- **Link clicks opened the URL three times** (three browser tabs)
+  after v2.2.0.12. Predictable side-effect of the "belt-and-braces"
+  design that intentionally let strategies A (`cep.util`) and B
+  (`CSInterface`) fall through to C (`child_process.spawn`). On a
+  healthy CEP environment all three succeed, hence three tabs.
+
+  Trust the no-throw contract again: `return true` immediately on
+  the first strategy that doesn't throw. If the user is on a CEP
+  build where `cep.util` silently no-ops, the click will appear
+  dead — but four iterations of "open this URL" cleverness say
+  that's the rare case, and the diagnostic logs at strategy level
+  make it self-explanatory.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
 ## [2.2.0.12] — 2026-05-22
 
 ### Fixed
@@ -689,7 +707,8 @@ Initial public release.
 - Six-language UI (PL, EN, DE, ES, FR, JA).
 - LICENSE, .gitignore, README.
 
-[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.12...HEAD
+[Unreleased]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.13...HEAD
+[2.2.0.13]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.12...v2.2.0.13
 [2.2.0.12]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.11...v2.2.0.12
 [2.2.0.11]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.10...v2.2.0.11
 [2.2.0.10]: https://github.com/lazniak/Hexart.pl_AfterALL/compare/v2.2.0.9...v2.2.0.10
